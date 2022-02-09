@@ -101,7 +101,7 @@ def degrader(TX, TY, TZ, E):
 #------------------------------------------------------------------------------------------------
 
 inputfolder = Path("./root files")
-outputfolder = Path("./data3")
+outputfolder = Path("./data")
 for file in inputfolder.iterdir():
 	if file.suffix == ".root":
 		name = os.path.basename(file)
@@ -115,4 +115,4 @@ for file in inputfolder.iterdir():
 			TX, TY, TZ, E, Etot, N = loadbkg(file)
 			
 		Data_sparse = degrader(TX, TY, TZ, E)
-		scipy.sparse.save_npz("data3/"+name, Data_sparse)
+		scipy.sparse.save_npz("data/"+name, Data_sparse)

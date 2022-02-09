@@ -1,2 +1,2 @@
 # QuaKe
-QuaKe: quntum kernel classifier for neutrino physics applications
+QuaKe: quantum kernel classifier for neutrino physics applications

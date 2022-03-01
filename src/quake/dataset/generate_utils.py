@@ -1,24 +1,15 @@
-"""
-    This module reads events from files and stores histograms.
-    Usage:
-    
-    ```
-    python storedata <input> -o <output> [--show]
-    ```
-    The `--show` optional flag allows to show a plot taken from each file in the
-    dataset folder.
-"""
-import argparse
-from pathlib import Path
-from time import time as tm
-from tqdm import tqdm
-import uproot
+""" This module contains the utility functions for the data generation process. """
+import logging
 import math
 import numpy as np
-from scipy import sparse
+import uproot
 import awkward as ak
+from scipy import sparse
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from quake import PACKAGE
+
+logger = logging.getLogger(PACKAGE + ".datagen")
 
 
 class Geometry:
@@ -55,7 +46,7 @@ class Geometry:
         self.ybins = np.linspace(self.ymin, self.ymax, self.nb_ybins + 1)
         self.zbins = np.linspace(self.zmin, self.zmax, self.nb_zbins + 1)
 
-        # TODO: think about using @property as setter and getter editable
+        # TODO [enhancement]: think about using @property as setter and getter editable
         # geometry attributes
 
 
@@ -124,7 +115,11 @@ def load_tracks(name, is_signal=False):
         qtree = sig_root["qtree"]
 
         # (track, [hits]) nested branches
-        normalize = lambda arr: arr - arr[:,0] + np.random.uniform(low=-2.5, high= 2.5, size=1000) #ak.mean(arr, axis=-1) arr[:,0]
+        normalize = (
+            lambda arr: arr
+            - arr[:, 0]
+            + np.random.uniform(low=-2.5, high=2.5, size=1000)
+        )  # ak.mean(arr, axis=-1) arr[:,0]
 
         xs = qtree["TrackPostX"].array()
         ys = qtree["TrackPostY"].array()
@@ -132,7 +127,7 @@ def load_tracks(name, is_signal=False):
         Es = qtree["TrackEnergy"].array()
 
         if is_signal:
-        # concatenate the two b tracks (from two consecutive rows)
+            # concatenate the two b tracks (from two consecutive rows)
             cat_fn = lambda arr: ak.concatenate([arr[::2], arr[1::2]], axis=1)
             xs = cat_fn(xs)
             ys = cat_fn(ys)
@@ -146,7 +141,11 @@ def load_tracks(name, is_signal=False):
 
 def tracks2histograms(xs, ys, zs, Es, geo):
     """
-    Compute energy histogram from track hit positions. The image is
+    Compute energy histogram from track hit positions. This function converts
+    the simulated hit energy depositions to pixel images. The Geometry object,
+    passed as a parameter, controls the binning resolution and other
+    histogramming settings.
+
     Parameters
     ----------
         - xs: ak.Arrays, x hit position of shape=(tracks, [hits])
@@ -158,7 +157,7 @@ def tracks2histograms(xs, ys, zs, Es, geo):
     -------
         - ak.Arrays, sparse energy histogram of shape=()
     """
-    print("Converting to histogram...")
+    logger.debug("Converting to histogram ...")
     hists = []
 
     # filter out of bin range hits
@@ -166,7 +165,7 @@ def tracks2histograms(xs, ys, zs, Es, geo):
     my = np.logical_and(ys < geo.xbins[-1], ys >= geo.xbins[0])
     mz = np.logical_and(zs < geo.xbins[-1], zs >= geo.xbins[0])
     m = np.logical_and(np.logical_and(mx, my), mz)
-    for x, y, z, energy in tqdm(zip(xs[m], ys[m], zs[m], Es[m])):
+    for x, y, z, energy in zip(xs[m], ys[m], zs[m], Es[m]):
         # digits start from 1
         get_digit = lambda p1, p2: np.digitize(p1, p2) - 1
         x_digits = get_digit(x.to_numpy(), geo.xbins)
@@ -181,43 +180,3 @@ def tracks2histograms(xs, ys, zs, Es, geo):
         hists.append(hist.reshape(1, -1))
     hists = sparse.vstack(hists)
     return hists
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("input", type=Path, help="the input folder", default=Path("./root files"))
-    parser.add_argument(
-        "--output", "-o", type=Path, help="the output folder", default=Path("./data")
-    )
-    parser.add_argument(
-        "--show", action="store_true", help="show a track visual example "
-    )
-    args = parser.parse_args()
-
-    start = tm()
-    for file in args.input.iterdir():
-        if file.suffix == ".root":
-            print("Opening ", file.name)
-            # just check that file is just signal or background
-            assert file.name[0] in ["b", "e"]
-            is_signal = file.name[0] == "b"
-            xs, ys, zs, Es = load_tracks(file, is_signal)
-            track_fn = lambda t, i: t[i].to_numpy()
-            if args.show:
-                xresolution = 5
-                yresolution = 1
-                get_image(
-                    file.name,
-                    track_fn(xs, 0),
-                    track_fn(zs, 0),
-                    track_fn(Es, 0),
-                    xresolution,
-                    yresolution,
-                )
-            lims = (-20, 20)  # cube edge
-            geo = Geometry(xlim=lims, ylim=lims, zlim=lims)
-            data_sparse = tracks2histograms(xs, ys, zs, Es, geo)
-            sparse.save_npz(args.output / file.name, data_sparse)
-    print(f"Program done in {tm()-start}s")
-
-# TODO: think about dropping Etot and nb_hits as they seem redundant information

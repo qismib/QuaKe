@@ -14,6 +14,7 @@ from pathlib import Path
 from scipy import sparse
 from quake import PACKAGE
 from .generate_utils import load_tracks, get_image, Geometry, tracks2histograms
+from quake.utils.utils import load_runcard, save_runcard, initialize_output_folder
 
 logger = logging.getLogger(PACKAGE + ".datagen")
 
@@ -27,23 +28,19 @@ def add_arguments_datagen(parser):
         - parser: ArgumentParser, datagen subparser object
     """
     parser.add_argument(
-        "input", type=Path, help="the input folder", default=Path("./root files")
+        "runcard", type=Path, help="the input folder", default=Path("./cards/runcard.yaml")
     )
+
     parser.add_argument(
         "--output", "-o", type=Path, help="the output folder", default=Path("./data")
     )
     parser.add_argument(
-        "--xresolution", type=int, help="the x axis binning resolution in mm", default=5
+        "--force", action="store_true", help="overwrite existing files if present"
     )
     parser.add_argument(
-        "--yresolution", type=int, help="the y axis binning resolution in mm", default=5
+        "--show", action="store_true", help="show a track visual example"
     )
-    parser.add_argument(
-        "--zresolution", type=int, help="the z axis binning resolution in mm", default=1
-    )
-    parser.add_argument(
-        "--show", action="store_true", help="show a track visual example "
-    )
+
     # TODO: if the algorithm introduces some random function, we must add a
     # `--seed` argument for reproducibility
     parser.set_defaults(func=datagen)
@@ -57,20 +54,23 @@ def datagen(args):
     ----------
         - args: NameSpace object, command line parsed arguments.
     """
-    # TODO [enhancement]: maybe transform CMD line parsed arguments into a runcard
-    # no need to do that as long as there are just a few settings
+    # load runcard and setup output folder structure
+    setup = load_runcard(args.runcard)
+    setup.update({"output": args.output})
+    initialize_output_folder(args.output, args.force)
+    save_runcard(args.output / "cards/runcard.yaml", setup)
+
+    # launch main datagen function
     datagen_main(
-        args.input,
-        args.output,
-        args.xresolution,
-        args.yresolution,
-        args.zresolution,
+        setup["dataset_dir"],
+        setup["output"] / "data",
+        setup["resolution"],
         args.show,
     )
 
 
 def datagen_main(
-    in_folder, out_folder, xresolution, yresolution, zresolution, should_show=False
+    in_folder, out_folder, resolution, should_show=False
 ):
     """
     Data generation main function: extracts a dataset from a folder containing
@@ -80,11 +80,10 @@ def datagen_main(
     ----------
         - in_folder: Path, the input folder path
         - out_folder: Path, the output folder path
-        - xresolution: int, the x axis binning resolution in mm
-        - yresolution: int, the y axis binning resolution in mm
-        - zresolution: int, the z axis binning resolution in mm
+        - resolution: list, the 3D axis binning resolutions in mm
         - should_show: bool, wether to show a visual example or not
     """
+    xresolution, _, zresolution = resolution
     for file in in_folder.iterdir():
         if file.suffix == ".root":
             logger.info(f"Opening {file}")
@@ -104,8 +103,7 @@ def datagen_main(
                     zresolution,
                 )
             lims = (-20, 20)  # assume cubic geometry
-            bin_w = (xresolution, yresolution, zresolution)
-            geo = Geometry(xlim=lims, ylim=lims, zlim=lims, bin_w=bin_w)
+            geo = Geometry(xlim=lims, ylim=lims, zlim=lims, bin_w=resolution)
             data_sparse = tracks2histograms(xs, ys, zs, Es, geo)
             fname = out_folder / file.name
             sparse.save_npz(fname, data_sparse)

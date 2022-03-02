@@ -1,0 +1,8 @@
+# directories
+dataset_dir: !Path '../data_10.06.p01' # folder containing root files
+
+# geometry
+resolution: # 3D axis resolutions in mm
+  - 5 # x axis
+  - 5 # y axis
+  - 1 # z axis

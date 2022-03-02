@@ -32,7 +32,7 @@ def load_runcard(runcard_file: Union[Path,str]) -> dict:
     with the following syntax:
 
     ```
-    path: !path 'path/to/file'
+    path: !Path 'path/to/file'
     ```
     """
     yaml.add_constructor('!Path', path_constructor)

@@ -6,11 +6,8 @@ requirements = [
     "numpy >= 1.18",
     "scipy >= 1.4",
     "matplotlib >= 3.2",
-    "ipython >= 7.13",
-    "jupyterlab >= 2.0",
-    "ipympl >= 0.5.8",
-    "ipywidgets >= 7.5.1",
     "tensorflow >= 2.5.0",
+    "pyyaml >= 6.0",
 ]
 
 if sys.version_info < (3, 6):
@@ -36,7 +33,7 @@ setup(
         "Operating System :: Unix",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
+        "Programming Language :: Python :: 3.6",
         "Topic :: Scientific/Engineering",
         "Topic :: Scientific/Engineering :: Physics",
     ],

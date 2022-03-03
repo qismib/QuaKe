@@ -18,6 +18,23 @@ logger = logging.getLogger(PACKAGE + ".attention")
 to_np = lambda x: np.array(x, dtype=object)
 
 
+def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
+        """
+        In place back projection to input original order before dataset sorting.
+        This is useful when predicting network results and initial order matters.
+
+        Parameters
+        ----------
+            - array: the array to be sorted back of shape=(nb events)
+            - ordering: the array that originally sorted the data of shape=(nb events)
+        
+        Returns
+        -------
+            - the originally ordered array
+        """
+        return np.put_along_axis(array, ordering, array, axis=0)
+
+
 def padding(array: np.ndarray) -> tuple[tf.Tensor, tf.Tensor]:
     """
     Pads the inputs to fit data into a tensor.
@@ -56,27 +73,32 @@ class Dataset(tf.keras.utils.Sequence):
         inputs: np.ndarray,
         targets: np.ndarray,
         batch_size: int,
-        shuffle: bool = False,
+        smart_batching: bool = False,
         seed: int = 12345,
     ):
         """
         Parameters
         ----------
-            - inputs: array of objects each of shape=([nb hits], nb features)
-            - targets: np.ndarray, of shape=(nb events)
-            - batch_size: int
-            - shuffle: bool, wether to shuffle dataset on epoch end
-            - seed: int, random generator seed for reproducibility
+            - inputs: array of objects, each of shape=([nb hits], nb features)
+            - targets: array of shape=(nb events)
+            - batch_size: the batch size
+            - smart_batching: wether to sample with smart batch algorithm
+            - seed: random generator seed for reproducibility
 
         """
         self.inputs = to_np(inputs)
         self.targets = targets
         self.batch_size = batch_size
-        self.shuffle = shuffle
+        self.smart_batching = smart_batching
         self.seed = seed
-        self.rng = np.random.default_rng(self.seed) if self.shuffle else None
-        self.perm = np.arange(self.__len__())
+
+        self.data_len = len(self.targets)
+        self.available_idxs = np.arange(self.data_len)
+        self.rng = np.random.default_rng(self.seed) if self.smart_batching else None
         self.sort_data()
+        
+        # Model.fit calls samples a batch first, spoiling the remaining batches
+        self.is_first_pass = True
 
     def sort_data(self):
         """
@@ -84,30 +106,72 @@ class Dataset(tf.keras.utils.Sequence):
         event. This is needed for dynamic batching.
         """
         fn = lambda pair: len(pair[0])
-        indices = np.arange(len(self.inputs))
-        idx = [i for _, i in sorted(zip(self.inputs, indices), key=fn)]
-        self.inputs = self.inputs[idx]
-        self.targets = self.targets[idx]
-
+        indices = np.arange(self.data_len)
+        self.sorting_idx = [i for _, i in sorted(zip(self.inputs, indices), key=fn)]
+        self.inputs = self.inputs[self.sorting_idx]
+        self.targets = self.targets[self.sorting_idx]
+    
     def on_epoch_end(self):
-        if self.shuffle:
-            self.perm = self.rng.permutation(self.__len__())
+        if self.smart_batching:
+            assert len(self.available_idxs) == 0, f"Remaining points is not zero, found {len(self.available_idxs)}"
+            self.available_idxs = np.arange(self.data_len) 
 
     def __getitem__(self, idx: int) -> tuple[tuple[tf.Tensor, tf.Tensor], tf.Tensor]:
         """
+        Parameters
+        ----------
+            - idx: the number of batch drawn by the generator
+
         Returns
         -------
             - tuple, network inputs:
-                     - tf.Tensor, inputs batch of shape=(batch_size, maxlen, nb feats)
-                     - tf.Tensor, mask batch of shape=(batch_size, maxlen, nb feats)
+                     - inputs batch of shape=(batch_size, maxlen, nb feats)
+                     - mask batch of shape=(batch_size, maxlen, nb feats)
 
             - tf.Tensor, targets batch of shape=(batch_size,)
         """
-        ii = self.perm[idx]
-        batch_x = self.inputs[ii * self.batch_size : (ii + 1) * self.batch_size]
-        batch_y = self.targets[ii * self.batch_size : (ii + 1) * self.batch_size]
-        # for some reason the output needs explicit casting to tf.Tensors
+        # smart batching
+        if self.smart_batching:
+            ii = self.sample_smart_batch(idx)
+        else:
+            ii = np.s_[idx * self.batch_size: (idx + 1) * self.batch_size]
+        
+        batch_x = self.inputs[ii]
+        batch_y = self.targets[ii]
+
+        # for some reason the output requires explicit casting to tf.Tensors
         return padding(batch_x), float_me(batch_y)
+    
+    def sample_smart_batch(self, idx: int) -> np.ndarray:
+        """
+        Returns indices of the smart batch samples. Smart batching randomly
+        draws an example `i` from the available training points, then samples
+        the batch with the [i: i + batch_size] slice.
+
+        Parameters
+        ----------
+            - idx: the number of batch drawn by the generator
+        
+        Returns
+        -------
+            - the array of indices to sample the smart batch of shape=(batch size)
+        """
+        nb_available = len(self.available_idxs)
+        if nb_available <= self.batch_size:
+            # last remaining batch
+            assert idx == len(self) - 1, f"Batch index {idx + 1}/{len(self)}, remaining {nb_available}, batch size {self.batch_size}"
+            sampled = np.s_[:]
+            ii = self.available_idxs
+        else:
+            i = self.rng.integers(0, nb_available - self.batch_size)
+            sampled = np.s_[i: i + self.batch_size]
+            ii = self.available_idxs[sampled]
+            # skip the first pass deletion
+        if self.is_first_pass:
+            self.is_first_pass = False
+        else:
+            self.available_idxs = np.delete(self.available_idxs, sampled)
+        return ii
 
     def __len__(self) -> int:
         """
@@ -115,7 +179,7 @@ class Dataset(tf.keras.utils.Sequence):
 
         Returns
         -------
-            - int: generator length
+            - generator length
         """
         return ceil(len(self.inputs) / self.batch_size)
 
@@ -126,13 +190,13 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
 
     Parameters
     ----------
-        - file: Path, the .npz input file path
-        - geo: Geometry, object describing detector geometry
+        - file: the .npz input file path
+        - geo: object describing detector geometry
 
     Returns
     -------
-        - np.ndarray, of shape=(nb events,) each entry represents a point cloud
-                    of shape=([nb hits], nb feats)
+        - array of objects of shape=(nb events,) each entry represents a point
+          cloud of shape=([nb hits], nb feats)
     """
     data = scipy.sparse.load_npz(file)
     rows, digits = data.nonzero()
@@ -159,14 +223,14 @@ def read_data(folder: Path, setup: dict) -> tuple[Dataset, Dataset, Dataset]:
 
     Parameters
     ----------
-        - data_folder: Path, the input data folder path
-        - setup: dict, settings dictionary
+        - data_folder: the input data folder path
+        - setup: settings dictionary
 
     Returns
     -------
-        - Dataset: train generator
-        - Dataset: val generator
-        - Dataset: test generator
+        - train generator
+        - val generator
+        - test generator
     """
     geo = Geometry(setup["detector"])
     data_sig_l = []
@@ -209,10 +273,26 @@ def read_data(folder: Path, setup: dict) -> tuple[Dataset, Dataset, Dataset]:
         inputs_train,
         targets_train,
         batch_size,
-        True,
-        setup["seed"],
+        smart_batching=True,
+        seed=setup["seed"],
     )
     val_generator = Dataset(inputs_val, targets_val, batch_size)
     test_generator = Dataset(inputs_test, targets_test, batch_size)
+
+    # def print_batches(gen):
+    #     print("Generator length", len(gen))
+    #     for i, ((j,k), l) in enumerate(gen):
+    #         print(
+    #             f"Batch {i:>3}, inp {str(j.shape):>13}, mask {str(k.shape):>13},"
+    #             f" trgt {str(l.shape)}, available {len(gen.available_idxs)}"
+    #         )
+    
+    # print_batches(train_generator)
+    # print("------------------------------")
+    # print_batches(test_generator)
+    # print("------------------------------")
+    # print_batches(val_generator)
+    # exit()
+    
 
     return train_generator, val_generator, test_generator

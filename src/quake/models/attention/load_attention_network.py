@@ -120,6 +120,7 @@ def train_network(
         validation_data=val_generator,
         callbacks=callbacks,
         verbose=2,
+        shuffle=False,
     )
 
     return network

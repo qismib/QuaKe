@@ -5,7 +5,7 @@
     Usage example:
 
     ```
-    quake train <output folder> --model <modeltype>
+    quake train --output <output folder> --model <modeltype>
     ```
 
 """

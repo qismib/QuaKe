@@ -33,7 +33,7 @@ In order to launch the code
 quake <subcommand> [options]
 ```
 
-Valid subcommands are: `datagen`.  
+Valid subcommands are: `datagen` | `train`.  
 Use `quake <subcommand> --help` to print the correspondent help message.  
 For example, the help message for `datagen` subcommand is:
 

@@ -2,7 +2,32 @@
 dataset_dir: !Path '../data_10.06.p01' # folder containing root files
 
 # geometry
-resolution: # 3D axis resolutions in mm
-  - 5 # x axis
-  - 5 # y axis
-  - 1 # z axis
+detector:
+  xlim: [-20, 20] # x boundaries in mm
+  ylim: [-20, 20] # y boundaries in mm
+  zlim: [-20, 20] # z boundaries in mm
+  resolution: [5, 5, 1] # [x, y, z] resolution in mm
+
+model:
+  attention:
+    ckpt: null # checkpoint, must be !Path object too
+    optimizer: Adam
+    lr: 0.001 # learning rate
+    epochs: 10
+    # hist_freq: 10
+    min_lr: 0.000001 # minimum lr
+    reducelr_patience: 20 # reduce lr on plateau patience
+    es_patience: 100 # early stopping patience
+    net_dict:
+      f_dims: 4
+      nb_mha_heads: 2
+      mha_filters: [8, 16]
+      nb_fc_heads: 2
+      fc_filters: [16, 8, 4, 2, 1]
+      batch_size: 8
+      activation: relu
+      use_bias: true
+      name: AttentionNetwork
+
+
+    

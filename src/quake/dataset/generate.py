@@ -28,7 +28,10 @@ def add_arguments_datagen(parser):
         - parser: ArgumentParser, datagen subparser object
     """
     parser.add_argument(
-        "runcard", type=Path, help="the input folder", default=Path("./cards/runcard.yaml")
+        "runcard",
+        type=Path,
+        help="the input folder",
+        default=Path("./cards/runcard.yaml"),
     )
 
     parser.add_argument(
@@ -64,14 +67,12 @@ def datagen(args):
     datagen_main(
         setup["dataset_dir"],
         setup["output"] / "data",
-        setup["resolution"],
+        setup["detector"],
         args.show,
     )
 
 
-def datagen_main(
-    in_folder, out_folder, resolution, should_show=False
-):
+def datagen_main(in_folder, out_folder, detector, should_show=False):
     """
     Data generation main function: extracts a dataset from a folder containing
     root files.
@@ -80,10 +81,11 @@ def datagen_main(
     ----------
         - in_folder: Path, the input folder path
         - out_folder: Path, the output folder path
-        - resolution: list, the 3D axis binning resolutions in mm
+        - detector: dict, the detector geometry settings
         - should_show: bool, wether to show a visual example or not
     """
-    xresolution, _, zresolution = resolution
+    logger.info(f"Generate data to {out_folder}/data")
+    xresolution, _, zresolution = detector["resolution"]
     for file in in_folder.iterdir():
         if file.suffix == ".root":
             logger.info(f"Opening {file}")
@@ -102,8 +104,7 @@ def datagen_main(
                     xresolution,
                     zresolution,
                 )
-            lims = (-20, 20)  # assume cubic geometry
-            geo = Geometry(xlim=lims, ylim=lims, zlim=lims, bin_w=resolution)
+            geo = Geometry(detector)
             data_sparse = tracks2histograms(xs, ys, zs, Es, geo)
             fname = out_folder / file.name
             sparse.save_npz(fname, data_sparse)

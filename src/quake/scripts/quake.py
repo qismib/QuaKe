@@ -5,16 +5,18 @@
     Main help output:
 
     ```
-    usage: quake [-h] {preprocess} ...
-
+    usage: quake [-h] {datagen,train} ...
+    
     quake
-
+    
     positional arguments:
-      {datagen}
-        datagen  generate voxelized dataset from root files.
-
+      {datagen,train}
+        datagen        generate voxelized dataset from root files
+        train          train model
+    
     optional arguments:
-      -h, --help    show this help message and exit
+      -h, --help       show this help message and exit
+    
     ```
 
 """
@@ -23,6 +25,7 @@ import argparse
 from time import time as tm
 from quake import PACKAGE
 from quake.dataset.generate import add_arguments_datagen
+from quake.models.train import add_arguments_train
 
 logger = logging.getLogger(PACKAGE)
 
@@ -34,11 +37,18 @@ def main():
     subparsers = parser.add_subparsers()
 
     # preprocess dataset
-    gen_msg = "generate voxelized dataset from root files."
+    gen_msg = "generate voxelized dataset from root files"
     gen_subparser = subparsers.add_parser(
         "datagen", description=gen_msg, help=gen_msg.lower().split(":")[0]
     )
     add_arguments_datagen(gen_subparser)
+
+    # train
+    train_msg = "train model"
+    train_subparser = subparsers.add_parser(
+        "train", description=train_msg, help=train_msg.lower().split(":")[0]
+    )
+    add_arguments_train(train_subparser)
 
     args = parser.parse_args()
 

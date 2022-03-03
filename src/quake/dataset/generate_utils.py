@@ -15,26 +15,25 @@ logger = logging.getLogger(PACKAGE + ".datagen")
 class Geometry:
     """Utility class describing detector geometry."""
 
-    def __init__(
-        self, xlim=(-250, 250), ylim=(-250, 250), zlim=(-250, 250), bin_w=(5, 5, 1)
-    ):
+    def __init__(self, detector):
         """
         Parameters
         ----------
+            - detector: dict, the detector geometry settings
             - xlim: tuple, x axis min and max values
             - ylim: tuple, y axis min and max values
             - zlim: tuple, z axis min and max values
             - bin_w: tuple, bin width resolution for x, y, z axis
         """
         # geometry imputs
-        self.xmin, self.xmax = self.xlim = xlim
-        self.ymin, self.ymax = self.ylim = ylim
-        self.zmin, self.zmax = self.zlim = zlim
+        self.xmin, self.xmax = self.xlim = detector["xlim"]
+        self.ymin, self.ymax = self.ylim = detector["ylim"]
+        self.zmin, self.zmax = self.zlim = detector["zlim"]
         (
             self.xbin_w,
             self.ybin_w,
             self.zbin_w,
-        ) = self.bin_w = bin_w
+        ) = self.bin_w = detector["resolution"]
 
         # number of bins
         self.nb_xbins = math.ceil((self.xmax - self.xmin) / self.xbin_w)

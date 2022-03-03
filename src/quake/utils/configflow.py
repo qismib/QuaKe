@@ -18,6 +18,6 @@ def int_me(x):
     return tf.cast(x, dtype=TF_DTYPE_INT)
 
 
-def set_manual_seed_tf(seed):
+def set_manual_seed_tf(seed: int):
     """Set libraries random seed for reproducibility."""
     tf.random.set_seed(seed)

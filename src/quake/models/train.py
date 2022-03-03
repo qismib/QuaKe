@@ -10,6 +10,7 @@
 
 """
 import logging
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from quake import PACKAGE
 from quake.utils.utils import load_runcard, check_in_folder
@@ -18,13 +19,13 @@ from .attention.train import attention_train
 logger = logging.getLogger(PACKAGE + ".train")
 
 
-def add_arguments_train(parser):
+def add_arguments_train(parser: ArgumentParser):
     """
     Adds train subparser arguments.
 
     Parameters
     ----------
-        - parser: ArgumentParser, train subparser object
+        - parser: train subparser object
     """
     valid_models = ["svm", "cnn", "attention"]
     parser.add_argument("--output", "-o", type=Path, help="the output folder")
@@ -42,15 +43,17 @@ def add_arguments_train(parser):
     )
     parser.add_argument("--debug", action="store_true", help="run tf in eager mode")
     parser.set_defaults(func=train)
+    # TODO [enhancement]: think about a -i (interactive) flag to allow editing
+    # runcard runtime like in madgraph
 
 
-def train(args):
+def train(args: Namespace):
     """
     Train wrapper function: calls the train main function.
 
     Parameters
     ----------
-        - args: NameSpace object, command line parsed arguments.
+        - args: command line parsed arguments.
     """
     # load runcard and setup output folder structure
     setup = load_runcard(args.output / "cards/runcard.yaml")
@@ -77,10 +80,10 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
 
     Parameters
     ----------
-        - data_folder: Path, the input data folder path
-        - train_folder: Path, the train output folder path
-        - modeltype: str, the model. Available options attention
-        - setup: dict, settings dictionary
+        - data_folder: the input data folder path
+        - train_folder: the train output folder path
+        - modeltype: available options svm | cnn | attention
+        - setup: settings dictionary
     """
     if modeltype == "svm":
         logger.info("Training SVM")

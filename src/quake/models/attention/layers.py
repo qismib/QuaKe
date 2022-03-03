@@ -1,7 +1,8 @@
 """ This module implements the attention network building blocks. """
-
+from typing import Callable
 import tensorflow as tf
 from tensorflow.keras.layers import Layer, LayerNormalization, Dense, MultiHeadAttention
+from tensorflow.keras.activations import relu
 
 
 class TransformerEncoder(Layer):
@@ -12,15 +13,15 @@ class TransformerEncoder(Layer):
 
     def __init__(
         self,
-        units,
-        mha_heads,
+        units: int,
+        mha_heads: int,
         **kwargs,
     ):
         """
         Parameters
         ----------
-            - units: int, output feature dimensionality
-            - mha_heads: int, number of heads in MultiHeadAttention layers
+            - units: output feature dimensionality
+            - mha_heads: number of heads in MultiHeadAttention layers
         """
         super(TransformerEncoder, self).__init__(**kwargs)
         self.units = units
@@ -35,24 +36,20 @@ class TransformerEncoder(Layer):
 
     # ----------------------------------------------------------------------
     def build(self, input_shape):
-        """
-        Parameters
-        ----------
-        """
         units = input_shape[-1]
         self.mha = MultiHeadAttention(self.mha_heads, units, name="mha")
         super(TransformerEncoder, self).build(input_shape)
 
     # ----------------------------------------------------------------------
-    def call(self, x, attention_mask=None):
+    def call(self, x: tf.Tensor, attention_mask: tf.Tensor = None) -> tf.Tensor:
         """
         Parameters
         ----------
-            - x: tf.Tensor, input tensor of shape=(B, L, d_in)
-            - attention_mask: tf.Tensor, masking tensor of shape=(B, L, L)
+            - x: input tensor of shape=(B, L, d_in)
+            - attention_mask: masking tensor of shape=(B, L, L)
         Returns
         -------
-            - tf.Tensor, output tensor of shape=(B, L, d_out)
+            - output tensor of shape=(B, L, d_out)
         """
         x += self.mha(x, x, attention_mask=attention_mask)
         x = self.norm0(x)
@@ -61,7 +58,7 @@ class TransformerEncoder(Layer):
         return output
 
     # ----------------------------------------------------------------------
-    def get_config(self):
+    def get_config(self) -> dict:
         return {"units": self.units, "mha_heads": self.mha_heads}
 
 
@@ -70,18 +67,23 @@ class Head(Layer):
 
     def __init__(
         self,
-        filters,
-        dropout_idxs=None,
-        dropout=None,
-        activation="relu",
-        kernel_initializer="GlorotUniform",
-        name="head",
+        filters: list,
+        dropout_idxs: list = None,
+        dropout: float = None,
+        activation: Callable = relu,
+        kernel_initializer: str = "GlorotUniform",
+        name: str = "head",
         **kwargs,
     ):
         """
         Parameters
         ----------
-            - filters: list, the number of filters for each dense layer
+            - filters: the number of filters for each dense layer
+            - dropout_idxs: the layers number to insert dropout
+            - dropout: the dropout percentage
+            - activation: default keras layer activation
+            - kernel_initializer: the layer initializer string
+            - name: the layer name
         """
         super(Head, self).__init__(name=name, **kwargs)
         self.filters = filters
@@ -109,22 +111,22 @@ class Head(Layer):
         self.fc = lyrs
 
     # ----------------------------------------------------------------------
-    def call(self, x):
+    def call(self, x: tf.Tensor) -> tf.Tensor:
         """
         Layer forward pass.
         Parameters
         ----------
-            - x : list of input tf.Tensors
+            - x : inputs of shape=(B,N,K,di)
         Returns
         -------
-            - tf.Tensor of shape=(B,N,K,do)
+            - output tensor of shape=(B,N,K,do)
         """
         for l in self.fc:
             x = l(x)
         return x
 
     # ----------------------------------------------------------------------
-    def get_config(self):
+    def get_config(self) -> dict:
         config = super(Head, self).get_config()
         config.update(
             {

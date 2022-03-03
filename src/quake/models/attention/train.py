@@ -14,9 +14,9 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
 
     Parameters
     ----------
-        - data_folder: Path, the input data folder path
-        - train_folder: Path, the train output folder path
-        - setup: dict, settings dictionary
+        - data_folder: the input data folder path
+        - train_folder: the train output folder path
+        - setup: settings dictionary
     """
     # data loading
     train_generator, val_generator, test_generator = read_data(data_folder, setup)

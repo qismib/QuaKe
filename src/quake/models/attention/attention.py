@@ -1,8 +1,9 @@
 import logging
+from typing import Tuple
 import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Concatenate
-from tensorflow.keras.activations import relu, sigmoid
+from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
 from .AbstractNet import AbstractNet, get_activation
 from .layers import TransformerEncoder, Head
@@ -23,31 +24,31 @@ class AttentionNetwork(AbstractNet):
 
     def __init__(
         self,
-        f_dims=4,
-        nb_mha_heads=2,
-        mha_filters=[8, 16],
-        nb_fc_heads=2,
-        fc_filters=[16, 8, 4, 2, 1],
-        batch_size=8,
-        activation="relu",
-        use_bias=True,
-        verbose=False,
-        name="AttentionNetwork",
+        f_dims: int = 4,
+        nb_mha_heads: int = 2,
+        mha_filters: list = [8, 16],
+        nb_fc_heads: int = 2,
+        fc_filters: list = [16, 8, 4, 2, 1],
+        batch_size: int = 8,
+        activation: str = "relu",
+        use_bias: bool = True,
+        verbose: bool = False,
+        name: str = "AttentionNetwork",
         **kwargs,
     ):
         """
         Parameters
         ----------
-            - f_dims: int, number of point cloud feature dimensions
-            - nb_mha_heads: int, the number of heads in the `MultiHeadAttention` layer
-            - mha_filters: list, the output units for each `MultiHeadAttention` in the stack
-            - nb_fc_heads: int, the number of `Head` layers to be concatenated
-            - fc_filters: list, the output units for each `Head` in the stack
-            - batch_size: int, the effective batch size for gradient descent
-            - activation: str, default keras layer activation
-            - use_bias: bool, wether to use bias or not
-            - verbose: str, wether to print extra training information
-            - name: str, the name of the neural network instance
+            - f_dims: number of point cloud feature dimensions
+            - nb_mha_heads: the number of heads in the `MultiHeadAttention` layer
+            - mha_filters: the output units for each `MultiHeadAttention` in the stack
+            - nb_fc_heads: the number of `Head` layers to be concatenated
+            - fc_filters: the output units for each `Head` in the stack
+            - batch_size: the effective batch size for gradient descent
+            - activation: default keras layer activation
+            - use_bias: wether to use bias or not
+            - verbose: wether to print extra training information
+            - name: the name of the neural network instance
         """
         super(AttentionNetwork, self).__init__(name=name, **kwargs)
 
@@ -97,16 +98,16 @@ class AttentionNetwork(AbstractNet):
         super(AttentionNetwork, self).build(batched_shape)
 
     # ----------------------------------------------------------------------
-    def call(self, inputs):
+    def call(self, inputs: Tuple[tf.Tensor, tf.Tensor]) -> tf.Tensor:
         """
         Parameters
         ----------
-            - x: tuple, of (tf.Tensor, tf.Tensor).
-                   - point cloud of hits of shape=(batch,[nb hits],f_dims)
-                   - mask tensor of shape=(batch,[nb hits],f_dims)
+            - inputs
+                - point cloud of hits of shape=(batch,[nb hits],f_dims)
+                - mask tensor of shape=(batch,[nb hits],f_dims)
         Returns
         -------
-            tf.Tensor, merging probability of shape=(batch,)
+            - merging probability of shape=(batch,)
         """
         x, mask = inputs
         for mha in self.mhas:

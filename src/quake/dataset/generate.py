@@ -10,6 +10,7 @@
     ```
 """
 import logging
+from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from scipy import sparse
 from quake import PACKAGE
@@ -19,13 +20,13 @@ from quake.utils.utils import load_runcard, save_runcard, initialize_output_fold
 logger = logging.getLogger(PACKAGE + ".datagen")
 
 
-def add_arguments_datagen(parser):
+def add_arguments_datagen(parser: ArgumentParser):
     """
     Adds datagen subparser arguments.
 
     Parameters
     ----------
-        - parser: ArgumentParser, datagen subparser object
+        - parser: datagen subparser object
     """
     parser.add_argument(
         "runcard",
@@ -49,13 +50,13 @@ def add_arguments_datagen(parser):
     parser.set_defaults(func=datagen)
 
 
-def datagen(args):
+def datagen(args: Namespace):
     """
     Data generation wrapper function: calls the data generation main function.
 
     Parameters
     ----------
-        - args: NameSpace object, command line parsed arguments.
+        - args: command line parsed arguments.
     """
     # load runcard and setup output folder structure
     setup = load_runcard(args.runcard)
@@ -72,17 +73,19 @@ def datagen(args):
     )
 
 
-def datagen_main(in_folder, out_folder, detector, should_show=False):
+def datagen_main(
+    in_folder: Path, out_folder: Path, detector: dict, should_show: bool = False
+):
     """
     Data generation main function: extracts a dataset from a folder containing
     root files.
 
     Parameters
     ----------
-        - in_folder: Path, the input folder path
-        - out_folder: Path, the output folder path
-        - detector: dict, the detector geometry settings
-        - should_show: bool, wether to show a visual example or not
+        - in_folder: the input folder path
+        - out_folder: the output folder path
+        - detector: the detector geometry settings
+        - should_show: wether to show a visual example or not
     """
     logger.info(f"Generate data to {out_folder}/data")
     xresolution, _, zresolution = detector["resolution"]

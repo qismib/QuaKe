@@ -19,20 +19,20 @@ to_np = lambda x: np.array(x, dtype=object)
 
 
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
-        """
-        In place back projection to input original order before dataset sorting.
-        This is useful when predicting network results and initial order matters.
+    """
+    In place back projection to input original order before dataset sorting.
+    This is useful when predicting network results and initial order matters.
 
-        Parameters
-        ----------
-            - array: the array to be sorted back of shape=(nb events)
-            - ordering: the array that originally sorted the data of shape=(nb events)
-        
-        Returns
-        -------
-            - the originally ordered array
-        """
-        return np.put_along_axis(array, ordering, array, axis=0)
+    Parameters
+    ----------
+        - array: iterable to be sorted back of shape=(nb events)
+        - ordering: the array that originally sorted the data of shape=(nb events)
+
+    Returns
+    -------
+        - the originally ordered array
+    """
+    return np.put_along_axis(array, ordering, array, axis=0)
 
 
 def padding(array: np.ndarray) -> tuple[tf.Tensor, tf.Tensor]:
@@ -41,12 +41,12 @@ def padding(array: np.ndarray) -> tuple[tf.Tensor, tf.Tensor]:
 
     Parameters
     ----------
-        - np.ndarray, array of objects each of shape=([nb hits], nb features)
+        - array: iterable of objects each of shape=([nb hits], nb features)
 
     Returns
     -------
-        - tf.Tensor, padded data
-        - tf.Tensor, mask
+        - padded data of shape=(maxlen, nb features)
+        - mask of shape=(maxlen, maxlen)
     """
     maxlen = array[-1].shape[0]
 
@@ -96,7 +96,7 @@ class Dataset(tf.keras.utils.Sequence):
         self.available_idxs = np.arange(self.data_len)
         self.rng = np.random.default_rng(self.seed) if self.smart_batching else None
         self.sort_data()
-        
+
         # Model.fit calls samples a batch first, spoiling the remaining batches
         self.is_first_pass = True
 
@@ -110,11 +110,13 @@ class Dataset(tf.keras.utils.Sequence):
         self.sorting_idx = [i for _, i in sorted(zip(self.inputs, indices), key=fn)]
         self.inputs = self.inputs[self.sorting_idx]
         self.targets = self.targets[self.sorting_idx]
-    
+
     def on_epoch_end(self):
         if self.smart_batching:
-            assert len(self.available_idxs) == 0, f"Remaining points is not zero, found {len(self.available_idxs)}"
-            self.available_idxs = np.arange(self.data_len) 
+            assert (
+                len(self.available_idxs) == 0
+            ), f"Remaining points is not zero, found {len(self.available_idxs)}"
+            self.available_idxs = np.arange(self.data_len)
 
     def __getitem__(self, idx: int) -> tuple[tuple[tf.Tensor, tf.Tensor], tf.Tensor]:
         """
@@ -124,24 +126,24 @@ class Dataset(tf.keras.utils.Sequence):
 
         Returns
         -------
-            - tuple, network inputs:
-                     - inputs batch of shape=(batch_size, maxlen, nb feats)
-                     - mask batch of shape=(batch_size, maxlen, nb feats)
+            - network inputs:
+                - inputs batch of shape=(batch_size, maxlen, nb feats)
+                - mask batch of shape=(batch_size, maxlen, nb feats)
 
-            - tf.Tensor, targets batch of shape=(batch_size,)
+            - targets batch of shape=(batch_size,)
         """
         # smart batching
         if self.smart_batching:
             ii = self.sample_smart_batch(idx)
         else:
-            ii = np.s_[idx * self.batch_size: (idx + 1) * self.batch_size]
-        
+            ii = np.s_[idx * self.batch_size : (idx + 1) * self.batch_size]
+
         batch_x = self.inputs[ii]
         batch_y = self.targets[ii]
 
         # for some reason the output requires explicit casting to tf.Tensors
         return padding(batch_x), float_me(batch_y)
-    
+
     def sample_smart_batch(self, idx: int) -> np.ndarray:
         """
         Returns indices of the smart batch samples. Smart batching randomly
@@ -151,7 +153,7 @@ class Dataset(tf.keras.utils.Sequence):
         Parameters
         ----------
             - idx: the number of batch drawn by the generator
-        
+
         Returns
         -------
             - the array of indices to sample the smart batch of shape=(batch size)
@@ -159,12 +161,14 @@ class Dataset(tf.keras.utils.Sequence):
         nb_available = len(self.available_idxs)
         if nb_available <= self.batch_size:
             # last remaining batch
-            assert idx == len(self) - 1, f"Batch index {idx + 1}/{len(self)}, remaining {nb_available}, batch size {self.batch_size}"
+            assert (
+                idx == len(self) - 1
+            ), f"Batch index {idx + 1}/{len(self)}, remaining {nb_available}, batch size {self.batch_size}"
             sampled = np.s_[:]
             ii = self.available_idxs
         else:
             i = self.rng.integers(0, nb_available - self.batch_size)
-            sampled = np.s_[i: i + self.batch_size]
+            sampled = np.s_[i : i + self.batch_size]
             ii = self.available_idxs[sampled]
             # skip the first pass deletion
         if self.is_first_pass:
@@ -278,21 +282,5 @@ def read_data(folder: Path, setup: dict) -> tuple[Dataset, Dataset, Dataset]:
     )
     val_generator = Dataset(inputs_val, targets_val, batch_size)
     test_generator = Dataset(inputs_test, targets_test, batch_size)
-
-    # def print_batches(gen):
-    #     print("Generator length", len(gen))
-    #     for i, ((j,k), l) in enumerate(gen):
-    #         print(
-    #             f"Batch {i:>3}, inp {str(j.shape):>13}, mask {str(k.shape):>13},"
-    #             f" trgt {str(l.shape)}, available {len(gen.available_idxs)}"
-    #         )
-    
-    # print_batches(train_generator)
-    # print("------------------------------")
-    # print_batches(test_generator)
-    # print("------------------------------")
-    # print_batches(val_generator)
-    # exit()
-    
 
     return train_generator, val_generator, test_generator

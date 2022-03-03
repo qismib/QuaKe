@@ -1,5 +1,7 @@
 """ This module contains the utility functions for the data generation process. """
 import logging
+from typing import Tuple
+from pathlib import Path
 import math
 import numpy as np
 import uproot
@@ -15,15 +17,11 @@ logger = logging.getLogger(PACKAGE + ".datagen")
 class Geometry:
     """Utility class describing detector geometry."""
 
-    def __init__(self, detector):
+    def __init__(self, detector: dict):
         """
         Parameters
         ----------
-            - detector: dict, the detector geometry settings
-            - xlim: tuple, x axis min and max values
-            - ylim: tuple, y axis min and max values
-            - zlim: tuple, z axis min and max values
-            - bin_w: tuple, bin width resolution for x, y, z axis
+            - detector: the detector geometry settings
         """
         # geometry imputs
         self.xmin, self.xmax = self.xlim = detector["xlim"]
@@ -49,16 +47,23 @@ class Geometry:
         # geometry attributes
 
 
-def get_image(fname, x, y, energy, xbin_w, ybin_w):
+def get_image(
+    fname: Path,
+    x: np.ndarray,
+    y: np.ndarray,
+    energy: np.ndarray,
+    xbin_w: float,
+    ybin_w: float,
+):
     """
     Plots track in the [-20,20]x[-20,20] mm box, with the histogram cell grids.
     Parameters
     ----------
-        - fname: Path, the name dataset file name
-        - x: np.array, x coordinate array of shape=(nb_hits,)
-        - y: np.array, y coordinate array of shape=(nb_hits,)
-        - xbin_w: float, bin width in the x coordinate
-        - ybin_w: float, bin width in the y coordinate
+        - fname: the name dataset file name
+        - x: x coordinate array of shape=(nb_hits,)
+        - y: y coordinate array of shape=(nb_hits,)
+        - xbin_w: bin width in the x coordinate
+        - ybin_w: bin width in the y coordinate
     """
     n_xbins = int(np.ceil(40 / xbin_w)) + 1
     n_ybins = int(np.ceil(40 / ybin_w)) + 1
@@ -81,7 +86,9 @@ def get_image(fname, x, y, energy, xbin_w, ybin_w):
     plt.show()
 
 
-def load_tracks(name, is_signal=False):
+def load_tracks(
+    name: Path, is_signal: bool = False
+) -> Tuple[ak.Array, ak.Array, ak.Array, ak.Array]:
     """
     Loads events from file. Returns hit positions with zero mean. If `is_signal`
     is True: subsequent row couples refer to two b tracks and they are merged
@@ -94,21 +101,18 @@ def load_tracks(name, is_signal=False):
         - TrackEnergy: float, hit energy
         - NTrack: int, number of hits in track
         - DepositedEnergy: float, energy integrated over track
+
     Parameters
     ----------
-        - name: Path, the name of the file to read the tracks features
-        - is_signal: bool, wether to concatenate subsequent rows for signal
-                     tracks. Default: False.
+        - name: the name of the file to read the tracks features
+        - is_signal: wether to concatenate subsequent rows for signal tracks.
+
     Returns
     -------
-        - ak.Array, x hit position of sh-ape=(tracks, [hits])
-        - ak.Array, y hit position of shape=(tracks, [hits])
-        - ak.Array, z hit position of shape=(tracks, [hits])
-        - ak.Array, hit energy of shape=(tracks, [hits])
-    Optional
-    --------
-        - np.array, number of hits in track position of shape=(tracks,) (commented)
-        - np.array, energy integrated over track of shape=(tracks,) (commented)
+        - x hit position of sh-ape=(tracks, [hits])
+        - y hit position of shape=(tracks, [hits])
+        - z hit position of shape=(tracks, [hits])
+        - hit energy of shape=(tracks, [hits])
     """
     with uproot.open(name) as sig_root:
         qtree = sig_root["qtree"]
@@ -138,7 +142,9 @@ def load_tracks(name, is_signal=False):
     return xs, ys, zs, Es
 
 
-def tracks2histograms(xs, ys, zs, Es, geo):
+def tracks2histograms(
+    xs: ak.Array, ys: ak.Array, zs: ak.Array, Es: ak.Array, geo: Geometry
+) -> ak.Array:
     """
     Compute energy histogram from track hit positions. This function converts
     the simulated hit energy depositions to pixel images. The Geometry object,
@@ -147,14 +153,14 @@ def tracks2histograms(xs, ys, zs, Es, geo):
 
     Parameters
     ----------
-        - xs: ak.Arrays, x hit position of shape=(tracks, [hits])
-        - ys: ak.Arrays, y hit position of shape=(tracks, [hits])
-        - zs: ak.Arrays, z hit position of shape=(tracks, [hits])
-        - Es: ak.Arrays, hit energy of shape=(tracks, [hits])
-        - geo: Geometry, detector geometry
+        - xs: x hit position of shape=(tracks, [hits])
+        - ys: y hit position of shape=(tracks, [hits])
+        - zs: z hit position of shape=(tracks, [hits])
+        - Es: hit energy of shape=(tracks, [hits])
+        - geo: detector geometry
     Returns
     -------
-        - ak.Arrays, sparse energy histogram of shape=()
+        - sparse energy histogram of shape=()
     """
     logger.debug("Converting to histogram ...")
     hists = []

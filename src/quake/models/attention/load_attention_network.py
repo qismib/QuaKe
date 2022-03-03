@@ -23,10 +23,13 @@ def load_and_compile_network(msetup: dict, run_tf_eagerly: bool) -> AttentionNet
 
     Parameters
     ----------
-        - msetup: dict, attention model settings dictionary
-        - run_tf_eagerly: bool, wether to run tf eagerly, for debugging purposes
+        - msetup: attention model settings dictionary
+        - run_tf_eagerly: wether to run tf eagerly, for debugging purposes
+
+    Returns
+    -------
+        - the compiled network
     """
-    # optimizer
     lr = msetup["lr"]
     if msetup["optimizer"] == "Adam":
         opt = Adam(learning_rate=lr)
@@ -70,14 +73,14 @@ def train_network(
 
     Parameters
     ----------
-        - msetup: dict, attention model settings dictionary
-        - output: Path, the output folder
-        - network: AttentionNetwork, the network to be trained
-        - generators: tuple, the train and validation generators
+        - msetup: attention model settings dictionary
+        - output: the output folder
+        - network: the network to be trained
+        - generators: the train and validation generators
 
     Returns
     -------
-        - AttentionNetwork: the trained network
+        - the trained network
     """
     train_generator, val_generator = generators
 

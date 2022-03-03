@@ -23,11 +23,11 @@ def load_runcard(runcard_file: Path) -> dict:
 
     Parameters
     ----------
-        - runcard_file: Path or str, the yaml to dump the dictionary
+        - runcard_file: the yaml to dump the dictionary
 
     Returns
     -------
-        - dict: the loaded settings dictionary
+        - the loaded settings dictionary
 
     Note
     ----
@@ -54,8 +54,8 @@ def save_runcard(fname: Path, setup: dict):
 
     Parameters
     ----------
-        - fname: Path or str, the yaml output file
-        - setup: dict, the settings dictionary to be dumped
+        - fname: the yaml output file
+        - setup: the settings dictionary to be dumped
 
     Note
     ----
@@ -73,8 +73,8 @@ def check_in_folder(folder: Path, should_force: bool):
 
     Parameters
     ----------
-        - folder: Path, the directory to be checked
-        - should_force: bool, wether to replace the already existing directory
+        - folder: the directory to be checked
+        - should_force: wether to replace the already existing directory
     """
     try:
         folder.mkdir()
@@ -95,8 +95,8 @@ def initialize_output_folder(output: Path, should_force: bool):
 
     Parameters
     ----------
-        - output: Path, the output directory
-        - should_force: bool, wether to replace the already existing output directory
+        - output: the output directory
+        - should_force: wether to replace the already existing output directory
     """
     check_in_folder(output, should_force)
     output.joinpath("cards").mkdir()
@@ -104,8 +104,7 @@ def initialize_output_folder(output: Path, should_force: bool):
     output.joinpath("models").mkdir()
 
 
-def set_manual_seed(seed):
+def set_manual_seed(seed: int):
     """Set libraries random seed for reproducibility."""
     random.seed(seed)
     np.random.seed(seed)
-    # tf.random.set_seed(seed)

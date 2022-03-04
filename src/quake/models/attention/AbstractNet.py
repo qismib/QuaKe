@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras.models import Model
-from slicerl import PACKAGE
+from quake import PACKAGE
 
 
 class AbstractNet(Model):

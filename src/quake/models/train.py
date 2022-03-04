@@ -15,7 +15,6 @@ from pathlib import Path
 from quake import PACKAGE
 from quake.utils.utils import load_runcard, check_in_folder
 from quake.utils.ask_edit_card import ask_edit_card
-from .attention.train import attention_train
 
 logger = logging.getLogger(PACKAGE + ".train")
 
@@ -73,6 +72,34 @@ def train(args: Namespace):
     )
 
 
+def preconfig_tf(setup: dict):
+    """
+    Set the host device for tensorflow.
+    """
+    import tensorflow as tf
+    gpus = tf.config.list_physical_devices("GPU")
+    if len(gpus) == 0:
+        return
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+    gpus = setup.get("gpu")
+    if gpus:
+        if isinstance(gpus, int):
+            gpus = [gpus]
+        gpus = [
+            tf.config.PhysicalDevice(f"/physical_device:GPU:{gpu}", "GPU")
+            for gpu in gpus
+        ]
+        tf.config.set_visible_devices(gpus, "GPU")
+        logger.warning(f"Host device: GPU {gpus}")
+    else:
+        logger.warning("Host device: CPU")
+
+    if setup.get("debug"):
+        logger.warning("Run all tf functions eagerly")
+        tf.config.run_functions_eagerly(True)
+
+
 def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dict):
     """
     Training main function that triggers model's training.
@@ -89,6 +116,8 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
         - modeltype: available options svm | cnn | attention
         - setup: settings dictionary
     """
+    preconfig_tf(setup)
+    from .attention.train import attention_train
     if modeltype == "svm":
         logger.info("Training SVM")
         logger.info("SVM not implemented yet. Exiting ...")

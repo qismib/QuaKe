@@ -63,6 +63,8 @@ def datagen(args: Namespace):
     setup.update({"output": args.output})
     initialize_output_folder(args.output, args.force)
     save_runcard(args.output / "cards/runcard.yaml", setup)
+    # save a default runcard in folder to allow default resoration
+    save_runcard(args.output / "cards/runcard_default.yaml", setup)
 
     # launch main datagen function
     datagen_main(

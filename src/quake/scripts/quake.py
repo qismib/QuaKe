@@ -34,6 +34,11 @@ def main():
     """Defines the QuaKe main entry point."""
     parser = argparse.ArgumentParser(description="quake")
 
+    log_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+    parser.add_argument(
+        "-l", default=None, help="set logging level", choices=log_levels, dest="logging"
+    )
+
     subparsers = parser.add_subparsers()
 
     # preprocess dataset
@@ -51,6 +56,12 @@ def main():
     add_arguments_train(train_subparser)
 
     args = parser.parse_args()
+
+    # setting global logging level
+    if args.logging:
+        logger.warning(f"Setting log level to {args.logging}")
+        logger.setLevel(args.logging)
+        logger.handlers[0].setLevel(args.logging)
 
     # execute parsed function
     start = tm()

@@ -12,7 +12,7 @@ LOG_DICT = {
     "3": logging.DEBUG,
 }
 
-# Read the SLICERL environment variables
+# Read the QUAKE environment variables
 _log_level_idx = os.environ.get("QUAKE_LOG_LEVEL")
 
 # Logging

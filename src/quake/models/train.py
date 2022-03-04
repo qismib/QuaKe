@@ -14,6 +14,7 @@ from argparse import ArgumentParser, Namespace
 from pathlib import Path
 from quake import PACKAGE
 from quake.utils.utils import load_runcard, check_in_folder
+from quake.utils.ask_edit_card import ask_edit_card
 from .attention.train import attention_train
 
 logger = logging.getLogger(PACKAGE + ".train")
@@ -33,6 +34,9 @@ def add_arguments_train(parser: ArgumentParser):
         "--model", "-m", type=str, help="the model to train", choices=valid_models
     )
     parser.add_argument(
+        "--interactive", "-i", action="store_true", help="triggers interactive mode"
+    )
+    parser.add_argument(
         "--seed",
         type=int,
         default=42,
@@ -43,8 +47,6 @@ def add_arguments_train(parser: ArgumentParser):
     )
     parser.add_argument("--debug", action="store_true", help="run tf in eager mode")
     parser.set_defaults(func=train)
-    # TODO [enhancement]: think about a -i (interactive) flag to allow editing
-    # runcard runtime like in madgraph
 
 
 def train(args: Namespace):
@@ -56,6 +58,8 @@ def train(args: Namespace):
         - args: command line parsed arguments.
     """
     # load runcard and setup output folder structure
+    if args.interactive:
+        ask_edit_card(logger, args.output)
     setup = load_runcard(args.output / "cards/runcard.yaml")
     setup.update({"seed": args.seed, "run_tf_eagerly": args.debug})
     check_in_folder(args.output / f"models/{args.model}", args.force)

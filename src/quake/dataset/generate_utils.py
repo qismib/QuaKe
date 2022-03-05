@@ -119,15 +119,16 @@ def load_tracks(
 
         # (track, [hits]) nested branches
         normalize = (
-            lambda arr: arr
-            - arr[:, 0]
-            + np.random.uniform(low=-2.5, high=2.5, size=1000)
+            lambda arr, arr0: arr
+            - arr0
+            + np.random.uniform(low=-5, high=5, size=1000)
         )  # ak.mean(arr, axis=-1) arr[:,0]
 
         xs = qtree["TrackPostX"].array()
         ys = qtree["TrackPostY"].array()
         zs = qtree["TrackPostZ"].array()
         Es = qtree["TrackEnergy"].array()
+        tid = qtree["TrackID"].array()
 
         if is_signal:
             # concatenate the two b tracks (from two consecutive rows)
@@ -136,9 +137,18 @@ def load_tracks(
             ys = cat_fn(ys)
             zs = cat_fn(zs)
             Es = cat_fn(Es)
-        xs = normalize(xs)
-        ys = normalize(ys)
-        zs = normalize(zs)
+            tid = cat_fn(tid)
+        idx = list(np.sum(tid == 1, axis = 1)) # Index of the track starting point
+        xs0 = np.zeros(1000)
+        ys0 = np.zeros(1000)
+        zs0 = np.zeros(1000)
+        for i in range(0, 1000):
+            xs0 = xs[i, idx[i]]
+            ys0 = ys[i, idx[i]]
+            zs0 = zs[i, idx[i]]
+        xs = normalize(xs, xs0)
+        ys = normalize(ys, ys0)
+        zs = normalize(zs, zs0)
     return xs, ys, zs, Es
 
 

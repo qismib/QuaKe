@@ -25,16 +25,3 @@ class AbstractNet(Model):
             outputs=self.call(self.inputs_layer),
             name=self.name,
         )
-
-
-def get_activation(act):
-    """Get activation from string."""
-    try:
-        fn = tf.keras.activations.get(act)
-        activation = lambda x: fn(x)
-    except:
-        if act == "lrelu":
-            activation = lambda x: tf.keras.activations.relu(x, alpha=0.0)
-        else:
-            raise ValueError(f"activation not recognized by keras, found {act}")
-    return activation

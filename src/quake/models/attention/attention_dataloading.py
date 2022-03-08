@@ -283,4 +283,25 @@ def read_data(folder: Path, setup: dict) -> tuple[Dataset, Dataset, Dataset]:
     val_generator = Dataset(inputs_val, targets_val, batch_size)
     test_generator = Dataset(inputs_test, targets_test, batch_size)
 
+    print_dataset_balance(train_generator, "Train")
+    print_dataset_balance(val_generator, "Validation")
+    print_dataset_balance(test_generator, "Test")
+
     return train_generator, val_generator, test_generator
+
+
+def print_dataset_balance(dataset: Dataset, name: str):
+    """
+    Logs the dataset balancing between classes
+
+    Parameters
+    ----------
+        - dataset: the dataset to log
+        - name: the dataset name to be logged
+    """
+    nb_examples = dataset.data_len
+    positives = np.count_nonzero(dataset.targets)
+    logger.info(
+        f"{name} dataset balancing: {nb_examples} training points, "
+        f"of which {positives/nb_examples*100:.2f}% positives"
+    )

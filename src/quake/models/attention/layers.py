@@ -1,8 +1,109 @@
 """ This module implements the attention network building blocks. """
-from typing import Callable
 import tensorflow as tf
-from tensorflow.keras.layers import Layer, LayerNormalization, Dense, MultiHeadAttention
-from tensorflow.keras.activations import relu
+from tensorflow.keras.layers import (
+    Layer,
+    LayerNormalization,
+    BatchNormalization,
+    Dropout,
+    Dense,
+    MultiHeadAttention,
+)
+
+
+class LBA(Layer):
+    """Linear, batchnorm, activation layer stack."""
+
+    def __init__(self, units: int, act: str = "relu", alpha: float = 0.2, **kwargs):
+        """
+        Parameters:
+            - units: output feature dimensionality
+            - act: activation string
+            - alpha: leaky relu negative slope coefficient
+        """
+        super().__init__(**kwargs)
+        self.units = units
+        self.act = act
+        self.alpha = alpha
+
+        self.linear = Dense(self.units, name="linear")
+        self.activation = tf.keras.activations.get(self.act)
+        self.batchnorm = BatchNormalization(name="batchnorm")
+
+    def build(self, input_shape):
+        super().build(input_shape)
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Parameters
+        ----------
+            - inputs: input tensor of shape=(B, ..., d_in)
+
+        Returns
+        -------
+            - output tensor of shape=(B, ..., do)
+        """
+        x = self.linear(inputs)
+        x = self.batchnorm(x)
+        if self.act == "relu":
+            x = self.activation(x, alpha=self.alpha)
+        else:
+            x = self.activation(x)
+        return x
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({"units": self.units, "act": self.act, "alpha": self.alpha})
+        return config
+
+
+class LBAD(LBA):
+    """Linear, batchnorm, activation, dropout layer stack."""
+
+    def __init__(
+        self,
+        units: int,
+        act: str = "relu",
+        alpha: float = 0.2,
+        rate: float = 0.1,
+        **kwargs,
+    ):
+        """
+        Parameters:
+            - units: output feature dimensionality
+            - act: activation string
+            - alpha: leaky relu negative slope coefficient
+            - rate: dropout percentage
+        """
+        self.units = units
+        self.act = act
+        self.alpha = alpha
+        self.rate = rate
+
+        super().__init__(self.units, self.act, self.alpha, **kwargs)
+
+        self.dropout = Dropout(self.rate, name="dropout")
+
+    def build(self, input_shape):
+        super().build(input_shape)
+
+    def call(self, inputs: tf.Tensor) -> tf.Tensor:
+        """
+        Parameters
+        ----------
+            - inputs: input tensor of shape=(B, ..., d_in)
+
+        Returns
+        -------
+            - output tensor of shape=(B, ..., do)
+        """
+        x = super().call(inputs)
+        x = self.dropout(x)
+        return x
+
+    def get_config(self) -> dict:
+        config = super().get_config()
+        config.update({"rate": self.rate})
+        return config
 
 
 class TransformerEncoder(Layer):
@@ -27,20 +128,20 @@ class TransformerEncoder(Layer):
         self.units = units
         self.mha_heads = mha_heads
 
-        self.norm0 = LayerNormalization(axis=-1, name="ln_0")
+        self.mha = MultiHeadAttention(self.mha_heads, self.units, name="mha")
+
+        # self.norm0 = LayerNormalization(axis=-1, name="ln_0")
+        self.norm0 = BatchNormalization(axis=-1, name="bn_0")
 
         self.fc0 = Dense(units, activation="relu", name="mlp_0")
         self.fc1 = Dense(units, activation="relu", name="mlp_1")
 
-        self.norm1 = LayerNormalization(axis=-1, name="ln_1")
+        # self.norm1 = LayerNormalization(axis=-1, name="ln_1")
+        self.norm1 = BatchNormalization(axis=-1, name="bn_1")
 
-    # ----------------------------------------------------------------------
     def build(self, input_shape):
-        units = input_shape[-1]
-        self.mha = MultiHeadAttention(self.mha_heads, units, name="mha")
         super(TransformerEncoder, self).build(input_shape)
 
-    # ----------------------------------------------------------------------
     def call(self, x: tf.Tensor, attention_mask: tf.Tensor = None) -> tf.Tensor:
         """
         Parameters
@@ -53,25 +154,23 @@ class TransformerEncoder(Layer):
         """
         x += self.mha(x, x, attention_mask=attention_mask)
         x = self.norm0(x)
-        x = self.fc1(self.fc0(x))
+        x += self.fc1(self.fc0(x))
         output = self.norm1(x)
         return output
 
-    # ----------------------------------------------------------------------
     def get_config(self) -> dict:
         return {"units": self.units, "mha_heads": self.mha_heads}
 
 
 class Head(Layer):
-    """Implementation of stacking of feed-forward layers."""
+    """Stack of feed-forward layers."""
 
     def __init__(
         self,
         filters: list,
-        dropout_idxs: list = None,
-        dropout: float = None,
-        activation: Callable = relu,
-        kernel_initializer: str = "GlorotUniform",
+        activation: str = "relu",
+        alpha: float = 0.2,
+        dropout_rate: float = None,
         name: str = "head",
         **kwargs,
     ):
@@ -79,38 +178,24 @@ class Head(Layer):
         Parameters
         ----------
             - filters: the number of filters for each dense layer
-            - dropout_idxs: the layers number to insert dropout
-            - dropout: the dropout percentage
-            - activation: default keras layer activation
-            - kernel_initializer: the layer initializer string
+            - activation: layer activation
             - name: the layer name
+            - dropout_rate: the dropout percentage
         """
-        super(Head, self).__init__(name=name, **kwargs)
+        super().__init__(name=name, **kwargs)
         self.filters = filters
-        self.dropout_idxs = dropout_idxs
-        self.dropout = dropout
+        self.dropout_rate = dropout_rate
         self.activation = activation
-        self.kernel_initializer = tf.keras.initializers.get(kernel_initializer)
-        lyrs = []
+        self.alpha = alpha
 
-        for i, filters in enumerate(self.filters):
-            lyrs.append(
-                Dense(
-                    filters,
-                    activation=self.activation,
-                    kernel_initializer=self.kernel_initializer,
-                    name=f"dense_{i}",
-                )
-            )
+        ff_layer = LBAD if self.dropout_rate else LBA
+        ff_kwargs = {"rate": self.dropout_rate} if self.dropout_rate else {}
 
-            # if i in self.dropout_idxs:
-            #     pass
-            #     # lyrs.append(BatchNormalization(name=f"bn_{self.nb_head}_{i}"))
-            #     # lyrs.append(Dropout(self.dropout, name=f"do_{self.nb_head}_{i}"))
+        self.ff = [
+            ff_layer(filters, self.activation, self.alpha, name=f"ff_{i}", **ff_kwargs)
+            for i, filters in enumerate(self.filters)
+        ]
 
-        self.fc = lyrs
-
-    # ----------------------------------------------------------------------
     def call(self, x: tf.Tensor) -> tf.Tensor:
         """
         Layer forward pass.
@@ -121,17 +206,18 @@ class Head(Layer):
         -------
             - output tensor of shape=(B,N,K,do)
         """
-        for l in self.fc:
+        for l in self.ff:
             x = l(x)
         return x
 
-    # ----------------------------------------------------------------------
     def get_config(self) -> dict:
-        config = super(Head, self).get_config()
+        config = super().get_config()
         config.update(
             {
-                "dropout": self.dropout,
+                "filters": self.filters,
+                "dropout_rate": self.dropout_rate,
                 "activation": self.activation,
+                "alpha": self.alpha,
             }
         )
         return config

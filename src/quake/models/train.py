@@ -77,6 +77,7 @@ def preconfig_tf(setup: dict):
     Set the host device for tensorflow.
     """
     import tensorflow as tf
+
     gpus = tf.config.list_physical_devices("GPU")
     if len(gpus) == 0:
         return
@@ -118,6 +119,7 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     """
     preconfig_tf(setup)
     from .attention.train import attention_train
+
     if modeltype == "svm":
         logger.info("Training SVM")
         logger.info("SVM not implemented yet. Exiting ...")

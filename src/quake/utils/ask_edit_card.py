@@ -122,7 +122,7 @@ def ask_question(
 def ask_edit_card(logger: Logger, output: Path):
     """
     Asks interactively to edit the runcard, receives the input from the user and
-    opens an editor in the terminal as a subprocess. Default editor is vim,
+    opens an editor in the terminal as a subprocess. Default editor is nano,
     otherwise the `QUAKE_EDITOR` environment variable allows for custom choice.
 
     Parameters
@@ -130,7 +130,7 @@ def ask_edit_card(logger: Logger, output: Path):
         - logger: the logger instance
         - output: the output folder
     """
-    default_quake_editor = "vim"
+    default_quake_editor = "nano"
     editor = os.environ.get("QUAKE_EDITOR", default_quake_editor)
 
     question = """Do you want to edit a card (press enter to bypass editing)?

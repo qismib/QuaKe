@@ -20,12 +20,14 @@ model:
     es_patience: 100 # early stopping patience
     net_dict:
       f_dims: 4
-      nb_mha_heads: 2
-      mha_filters: [8, 16]
-      nb_fc_heads: 2
-      fc_filters: [16, 8, 4, 2, 1]
+      nb_mha_heads: 4
+      mha_filters: [8, 16, 32]
+      nb_fc_heads: 4
+      fc_filters: [32]
       batch_size: 8
       activation: relu
+      alpha: 0.2
+      dropout_rate: 0.0
       use_bias: true
       name: AttentionNetwork
 

@@ -28,7 +28,6 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     network.summary()
 
     # training
-    # train_network(msetup, train_folder, network, (train_gen, test_gen))
     train_network(msetup, train_folder, network, (train_generator, val_generator))
 
     # evaluation

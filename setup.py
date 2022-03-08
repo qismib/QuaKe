@@ -3,11 +3,14 @@ import sys
 from setuptools import setup, find_packages
 
 requirements = [
-    "numpy >= 1.18",
-    "scipy >= 1.4",
-    "matplotlib >= 3.2",
-    "tensorflow >= 2.5.0",
-    "pyyaml >= 6.0",
+    "numpy",
+    "uproot",
+    "awkward",
+    "scipy",
+    "sklearn",
+    "matplotlib",
+    # "tensorflow",
+    "pyyaml",
 ]
 
 if sys.version_info < (3, 6):

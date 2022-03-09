@@ -2,7 +2,7 @@ import logging
 from typing import Tuple
 import tensorflow as tf
 from tensorflow.keras import Input
-from tensorflow.keras.layers import Concatenate, Dense
+from tensorflow.keras.layers import Dense
 from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
 from .AbstractNet import AbstractNet

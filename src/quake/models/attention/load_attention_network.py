@@ -11,7 +11,7 @@ from tensorflow.keras.callbacks import (
     EarlyStopping,
 )
 from .attention_dataloading import Dataset
-from .attention import AttentionNetwork
+from .attention_network import AttentionNetwork
 from quake import PACKAGE
 
 logger = logging.getLogger(PACKAGE + ".attention")
@@ -103,7 +103,13 @@ def train_network(
             patience=msetup["reducelr_patience"],
             min_lr=msetup["min_lr"],
         ),
-        TensorBoard(log_dir=logdir),
+        TensorBoard(
+            log_dir=logdir,
+            write_graph=True,
+            write_images=True,
+            histogram_freq=1,
+            profile_batch=5,
+        ),
     ]
     if msetup["es_patience"]:
         callbacks.append(

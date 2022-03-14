@@ -4,26 +4,25 @@ QuaKe: quantum kernel classifier for neutrino physics applications
 
 ## Installation
 
-The package can be installed with Python's pip package manager.
+The package can be installed with Python's `pip` package manager.
 
 ```bash
 git clone https://github.com/qismib/QuaKe.git
 cd QuaKe
-pip install .
+pip install .[MODE]
 ```
 
-This process will copy the `quake` program to your environment python path.
+The last command allows to install the `quake` program into the environment
+python path.  
+There are three valid choices for the optional `MODE` flag, which controls the
+specific tensorflow distribution that will be installed:
 
-### Requirements
+- `tf`: installs the `tensorflow` package
+- `cpu`: installs the `tensorflow-cpu` package
+- `gpu`: installs the `tensorflow-gpu` package
 
-DUNEdn requires the following packages:
-
-- python3
-- numpy
-- scipy
-- matplotlib
-- tensorflow
-- pyyaml
+If no `MODE` is specified, `quake` assumes that the user has already installed
+`tensorflow` and it will not be subjec to any `pip` requirement check.
 
 ## Running the code
 

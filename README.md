@@ -26,8 +26,8 @@ However, the user can also install it specifying a `MODE` option in the
 flag:
 
 - `tf`: installs the `tensorflow` package
-- `cpu`: installs the `tensorflow-cpu` package
-- `gpu`: installs the `tensorflow-gpu` package
+- `tf-cpu`: installs the `tensorflow-cpu` package
+- `tf-gpu`: installs the `tensorflow-gpu` package
 
 ## Running the code
 

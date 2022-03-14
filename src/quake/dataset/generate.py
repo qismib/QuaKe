@@ -112,5 +112,14 @@ def datagen_main(
             geo = Geometry(detector)
             data_sparse = tracks2histograms(xs, ys, zs, Es, geo)
             fname = out_folder / file.name
+            # try:
+            #     assert data_sparse.nonzero()[1].shape == data_sparse.data.shape
+            # except:
+            #     coords = data_sparse.nonzero()[1]
+            #     energies = data_sparse.data
+            #     print(f"Mismatch found in {fname}: coordinates are {coords.shape} and energies are {energies.shape}")
+            #     print("Coords", coords[:10], coords[10:])
+            #     print("Energies", energies[:10], energies[10:])
+
             sparse.save_npz(fname, data_sparse)
             logger.info(f"Histogram saved at {fname}.npz")

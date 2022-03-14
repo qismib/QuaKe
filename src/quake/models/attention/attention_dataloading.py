@@ -3,6 +3,7 @@
     Dynamic batching is employed.
 """
 import logging
+from typing import Tuple
 from pathlib import Path
 from math import ceil
 import numpy as np
@@ -35,7 +36,7 @@ def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     return np.put_along_axis(array, ordering, array, axis=0)
 
 
-def padding(array: np.ndarray) -> tuple[tf.Tensor, tf.Tensor]:
+def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     Pads the inputs to fit data into a tensor.
 
@@ -118,7 +119,7 @@ class Dataset(tf.keras.utils.Sequence):
             ), f"Remaining points is not zero, found {len(self.available_idxs)}"
             self.available_idxs = np.arange(self.data_len)
 
-    def __getitem__(self, idx: int) -> tuple[tuple[tf.Tensor, tf.Tensor], tf.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[Tuple[tf.Tensor, tf.Tensor], tf.Tensor]:
         """
         Parameters
         ----------
@@ -203,12 +204,11 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
           cloud of shape=([nb hits], nb feats)
     """
     data = scipy.sparse.load_npz(file)
-    rows, digits = data.nonzero()
-    energies = data.data
-    xs_idx = digits // (geo.nb_ybins * geo.nb_zbins)
-    mod = digits % (geo.nb_ybins * geo.nb_zbins)
-    ys_idx = mod // geo.nb_zbins
-    zs_idx = mod % geo.nb_zbins
+    evt, coords = data.nonzero()
+    energies = np.array(data.tocsr()[evt,coords])[0]
+
+    xs_idx, mod = divmod(coords, geo.nb_ybins * geo.nb_zbins)
+    ys_idx, zs_idx = divmod(mod, geo.nb_zbins)
 
     xs = geo.xbins[xs_idx] + geo.xbin_w / 2
     ys = geo.ybins[ys_idx] + geo.ybin_w / 2
@@ -216,12 +216,12 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
 
     pc = np.stack([xs, ys, zs, energies], axis=1)
 
-    splits = np.cumsum(np.bincount(rows))[:-1]
+    splits = np.cumsum(np.bincount(evt))[:-1]
     pc = to_np(np.split(pc, splits))
     return pc
 
 
-def read_data(folder: Path, setup: dict) -> tuple[Dataset, Dataset, Dataset]:
+def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Loads data for attention network
 

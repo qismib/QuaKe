@@ -14,15 +14,20 @@ pip install .[MODE]
 
 The last command allows to install the `quake` program into the environment
 python path.  
-There are three valid choices for the optional `MODE` flag, which controls the
-specific tensorflow distribution that will be installed:
+
+:warning: **Note: install the appropriate TensorFlow distribution**
+
+`quake` assumes that the user has already installed the most optimized version
+of TensorFlow for his platform. As such, by default, `pip` will not check it as
+a requirement.
+
+However, the user can also install it specifying a `MODE` option in the
+`pip` command. The list below summarizes the three valid choices for the `MODE`
+flag:
 
 - `tf`: installs the `tensorflow` package
 - `cpu`: installs the `tensorflow-cpu` package
 - `gpu`: installs the `tensorflow-gpu` package
-
-If no `MODE` is specified, `quake` assumes that the user has already installed
-`tensorflow` and it will not be subjec to any `pip` requirement check.
 
 ## Running the code
 

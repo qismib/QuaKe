@@ -22,12 +22,12 @@ of TensorFlow for his platform. As such, by default, `pip` will not check it as
 a requirement.
 
 However, the user can also install it specifying a `MODE` option in the
-`pip` command. The list below summarizes the three valid choices for the `MODE`
-flag:
+`pip` command. The list below summarizes the valid choices for the `MODE` flag:
 
 - `tf`: installs the `tensorflow` package
 - `tf-cpu`: installs the `tensorflow-cpu` package
 - `tf-gpu`: installs the `tensorflow-gpu` package
+- `tf-amd`: installs the `tensorflow-rocm` package
 
 ## Running the code
 

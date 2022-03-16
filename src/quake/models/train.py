@@ -102,6 +102,7 @@ def preconfig_tf(setup: dict):
 
 
 def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dict):
+    print()
     """
     Training main function that triggers model's training.
     The specific training function must implement the following steps:
@@ -119,13 +120,15 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     """
     preconfig_tf(setup)
     from .attention.train import attention_train
+    from .CNN.CNN_train import CNN_train
+    from .SVM.SVM_train import SVM_train
 
     if modeltype == "svm":
         logger.info("Training SVM")
-        logger.info("SVM not implemented yet. Exiting ...")
+        SVM_train(data_folder, setup["model"]["cnn"], setup["model"]["svm"]["extrafeats"])
     elif modeltype == "cnn":
         logger.info("Training CNN")
-        logger.info("CNN not implemented yet. Exiting ...")
+        CNN_train(data_folder, setup["model"]["cnn"], setup["seed"])
     elif modeltype == "attention":
         logger.info("Training Attention Network")
         attention_train(data_folder, train_folder, setup)

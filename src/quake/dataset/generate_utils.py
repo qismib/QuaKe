@@ -137,15 +137,16 @@ def load_tracks(
             ys = cat_fn(ys)
             zs = cat_fn(zs)
             Es = cat_fn(Es)
-            tid = cat_fn(tid)
-        idx = list(np.sum(tid == 1, axis = 1)) # Index of the track starting point
+            idx = np.sum(tid[::2] == 1, axis = 1) -1
+        else:
+            idx = np.sum(tid == 1, axis = 1) -1 # Index of the track starting point
         xs0 = np.zeros(1000)
         ys0 = np.zeros(1000)
         zs0 = np.zeros(1000)
         for i in range(0, 1000):
-            xs0 = xs[i, idx[i]]
-            ys0 = ys[i, idx[i]]
-            zs0 = zs[i, idx[i]]
+            xs0[i] = xs[i, idx[i]]
+            ys0[i] = ys[i, idx[i]]
+            zs0[i] = zs[i, idx[i]]
         xs = normalize(xs, xs0)
         ys = normalize(ys, ys0)
         zs = normalize(zs, zs0)

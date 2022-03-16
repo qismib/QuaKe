@@ -218,6 +218,7 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
 
     splits = np.cumsum(np.bincount(evt))[:-1]
     pc = to_np(np.split(pc, splits))
+
     return pc
 
 

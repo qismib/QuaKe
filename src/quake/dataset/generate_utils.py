@@ -137,7 +137,7 @@ def load_tracks(
         Es = cat_fn(Es)
         tid = cat_fn(tid)
         # Get the index of the track starting point
-        idx = np.sum(tid[:, ::2] == 1, axis=1) - 1 
+        idx = np.sum(tid[:, ::2] == 1, axis=1) - 1
     else:
         idx = np.sum(tid == 1, axis=1) - 1
     idx = idx.to_numpy()

@@ -205,7 +205,7 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     """
     data = scipy.sparse.load_npz(file)
     evt, coords = data.nonzero()
-    energies = np.array(data.tocsr()[evt,coords])[0]
+    energies = np.array(data.tocsr()[evt, coords])[0]
 
     xs_idx, mod = divmod(coords, geo.nb_ybins * geo.nb_zbins)
     ys_idx, zs_idx = divmod(mod, geo.nb_zbins)

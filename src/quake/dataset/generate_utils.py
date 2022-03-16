@@ -87,13 +87,15 @@ def get_image(
 
 
 def load_tracks(
-    name: Path, is_signal: bool = False
+    name: Path, geo: Geometry, is_signal: bool = False, seed: int = None
 ) -> Tuple[ak.Array, ak.Array, ak.Array, ak.Array]:
     """
-    Loads events from file. Returns hit positions with zero mean. If `is_signal`
-    is True: subsequent row couples refer to two b tracks and they are merged
-    together. Jagged arrays are treated with awkward module, regular ones with
-    numpy instead.
+    Loads events from file. Returns tracks starting from origin plus a random
+    shift sampled uniformly in the box [-xw,xw]x[-yw,yw]x[-zw,zw]. Where `<axis>w`
+    is the detector resolution in mm on that specific axis.
+    If `is_signal` is True: subsequent row couples refer to two b tracks and
+    they are merged together. Jagged arrays are treated with awkward module,
+    regular ones with numpy instead.
     Features are:
         - TrackPostX: float, x hit position
         - TrackPostY: float, y hit position
@@ -105,7 +107,9 @@ def load_tracks(
     Parameters
     ----------
         - name: the name of the file to read the tracks features
-        - is_signal: wether to concatenate subsequent rows for signal tracks.
+        - geo: detector geometry object, to get the axis resolution
+        - is_signal: wether to concatenate subsequent rows for signal tracks
+        - seed: random generator seed for code reproducibility
 
     Returns
     -------
@@ -114,40 +118,37 @@ def load_tracks(
         - z hit position of shape=(tracks, [hits])
         - hit energy of shape=(tracks, [hits])
     """
+    rng = np.random.default_rng(seed=seed)
     with uproot.open(name) as sig_root:
         qtree = sig_root["qtree"]
-
-        # (track, [hits]) nested branches
-        # uncomment the line below to introduce the random shift
-        # shouldn't z axis shift be reduced to uniform(-1,1)?
-        normalize = (
-            lambda arr: arr # + np.random.uniform(low=-5, high=5, size=1000)
-        )
 
         xs = qtree["TrackPostX"].array()
         ys = qtree["TrackPostY"].array()
         zs = qtree["TrackPostZ"].array()
         Es = qtree["TrackEnergy"].array()
         tid = qtree["TrackID"].array()
-        
-        if is_signal:
-            # concatenate the two b tracks (from two consecutive rows)
-            cat_fn = lambda arr: ak.concatenate([arr[::2], arr[1::2]], axis=1)
-            xs = cat_fn(xs)
-            ys = cat_fn(ys)
-            zs = cat_fn(zs)
-            Es = cat_fn(Es)
-            tid = cat_fn(tid)
-            idx = np.sum(tid[:,::2] == 1, axis = 1) - 1 # Index of the track starting point
-        else:
-            idx = np.sum(tid == 1, axis = 1) - 1
-        idx = idx.to_numpy()
-        nev = idx.shape[0]
-        s_ = np.s_[np.arange(nev), idx]
 
-        xs = normalize(xs - xs[s_])
-        ys = normalize(ys - ys[s_])
-        zs = normalize(zs - zs[s_])
+    if is_signal:
+        # concatenate the two b tracks (from two consecutive rows)
+        cat_fn = lambda arr: ak.concatenate([arr[::2], arr[1::2]], axis=1)
+        xs = cat_fn(xs)
+        ys = cat_fn(ys)
+        zs = cat_fn(zs)
+        Es = cat_fn(Es)
+        tid = cat_fn(tid)
+        # Get the index of the track starting point
+        idx = np.sum(tid[:, ::2] == 1, axis=1) - 1 
+    else:
+        idx = np.sum(tid == 1, axis=1) - 1
+    idx = idx.to_numpy()
+    nev = idx.shape[0]
+    s_ = np.s_[np.arange(nev), idx]
+
+    normalize = lambda arr, shift: arr + rng.uniform(low=-shift, high=shift, size=1000)
+
+    xs = normalize(xs - xs[s_], geo.xbin_w)
+    ys = normalize(ys - ys[s_], geo.ybin_w)
+    zs = normalize(zs - zs[s_], geo.zbin_w)
     return xs, ys, zs, Es
 
 
@@ -167,6 +168,7 @@ def tracks2histograms(
         - zs: z hit position of shape=(tracks, [hits])
         - Es: hit energy of shape=(tracks, [hits])
         - geo: detector geometry
+
     Returns
     -------
         - sparse energy histogram of shape=()

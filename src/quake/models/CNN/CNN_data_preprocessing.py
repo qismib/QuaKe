@@ -27,7 +27,7 @@ def prepare(sig, bkg, opts):
     data = data[:, 0:4, 0:4, 0:20]
 
     nsig = sig.shape[0]
-    nbkg = sig.shape[0]
+    nbkg = bkg.shape[0]
 
     labels = np.concatenate([np.ones(nsig), np.zeros(nbkg)])
 

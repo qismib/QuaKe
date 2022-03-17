@@ -4,7 +4,7 @@ from tensorflow.keras.losses import categorical_crossentropy
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv2D
-from tensorflow.keras.layers import Conv3D, LeakyReLU
+from tensorflow.keras.layers import Conv3D, LeakyReLU, MaxPooling3D
 
 def buildCNN(s_tr, opts: dict):
     lr = opts["lr"]
@@ -27,9 +27,11 @@ def buildCNN(s_tr, opts: dict):
         model.add(LeakyReLU(alpha=alpha))
         model.add(Dropout(dropout_rate))
 
+
     elif dim == 3:
         model.add(Conv3D(50, input_shape = (s_tr.shape[1:]), kernel_size=(2, 2, 2), padding="same"))
         model.add(LeakyReLU(alpha=alpha))
+        model.add(MaxPooling3D((3,3,3)))
         model.add(Dropout(dropout_rate))
 
         model.add(Conv3D(50, kernel_size=(2, 2, 2), padding="same"))
@@ -42,13 +44,15 @@ def buildCNN(s_tr, opts: dict):
 
     model.add(Flatten())
 
-    model.add(Dense(feature_number, name = "features"))
+    model.add(Dense(10))
+    model.add(LeakyReLU(alpha=alpha))
+
+
+    model.add(Dense(feature_number,  name = "features"))
     model.add(LeakyReLU(alpha=alpha))
 
     model.add(Dense(2, activation="softmax"))
 
-    intermediate_layer_model = Model(inputs=model.inputs,
-                                           outputs=model.get_layer("features").output)
     model.compile(
         loss=categorical_crossentropy, optimizer=Adam(lr), metrics=["accuracy"]
     )

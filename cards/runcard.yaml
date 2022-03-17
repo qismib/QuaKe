@@ -31,12 +31,12 @@ model:
       use_bias: true
       name: AttentionNetwork
   cnn:
-    lr: 0.005 # learning rate
+    lr: 0.001 # learning rate
     epochs: 25
     feature_number: 4 # Intermediate dense layer size (the features for SVM)
-    batch_size: 200
-    alpha: 0.2
-    dropout_rate: 0.2 
+    batch_size: 120
+    alpha: 0.05
+    dropout_rate: 0.25
     dim: 2 # 2: inputs are YZ and XZ projections. 3: inputs are 3D.
     val_te_ratio: 0.15 # % of the total dataset (validation and test have the same size)
     name: CNN

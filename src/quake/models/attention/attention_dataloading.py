@@ -205,15 +205,10 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     print(file)
     data = scipy.sparse.load_npz(file)
     # rows, digits = data.nonzero()
-    #energies = data.data
+    # energies = data.data
     rows = np.argwhere(data.todense())[:,0]
     digits = np.argwhere(data.todense())[:,1]
     energies = np.array(data.todense())[rows, digits]
-    
-
-    # if digits.shape != energies.shape:
-    #     #digits = np.append(digits, digits[-1]+1)
-    #     energies = energies[:-1]
 
     xs_idx = digits // (geo.nb_ybins * geo.nb_zbins)
     mod = digits % (geo.nb_ybins * geo.nb_zbins)
@@ -223,10 +218,6 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     xs = geo.xbins[xs_idx] + geo.xbin_w / 2
     ys = geo.ybins[ys_idx] + geo.ybin_w / 2
     zs = geo.zbins[zs_idx] + geo.zbin_w / 2
-
-
-    if xs.shape[0] != energies.shape[0]:
-        import pdb; pdb.set_trace()
 
     pc = np.stack([xs, ys, zs, energies], axis=1)
 

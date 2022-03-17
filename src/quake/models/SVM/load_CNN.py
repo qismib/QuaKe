@@ -14,7 +14,10 @@ def load_cnn(data_folder: Path):
         val_map = np.loadtxt(str(data_folder.parent)+'/models/cnn/validation_map').astype(int)
         te_map = np.loadtxt(str(data_folder.parent)+'/models/cnn/test_map').astype(int)
     except:
-        raise Exception("SVM need features computed by the CNN model, but there is no model in folder" 
-        + str(data_folder.parent)+"/models/cnn" + ". Please run 'train' with '--model cnn' first and try again.")
+        raise Exception(
+            "SVM needs features computed by the CNN model, but there is no model "
+            f"in folder {data_folder.parent / 'models/cnn'} "
+            "Please run 'train' with '--model cnn' first and try again."
+        )
     
     return feature_layer, tr_map, val_map, te_map

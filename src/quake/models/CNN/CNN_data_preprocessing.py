@@ -1,5 +1,9 @@
+import logging
 import numpy as np
 from sklearn.model_selection import train_test_split
+from quake import PACKAGE
+
+logger = logging.getLogger(PACKAGE + ".CNN")
 
 def normalize(data, dim):
     if dim == 2:
@@ -25,7 +29,7 @@ def prepare(sig, bkg, opts):
     data = data[:, 0:4, 0:4, 0:20]  
 
     nsig = sig.shape[0]
-    nbkg = sig.shape[0]
+    nbkg = bkg.shape[0]
 
     labels = np.concatenate([np.ones(nsig), np.zeros(nbkg)])
 
@@ -36,7 +40,7 @@ def prepare(sig, bkg, opts):
         data = data.reshape(nsig+nbkg, 4, 20, 2)
     elif dim == 3:
         data = np.expand_dims(data, axis = 4)
-        print(data.shape)
+        logger.info(data.shape)
     return data, labels
 
 def tr_val_te_split(data, labels, opts, seed):
@@ -46,7 +50,7 @@ def tr_val_te_split(data, labels, opts, seed):
     idx = np.arange(0, ntot)
 
     data_idx = np.vstack((data.reshape(ntot, -1).T, idx)).T
-    print(data.shape)
+    logger.info(data.shape)
 
     s_tv, s_te, l_tv, l_te = train_test_split(data_idx, labels, test_size = test_size, random_state=seed)
     s_tr, s_val, l_tr, l_val = train_test_split(s_tv, l_tv, test_size = val_size, random_state=seed)

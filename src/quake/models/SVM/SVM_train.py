@@ -63,4 +63,4 @@ def SVM_train(data_folder: Path, opts, extra):
     logger.info("Accuracy: \n"f"{acc}")
     logger.info("Sensitivity: \n"f"{sen}")
     logger.info("Specificity: \n"f"{spec}")
-    logger.info("AUC: \n"f"{auc}")  
+    logger.info("AUC: \n"f"{auc}")

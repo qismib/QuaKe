@@ -150,7 +150,7 @@ class TransformerEncoder(Layer):
             - attention_mask: masking tensor of shape=(B, L, L)
         Returns
         -------
-            - output tensor of shape=(B, L, d_out)
+            - output tensor of shape=(B, L, d_in)
         """
         x += self.mha(x, x, attention_mask=attention_mask)
         x = self.norm0(x)

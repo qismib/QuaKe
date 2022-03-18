@@ -4,26 +4,30 @@ QuaKe: quantum kernel classifier for neutrino physics applications
 
 ## Installation
 
-The package can be installed with Python's pip package manager.
+The package can be installed with Python's `pip` package manager.
 
 ```bash
 git clone https://github.com/qismib/QuaKe.git
 cd QuaKe
-pip install .
+pip install .[MODE]
 ```
 
-This process will copy the `quake` program to your environment python path.
+The last command allows to install the `quake` program into the environment
+python path.  
 
-### Requirements
+:warning: **Note: install the appropriate TensorFlow distribution**
 
-DUNEdn requires the following packages:
+`quake` assumes that the user has already installed the most optimized version
+of TensorFlow for his platform. As such, by default, `pip` will not check it as
+a requirement.
 
-- python3
-- numpy
-- scipy
-- matplotlib
-- tensorflow
-- pyyaml
+However, the user can also install it specifying a `MODE` option in the
+`pip` command. The list below summarizes the valid choices for the `MODE` flag:
+
+- `tf`: installs the `tensorflow` package
+- `tf-cpu`: installs the `tensorflow-cpu` package
+- `tf-gpu`: installs the `tensorflow-gpu` package
+- `tf-amd`: installs the `tensorflow-rocm` package
 
 ## Running the code
 
@@ -85,3 +89,20 @@ Train a model on data extracted in folder.
 ```bash
 quake train <folder> --model <modeltype>
 ```
+
+## Updates: added CNN and SVM
+
+'quake train' has been updated and now '--model cnn', '--model svm' are implemented.
+The options are listed in the runcard.
+
+### Notes 
+
+SVM uses the features extracted by the CNN, so a CNN must exist in the output folder under /models/cnn.
+
+SVM can be trained using much less samples than CNN. Unfortunately this advantage vanishes beacause we need to train a CNN for building the SVM. Maybe we could try to extract features from the attention model?
+
+### TODO:
+
+Optimize SVM hyperparameters.
+Figure out if CNN architecture can be further optimized.
+Figure out if overfitting issues can be better managed. I suggest that adding more data and using less dropout may help enhancing the CNN performances.

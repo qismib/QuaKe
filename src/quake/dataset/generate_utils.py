@@ -87,13 +87,15 @@ def get_image(
 
 
 def load_tracks(
-    name: Path, is_signal: bool = False
+    name: Path, geo: Geometry, is_signal: bool = False, seed: int = None
 ) -> Tuple[ak.Array, ak.Array, ak.Array, ak.Array]:
     """
-    Loads events from file. Returns hit positions with zero mean. If `is_signal`
-    is True: subsequent row couples refer to two b tracks and they are merged
-    together. Jagged arrays are treated with awkward module, regular ones with
-    numpy instead.
+    Loads events from file. Returns tracks starting from origin plus a random
+    shift sampled uniformly in the box [-xw,xw]x[-yw,yw]x[-zw,zw]. Where `<axis>w`
+    is the detector resolution in mm on that specific axis.
+    If `is_signal` is True: subsequent row couples refer to two b tracks and
+    they are merged together. Jagged arrays are treated with awkward module,
+    regular ones with numpy instead.
     Features are:
         - TrackPostX: float, x hit position
         - TrackPostY: float, y hit position
@@ -105,7 +107,9 @@ def load_tracks(
     Parameters
     ----------
         - name: the name of the file to read the tracks features
-        - is_signal: wether to concatenate subsequent rows for signal tracks.
+        - geo: detector geometry object, to get the axis resolution
+        - is_signal: wether to concatenate subsequent rows for signal tracks
+        - seed: random generator seed for code reproducibility
 
     Returns
     -------
@@ -114,15 +118,9 @@ def load_tracks(
         - z hit position of shape=(tracks, [hits])
         - hit energy of shape=(tracks, [hits])
     """
+    rng = np.random.default_rng(seed=seed)
     with uproot.open(name) as sig_root:
         qtree = sig_root["qtree"]
-
-        # (track, [hits]) nested branches
-        normalize = (
-            lambda arr, arr0: arr
-            - arr0
-            + np.random.uniform(low=-5, high=5, size=1000)
-        )  # ak.mean(arr, axis=-1) arr[:,0]
 
         xs = qtree["TrackPostX"].array()
         ys = qtree["TrackPostY"].array()
@@ -169,6 +167,7 @@ def tracks2histograms(
         - zs: z hit position of shape=(tracks, [hits])
         - Es: hit energy of shape=(tracks, [hits])
         - geo: detector geometry
+
     Returns
     -------
         - sparse energy histogram of shape=()
@@ -177,9 +176,9 @@ def tracks2histograms(
     hists = []
 
     # filter out of bin range hits
-    mx = np.logical_and(xs < geo.xbins[-1], xs >= geo.xbins[0])
-    my = np.logical_and(ys < geo.xbins[-1], ys >= geo.xbins[0])
-    mz = np.logical_and(zs < geo.xbins[-1], zs >= geo.xbins[0])
+    mx = np.logical_and(xs >= geo.xbins[0], xs < geo.xbins[-1])
+    my = np.logical_and(ys >= geo.xbins[0], ys < geo.xbins[-1])
+    mz = np.logical_and(zs >= geo.xbins[0], zs < geo.xbins[-1])
     m = np.logical_and(np.logical_and(mx, my), mz)
     for x, y, z, energy in zip(xs[m], ys[m], zs[m], Es[m]):
         # digits start from 1
@@ -193,6 +192,12 @@ def tracks2histograms(
         hist = sparse.csr_matrix(
             (energy.to_numpy(), (x_digits, yz_digits)), shape=shape
         )
+
+        try:
+            assert all(energy > 0)
+        except:
+            ValueError(f"Found non positive energies: {np.count_nonzero(energy > 0)}")
+
         hists.append(hist.reshape(1, -1))
     hists = sparse.vstack(hists)
     return hists

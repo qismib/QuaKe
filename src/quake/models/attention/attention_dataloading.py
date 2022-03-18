@@ -3,6 +3,7 @@
     Dynamic batching is employed.
 """
 import logging
+from typing import Tuple
 from pathlib import Path
 from math import ceil
 import numpy as np
@@ -12,22 +13,16 @@ import tensorflow as tf
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
 from quake.utils.configflow import float_me
-
 logger = logging.getLogger(PACKAGE + ".attention")
-
 to_np = lambda x: np.array(x, dtype=object)
-
-
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     """
     In place back projection to input original order before dataset sorting.
     This is useful when predicting network results and initial order matters.
-
     Parameters
     ----------
         - array: iterable to be sorted back of shape=(nb events)
         - ordering: the array that originally sorted the data of shape=(nb events)
-
     Returns
     -------
         - the originally ordered array
@@ -35,25 +30,21 @@ def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     return np.put_along_axis(array, ordering, array, axis=0)
 
 
-def padding(array: np.ndarray) -> tuple[tf.Tensor, tf.Tensor]:
+def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     """
     Pads the inputs to fit data into a tensor.
-
     Parameters
     ----------
         - array: iterable of objects each of shape=([nb hits], nb features)
-
     Returns
     -------
         - padded data of shape=(maxlen, nb features)
         - mask of shape=(maxlen, maxlen)
     """
     maxlen = array[-1].shape[0]
-
     pwidth = lambda x: [[0, maxlen - len(x)], [0, 0]]
     rows = [np.pad(row, pwidth(row), "constant", constant_values=0.0) for row in array]
     rows = np.stack(rows, axis=0)
-
     # TODO [enhancement]: the attention can be weighted according to hit relative distance
     pmask = lambda x: [[0, maxlen - len(x)]] * 2
     mask = lambda x: np.ones([len(x)] * 2)
@@ -61,13 +52,9 @@ def padding(array: np.ndarray) -> tuple[tf.Tensor, tf.Tensor]:
         np.pad(mask(row), pmask(row), "constant", constant_values=0.0) for row in array
     ]
     masks = np.stack(masks, axis=0)
-
     return float_me(rows), float_me(masks)
-
-
 class Dataset(tf.keras.utils.Sequence):
     """Dataset sequence."""
-
     def __init__(
         self,
         inputs: np.ndarray,
@@ -84,22 +71,18 @@ class Dataset(tf.keras.utils.Sequence):
             - batch_size: the batch size
             - smart_batching: wether to sample with smart batch algorithm
             - seed: random generator seed for reproducibility
-
         """
         self.inputs = to_np(inputs)
         self.targets = targets
         self.batch_size = batch_size
         self.smart_batching = smart_batching
         self.seed = seed
-
         self.data_len = len(self.targets)
         self.available_idxs = np.arange(self.data_len)
         self.rng = np.random.default_rng(self.seed) if self.smart_batching else None
         self.sort_data()
-
         # Model.fit calls samples a batch first, spoiling the remaining batches
         self.is_first_pass = True
-
     def sort_data(self):
         """
         Sorts inputs and targets according to increasing number of hits in
@@ -110,7 +93,6 @@ class Dataset(tf.keras.utils.Sequence):
         self.sorting_idx = [i for _, i in sorted(zip(self.inputs, indices), key=fn)]
         self.inputs = self.inputs[self.sorting_idx]
         self.targets = self.targets[self.sorting_idx]
-
     def on_epoch_end(self):
         if self.smart_batching:
             assert (
@@ -118,18 +100,16 @@ class Dataset(tf.keras.utils.Sequence):
             ), f"Remaining points is not zero, found {len(self.available_idxs)}"
             self.available_idxs = np.arange(self.data_len)
 
-    def __getitem__(self, idx: int) -> tuple[tuple[tf.Tensor, tf.Tensor], tf.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[Tuple[tf.Tensor, tf.Tensor], tf.Tensor]:
         """
         Parameters
         ----------
             - idx: the number of batch drawn by the generator
-
         Returns
         -------
             - network inputs:
                 - inputs batch of shape=(batch_size, maxlen, nb feats)
                 - mask batch of shape=(batch_size, maxlen, nb feats)
-
             - targets batch of shape=(batch_size,)
         """
         # smart batching
@@ -137,23 +117,18 @@ class Dataset(tf.keras.utils.Sequence):
             ii = self.sample_smart_batch(idx)
         else:
             ii = np.s_[idx * self.batch_size : (idx + 1) * self.batch_size]
-
         batch_x = self.inputs[ii]
         batch_y = self.targets[ii]
-
         # for some reason the output requires explicit casting to tf.Tensors
         return padding(batch_x), float_me(batch_y)
-
     def sample_smart_batch(self, idx: int) -> np.ndarray:
         """
         Returns indices of the smart batch samples. Smart batching randomly
         draws an example `i` from the available training points, then samples
         the batch with the [i: i + batch_size] slice.
-
         Parameters
         ----------
             - idx: the number of batch drawn by the generator
-
         Returns
         -------
             - the array of indices to sample the smart batch of shape=(batch size)
@@ -176,44 +151,32 @@ class Dataset(tf.keras.utils.Sequence):
         else:
             self.available_idxs = np.delete(self.available_idxs, sampled)
         return ii
-
     def __len__(self) -> int:
         """
         Returns the number of batches contained in the generator.
-
         Returns
         -------
             - generator length
         """
         return ceil(len(self.inputs) / self.batch_size)
-
-
 def get_data(file: Path, geo: Geometry) -> np.ndarray:
     """
     Returns the point cloud from file
-
     Parameters
     ----------
         - file: the .npz input file path
         - geo: object describing detector geometry
-
     Returns
     -------
         - array of objects of shape=(nb events,) each entry represents a point
           cloud of shape=([nb hits], nb feats)
     """
-    print(file)
     data = scipy.sparse.load_npz(file)
-    # rows, digits = data.nonzero()
-    # energies = data.data
-    rows = np.argwhere(data.todense())[:,0]
-    digits = np.argwhere(data.todense())[:,1]
-    energies = np.array(data.todense())[rows, digits]
+    evt, coords = data.nonzero()
+    energies = np.array(data.tocsr()[evt, coords])[0]
 
-    xs_idx = digits // (geo.nb_ybins * geo.nb_zbins)
-    mod = digits % (geo.nb_ybins * geo.nb_zbins)
-    ys_idx = mod // geo.nb_zbins
-    zs_idx = mod % geo.nb_zbins
+    xs_idx, mod = divmod(coords, geo.nb_ybins * geo.nb_zbins)
+    ys_idx, zs_idx = divmod(mod, geo.nb_zbins)
 
     xs = geo.xbins[xs_idx] + geo.xbin_w / 2
     ys = geo.ybins[ys_idx] + geo.ybin_w / 2
@@ -221,14 +184,12 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
 
     pc = np.stack([xs, ys, zs, energies], axis=1)
 
-
-    splits = np.cumsum(np.bincount(rows))[:-1]
+    splits = np.cumsum(np.bincount(evt))[:-1]
     pc = to_np(np.split(pc, splits))
-
     return pc
 
 
-def read_data(folder: Path, setup: dict) -> tuple[Dataset, Dataset, Dataset]:
+def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Loads data for attention network
 

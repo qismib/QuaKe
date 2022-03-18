@@ -128,27 +128,27 @@ def load_tracks(
         Es = qtree["TrackEnergy"].array()
         tid = qtree["TrackID"].array()
 
-         if is_signal:
-            # concatenate the two b tracks (from two consecutive rows)
-            cat_fn = lambda arr: ak.concatenate([arr[::2], arr[1::2]], axis=1)
-            xs = cat_fn(xs)
-            ys = cat_fn(ys)
-            zs = cat_fn(zs)
-            Es = cat_fn(Es)
-            tid = cat_fn(tid)
-            # Get the index of the track starting point
-            idx = np.sum(tid[:, ::2] == 1, axis=1) - 1
-        else:
-            idx = np.sum(tid == 1, axis=1) - 1
-        idx = idx.to_numpy()
-        nev = idx.shape[0]
-        s_ = np.s_[np.arange(nev), idx]
+    if is_signal:
+        # concatenate the two b tracks (from two consecutive rows)
+        cat_fn = lambda arr: ak.concatenate([arr[::2], arr[1::2]], axis=1)
+        xs = cat_fn(xs)
+        ys = cat_fn(ys)
+        zs = cat_fn(zs)
+        Es = cat_fn(Es)
+        tid = cat_fn(tid)
+        # Get the index of the track starting point
+        idx = np.sum(tid[:, ::2] == 1, axis=1) - 1
+    else:
+        idx = np.sum(tid == 1, axis=1) - 1
+    idx = idx.to_numpy()
+    nev = idx.shape[0]
+    s_ = np.s_[np.arange(nev), idx]
 
-        normalize = lambda arr, shift: arr + rng.uniform(low=-shift, high=shift, size=1000)
+    normalize = lambda arr, shift: arr + rng.uniform(low=-shift, high=shift, size=1000)
 
-        xs = normalize(xs - xs[s_], geo.xbin_w)
-        ys = normalize(ys - ys[s_], geo.ybin_w)
-        zs = normalize(zs - zs[s_], geo.zbin_w)
+    xs = normalize(xs - xs[s_], geo.xbin_w)
+    ys = normalize(ys - ys[s_], geo.ybin_w)
+    zs = normalize(zs - zs[s_], geo.zbin_w)
     return xs, ys, zs, Es
 
 

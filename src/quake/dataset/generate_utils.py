@@ -87,7 +87,7 @@ def get_image(
 
 
 def load_tracks(
-    name: Path, geo: Geometry, is_signal: bool = False, seed: int = None
+    name: Path, geo: Geometry, is_signal: bool = False, seed: int = 42
 ) -> Tuple[ak.Array, ak.Array, ak.Array, ak.Array]:
     """
     Loads events from file. Returns tracks starting from origin plus a random
@@ -136,19 +136,18 @@ def load_tracks(
         zs = cat_fn(zs)
         Es = cat_fn(Es)
         tid = cat_fn(tid)
-        # Get the index of the track starting point
-        idx = np.sum(tid[:, ::2] == 1, axis=1) - 1
-    else:
-        idx = np.sum(tid == 1, axis=1) - 1
-    idx = idx.to_numpy()
-    nev = idx.shape[0]
-    s_ = np.s_[np.arange(nev), idx]
 
-    normalize = lambda arr, shift: arr + rng.uniform(low=-shift, high=shift, size=1000)
+    Xs = ak.sum(xs[tid == 1] * Es[tid == 1], axis=1) / ak.sum(Es[tid == 1], axis=1)
+    Ys = ak.sum(ys[tid == 1] * Es[tid == 1], axis=1) / ak.sum(Es[tid == 1], axis=1)
+    Zs = ak.sum(zs[tid == 1] * Es[tid == 1], axis=1) / ak.sum(Es[tid == 1], axis=1)
 
-    xs = normalize(xs - xs[s_], geo.xbin_w)
-    ys = normalize(ys - ys[s_], geo.ybin_w)
-    zs = normalize(zs - zs[s_], geo.zbin_w)
+    normalize = (
+        lambda arr, shift, bw: arr - shift + rng.uniform(low=-bw, high=bw, size=1000)
+    )
+
+    xs = normalize(xs, Xs, geo.xbin_w)
+    ys = normalize(ys, Ys, geo.ybin_w)
+    zs = normalize(zs, Zs, geo.zbin_w)
     return xs, ys, zs, Es
 
 
@@ -178,9 +177,10 @@ def tracks2histograms(
 
     # filter out of bin range hits
     mx = np.logical_and(xs >= geo.xbins[0], xs < geo.xbins[-1])
-    my = np.logical_and(ys >= geo.xbins[0], ys < geo.xbins[-1])
-    mz = np.logical_and(zs >= geo.xbins[0], zs < geo.xbins[-1])
+    my = np.logical_and(ys >= geo.ybins[0], ys < geo.ybins[-1])
+    mz = np.logical_and(zs >= geo.zbins[0], zs < geo.zbins[-1])
     m = np.logical_and(np.logical_and(mx, my), mz)
+
     for x, y, z, energy in zip(xs[m], ys[m], zs[m], Es[m]):
         # digits start from 1
         get_digit = lambda p1, p2: np.digitize(p1, p2) - 1
@@ -190,15 +190,27 @@ def tracks2histograms(
 
         yz_digits = y_digits * geo.nb_zbins + z_digits
         shape = (geo.nb_xbins, geo.nb_ybins * geo.nb_zbins)
+        cutoff = 0.1
         hist = sparse.csr_matrix(
             (energy.to_numpy(), (x_digits, yz_digits)), shape=shape
         )
 
-        try:
-            assert all(energy > 0)
-        except:
-            ValueError(f"Found non positive energies: {np.count_nonzero(energy > 0)}")
+        counter = np.histogramdd((x, y, z), bins=(geo.xbins, geo.ybins, geo.zbins))[0]
+        counter = sparse.csr_matrix(
+            counter.reshape(geo.xbins.shape[0] - 1, -1), shape=shape
+        )
 
-        hists.append(hist.reshape(1, -1))
+        mask = hist > cutoff
+        if mask.sum() != 0:
+            hist = sparse.csr_matrix(
+                (
+                    np.matrix.flatten(np.array(hist[sparse.find(mask)[0:2]])),
+                    (sparse.find(mask)[0], sparse.find(mask)[1]),
+                ),
+                shape=shape,
+            )
+            hists.append(hist.reshape(1, -1))
+
     hists = sparse.vstack(hists)
+
     return hists

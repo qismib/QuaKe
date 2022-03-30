@@ -13,8 +13,11 @@ import tensorflow as tf
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
 from quake.utils.configflow import float_me
+
 logger = logging.getLogger(PACKAGE + ".attention")
 to_np = lambda x: np.array(x, dtype=object)
+
+
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     """
     In place back projection to input original order before dataset sorting.
@@ -53,8 +56,11 @@ def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     ]
     masks = np.stack(masks, axis=0)
     return float_me(rows), float_me(masks)
+
+
 class Dataset(tf.keras.utils.Sequence):
     """Dataset sequence."""
+
     def __init__(
         self,
         inputs: np.ndarray,
@@ -83,6 +89,7 @@ class Dataset(tf.keras.utils.Sequence):
         self.sort_data()
         # Model.fit calls samples a batch first, spoiling the remaining batches
         self.is_first_pass = True
+
     def sort_data(self):
         """
         Sorts inputs and targets according to increasing number of hits in
@@ -93,6 +100,7 @@ class Dataset(tf.keras.utils.Sequence):
         self.sorting_idx = [i for _, i in sorted(zip(self.inputs, indices), key=fn)]
         self.inputs = self.inputs[self.sorting_idx]
         self.targets = self.targets[self.sorting_idx]
+
     def on_epoch_end(self):
         if self.smart_batching:
             assert (
@@ -121,6 +129,7 @@ class Dataset(tf.keras.utils.Sequence):
         batch_y = self.targets[ii]
         # for some reason the output requires explicit casting to tf.Tensors
         return padding(batch_x), float_me(batch_y)
+
     def sample_smart_batch(self, idx: int) -> np.ndarray:
         """
         Returns indices of the smart batch samples. Smart batching randomly
@@ -151,6 +160,7 @@ class Dataset(tf.keras.utils.Sequence):
         else:
             self.available_idxs = np.delete(self.available_idxs, sampled)
         return ii
+
     def __len__(self) -> int:
         """
         Returns the number of batches contained in the generator.
@@ -159,6 +169,8 @@ class Dataset(tf.keras.utils.Sequence):
             - generator length
         """
         return ceil(len(self.inputs) / self.batch_size)
+
+
 def get_data(file: Path, geo: Geometry) -> np.ndarray:
     """
     Returns the point cloud from file

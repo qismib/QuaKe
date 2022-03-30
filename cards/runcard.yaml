@@ -37,10 +37,9 @@ model:
     batch_size: 120
     alpha: 0.05
     dropout_rate: 0.25
-    dim: 2 # 2: inputs are YZ and XZ projections. 3: inputs are 3D.
     val_te_ratio: 0.15 # % of the total dataset (validation and test have the same size)
     name: CNN
   svm:
-    extrafeats: False # If True: feature space include (ntot, etot)
+    extrafeats: False # If True: feature space includes (ntot, etot)
     name: SVM
     

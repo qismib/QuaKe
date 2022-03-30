@@ -85,7 +85,7 @@ def datagen_main(
     out_folder: Path,
     detector: dict,
     should_show: bool = False,
-    seed: int = None,
+    seed: int = 42,
 ):
     """
     Data generation main function: extracts a dataset from a folder containing

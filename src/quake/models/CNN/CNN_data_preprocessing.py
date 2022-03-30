@@ -5,67 +5,79 @@ from quake import PACKAGE
 
 logger = logging.getLogger(PACKAGE + ".CNN")
 
-def normalize(data, dim):
-    if dim == 2:
-        return data/data.sum(axis = (1,2))[:, None, None]
-    elif dim == 3:
-        return data/data.sum(axis = (1,2,3))[:, None, None, None]
-    else:
-        return -1
 
-def prepare(sig, bkg, opts):
-    dim = opts["dim"]
-    data = np.concatenate((sig, bkg), axis = 0)
-    #data[data < 1e-3] = 0 
+def normalize(data):  # Not in use at the moment
     for i, particle in enumerate(data):
+        data[i] = particle / particle.sum()
+    return data
+
+
+def roll_crop(d, crop):
+    for i, particle in enumerate(d):
         c = np.argwhere(particle)
         if list(c):
-            cmx = np.min(c[:,0])
-            cmy = np.min(c[:,1])
-            cmz = np.min(c[:,2])
-            data[i] = np.roll(data[i], -cmx , axis = 0)
-            data[i] = np.roll(data[i], -cmy , axis = 1)
-            data[i] = np.roll(data[i], -cmz , axis = 2)
-    data = data[:, 0:4, 0:4, 0:20]  
+            cm1 = np.min(c[:, 0])
+            cm2 = np.min(c[:, 1])
+            d[i] = np.roll(d[i], -cm1, axis=0)
+            d[i] = np.roll(d[i], -cm2, axis=1)
+    d = d[:, 0 : crop[0], 0 : crop[1]]
+    return d
 
-    nsig = sig.shape[0]
-    nbkg = bkg.shape[0]
+
+def prepare(sig, bkg, detector):
+    res = np.array(detector["resolution"])
+    dx = np.concatenate((sig[0], bkg[0]), axis=0)
+    dy = np.concatenate((sig[1], bkg[1]), axis=0)
+    dz = np.concatenate((sig[2], bkg[2]), axis=0)
+    hist_crop = (20 / res).astype(int)
+    dx = roll_crop(dx, hist_crop[[1, 2]])
+    dy = roll_crop(dy, hist_crop[[0, 2]])
+    dz = roll_crop(dz, hist_crop[[0, 1]])
+
+    nsig = sig[0].shape[0]
+    nbkg = bkg[0].shape[0]
 
     labels = np.concatenate([np.ones(nsig), np.zeros(nbkg)])
 
-    if dim == 2:
-        dx = np.expand_dims(data.sum(axis = 1), 3)
-        dy = np.expand_dims(data.sum(axis = 2), 3)
-        data = np.concatenate([dx, dy], axis = 3)
-        data = data.reshape(nsig+nbkg, 4, 20, 2)
-    elif dim == 3:
-        data = np.expand_dims(data, axis = 4)
-        logger.info(data.shape)
+    data = [dx, dy, dz]
+
     return data, labels
+
 
 def tr_val_te_split(data, labels, opts, seed):
     test_size = opts["val_te_ratio"]
-    val_size = test_size/(1-test_size)
-    ntot = data.shape[0]
+    dx = data[0]
+    dy = data[1]
+    dz = data[2]
+    ntot = dx.shape[0]
     idx = np.arange(0, ntot)
 
-    data_idx = np.vstack((data.reshape(ntot, -1).T, idx)).T
-    logger.info(data.shape)
+    dx_idx = np.vstack((dx.reshape(ntot, -1).T, idx)).T
+    logger.info(data[0].shape)
 
-    s_tv, s_te, l_tv, l_te = train_test_split(data_idx, labels, test_size = test_size, random_state=seed)
-    s_tr, s_val, l_tr, l_val = train_test_split(s_tv, l_tv, test_size = val_size, random_state=seed)
+    dx_tr, dx_vt, l_tr, l_vt = train_test_split(
+        dx_idx, labels, test_size=2 * test_size, random_state=seed
+    )
+    dx_val, dx_te, l_val, l_te = train_test_split(
+        dx_vt, l_vt, test_size=0.5, random_state=seed
+    )
 
-    idx_tr = s_tr[:,-1].astype(int)
-    idx_val = s_val[:,-1].astype(int)
-    idx_te = s_te[:,-1].astype(int)
+    idx_tr = dx_tr[:, -1].astype(int)
+    idx_val = dx_val[:, -1].astype(int)
+    idx_te = dx_te[:, -1].astype(int)
 
-    if data.ndim == 4:
-        shape = np.array([4,20,2]).astype(int)
-    elif data.ndim == 5:
-        shape = np.array([4, 4, 20, 1]).astype(int)
+    shape = np.array(dx.shape[1:]).astype(int)
 
-    s_tr = s_tr[:, :-1].reshape(np.append(s_tr.shape[0], shape))
-    s_val = s_val[:, :-1].reshape(np.append(s_val.shape[0], data.shape[1:]))
-    s_te = s_te[:, :-1].reshape(np.append(s_te.shape[0], data.shape[1:]))
+    dx_tr = dx_tr[:, :-1].reshape(np.append(dx_tr.shape[0], shape))
+    dx_val = dx_val[:, :-1].reshape(np.append(dx_val.shape[0], shape))
+    dx_te = dx_te[:, :-1].reshape(np.append(dx_te.shape[0], shape))
+
+    dy_tr, dz_tr = dy[idx_tr], dz[idx_tr]
+    dy_val, dz_val = dy[idx_val], dz[idx_val]
+    dy_te, dz_te = dy[idx_te], dz[idx_te]
+
+    s_tr = [dx_tr, dy_tr, dz_tr]
+    s_val = [dx_val, dy_val, dz_val]
+    s_te = [dx_te, dy_te, dz_te]
 
     return s_tr, l_tr, s_val, l_val, s_te, l_te, idx_tr, idx_val, idx_te

@@ -17,6 +17,9 @@ from quake.utils.configflow import float_me
 logger = logging.getLogger(PACKAGE + ".attention")
 to_np = lambda x: np.array(x, dtype=object)
 
+# no standardization on energy feature
+ENERGY_MEAN = 0.
+ENERGY_STD = 1.
 
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     """
@@ -58,6 +61,34 @@ def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     return float_me(rows), float_me(masks)
 
 
+def normalize_batch(batch: tf.Tensor, geo: Geometry) -> tf.Tensor:
+    """
+    Normalize input datapoints. Scale the coordinates to constrain the point
+    cloud into the unitary 3D box.
+    Standardize the energy to have unit standard deviation.
+
+    Parameters
+    ----------
+        - batch: inputs batch of shape=(batch_size, maxlen, nb feats)
+        - geo: object describing detector geometry
+    Returns
+    -------
+        - the normalized batch of shape=(batch_size, maxlen, nb feats)
+    """
+
+    min_pts = np.array([geo.xmin, geo.ymin, geo.zmin])
+    max_pts = np.array([geo.xmax, geo.ymax, geo.zmax])
+
+    mids = (max_pts + min_pts) / 2
+    subs = float_me(np.concatenate([mids, [ENERGY_MEAN]])[None])
+
+    demi_ranges =  (max_pts - min_pts) / 2
+    divs = float_me(np.concatenate([demi_ranges, [ENERGY_STD]])[None])
+
+    normalized_batch = (batch - subs) / divs
+    return normalized_batch
+
+
 class Dataset(tf.keras.utils.Sequence):
     """Dataset sequence."""
 
@@ -65,6 +96,7 @@ class Dataset(tf.keras.utils.Sequence):
         self,
         inputs: np.ndarray,
         targets: np.ndarray,
+        geo: Geometry,
         batch_size: int,
         smart_batching: bool = False,
         seed: int = 12345,
@@ -74,12 +106,14 @@ class Dataset(tf.keras.utils.Sequence):
         ----------
             - inputs: array of objects, each of shape=([nb hits], nb features)
             - targets: array of shape=(nb events)
+            - geo: object describing detector geometry
             - batch_size: the batch size
             - smart_batching: wether to sample with smart batch algorithm
             - seed: random generator seed for reproducibility
         """
         self.inputs = to_np(inputs)
         self.targets = targets
+        self.geo = geo
         self.batch_size = batch_size
         self.smart_batching = smart_batching
         self.seed = seed
@@ -89,7 +123,7 @@ class Dataset(tf.keras.utils.Sequence):
         self.sort_data()
         # Model.fit calls samples a batch first, spoiling the remaining batches
         self.is_first_pass = True
-
+    
     def sort_data(self):
         """
         Sorts inputs and targets according to increasing number of hits in
@@ -119,6 +153,15 @@ class Dataset(tf.keras.utils.Sequence):
                 - inputs batch of shape=(batch_size, maxlen, nb feats)
                 - mask batch of shape=(batch_size, maxlen, nb feats)
             - targets batch of shape=(batch_size,)
+        
+        Note
+        ----
+
+        The input feature axis contains the following data:
+            - normalized x coordinate [mm]
+            - normalized y coordinate [mm]
+            - normalized z coordinate [mm]
+            - normalized pixel energy value [MeV]
         """
         # smart batching
         if self.smart_batching:
@@ -128,7 +171,11 @@ class Dataset(tf.keras.utils.Sequence):
         batch_x = self.inputs[ii]
         batch_y = self.targets[ii]
         # for some reason the output requires explicit casting to tf.Tensors
-        return padding(batch_x), float_me(batch_y)
+        padded_batch, masks = padding(batch_x)
+        float_target = float_me(batch_y)
+
+        norm_batch = normalize_batch(padded_batch, self.geo)
+        return (norm_batch, masks), float_target
 
     def sample_smart_batch(self, idx: int) -> np.ndarray:
         """
@@ -201,6 +248,23 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     return pc
 
 
+def print_dataset_balance(dataset: Dataset, name: str):
+    """
+    Logs the dataset balancing between classes
+
+    Parameters
+    ----------
+        - dataset: the dataset to log
+        - name: the dataset name to be logged
+    """
+    nb_examples = dataset.data_len
+    positives = np.count_nonzero(dataset.targets)
+    logger.info(
+        f"{name} dataset balancing: {nb_examples} training points, "
+        f"of which {positives/nb_examples*100:.2f}% positives"
+    )
+
+
 def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     """
     Loads data for attention network
@@ -256,32 +320,16 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     train_generator = Dataset(
         inputs_train,
         targets_train,
+        geo,
         batch_size,
         smart_batching=True,
         seed=setup["seed"],
     )
-    val_generator = Dataset(inputs_val, targets_val, batch_size)
-    test_generator = Dataset(inputs_test, targets_test, batch_size)
+    val_generator = Dataset(inputs_val, targets_val, geo, batch_size)
+    test_generator = Dataset(inputs_test, targets_test, geo, batch_size)
 
     print_dataset_balance(train_generator, "Train")
     print_dataset_balance(val_generator, "Validation")
     print_dataset_balance(test_generator, "Test")
 
     return train_generator, val_generator, test_generator
-
-
-def print_dataset_balance(dataset: Dataset, name: str):
-    """
-    Logs the dataset balancing between classes
-
-    Parameters
-    ----------
-        - dataset: the dataset to log
-        - name: the dataset name to be logged
-    """
-    nb_examples = dataset.data_len
-    positives = np.count_nonzero(dataset.targets)
-    logger.info(
-        f"{name} dataset balancing: {nb_examples} training points, "
-        f"of which {positives/nb_examples*100:.2f}% positives"
-    )

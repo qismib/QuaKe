@@ -32,14 +32,15 @@ def load_and_compile_network(msetup: dict, run_tf_eagerly: bool) -> AttentionNet
         - the compiled network
     """
     lr = msetup["lr"]
+    opt_kwarg = {"clipvalue": 0.5}
     if msetup["optimizer"] == "Adam":
-        opt = Adam(learning_rate=lr)
+        opt = Adam(learning_rate=lr, **opt_kwarg)
     elif msetup["optimizer"] == "SGD":
-        opt = SGD(learning_rate=lr)
+        opt = SGD(learning_rate=lr, **opt_kwarg)
     elif msetup["optimizer"] == "RMSprop":
-        opt = RMSprop(learning_rate=lr)
+        opt = RMSprop(learning_rate=lr, **opt_kwarg)
     elif msetup["optimizer"] == "Adagrad":
-        opt = Adagrad(learning_rate=lr)
+        opt = Adagrad(learning_rate=lr, **opt_kwarg)
 
     network = AttentionNetwork(**msetup["net_dict"])
     loss = tf.keras.losses.BinaryCrossentropy(name="xent")
@@ -108,7 +109,8 @@ def train_network(
             log_dir=logdir,
             # write_graph=True,
             # write_images=True,
-            # histogram_freq=1,
+            # update_freq='batch',
+            # histogram_freq=5,
             # profile_batch=5,
         ),
     ]
@@ -158,5 +160,18 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     # training
     train_network(msetup, train_folder, network, (train_generator, val_generator))
 
-    # evaluation
-    network.evaluate(test_generator)
+    # inference
+    res = network.predict(test_generator)
+    tgts = test_generator.targets.astype(bool)
+    
+    import numpy as np
+    import matplotlib.pyplot as plt
+    scores_true = res[tgts]
+    scores_false = res[~tgts]
+
+    bins = np.linspace(0,1,101)
+    h_true, _ = np.histogram(scores_true, bins=bins)
+    h_false, _ = np.histogram(scores_false, bins=bins)
+    plt.hist(bins[:-1], bins, weights=h_true, histtype='step', lw=0.5, color='red')
+    plt.hist(bins[:-1], bins, weights=h_false, histtype='step', lw=0.5, color='green')
+    plt.show()

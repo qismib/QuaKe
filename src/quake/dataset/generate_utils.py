@@ -190,26 +190,31 @@ def tracks2histograms(
 
         yz_digits = y_digits * geo.nb_zbins + z_digits
         shape = (geo.nb_xbins, geo.nb_ybins * geo.nb_zbins)
-        cutoff = 0.1
+
+        # the csr_matrix automatically sums all the entries that fall in the
+        # same pixel
         hist = sparse.csr_matrix(
             (energy.to_numpy(), (x_digits, yz_digits)), shape=shape
         )
 
-        counter = np.histogramdd((x, y, z), bins=(geo.xbins, geo.ybins, geo.zbins))[0]
-        counter = sparse.csr_matrix(
-            counter.reshape(geo.xbins.shape[0] - 1, -1), shape=shape
-        )
+        # thresholding
+        cutoff = 0.1
+        rows, cols = hist.nonzero()
+        values = np.array(hist[rows, cols])[0]
 
-        mask = hist > cutoff
-        if mask.sum() != 0:
+        underflow = values < cutoff
+
+        # remove empty histograms
+        if not np.count_nonzero(~underflow):
+            continue
+
+        # threshold histograms
+        if np.count_nonzero(underflow):
+            values[underflow] = 0
             hist = sparse.csr_matrix(
-                (
-                    np.matrix.flatten(np.array(hist[sparse.find(mask)[0:2]])),
-                    (sparse.find(mask)[0], sparse.find(mask)[1]),
-                ),
-                shape=shape,
+                (values, (rows, cols)), shape=shape
             )
-            hists.append(hist.reshape(1, -1))
+        hists.append(hist.reshape(1, -1))
 
     hists = sparse.vstack(hists)
 

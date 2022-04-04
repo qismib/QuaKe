@@ -93,7 +93,10 @@ def preconfig_tf(setup: dict):
             tf.config.set_visible_devices(gpus, "GPU")
             logger.warning(f"Host device: GPU {gpus}")
         else:
+            tf.config.set_visible_devices([], "GPU")
             logger.warning("Host device: CPU")
+    else:
+        logger.warning("Host device: CPU")
 
     if setup.get("debug"):
         logger.warning("Run all tf functions eagerly")

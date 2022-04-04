@@ -1,3 +1,5 @@
+gpu: [0]
+
 # directories
 dataset_dir: !Path '../data_10.06.p01' # folder containing root files
 

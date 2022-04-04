@@ -1,3 +1,4 @@
+import argparse
 import numpy as np
 from quake.models.attention.attention_network import AttentionNetwork
 import tensorflow as tf
@@ -7,10 +8,10 @@ from quake.models.attention.attention_dataloading import Dataset
 from quake.models.attention.attention_network import AttentionNetwork
 
 
-def transform_data(images: np.ndarray) -> np.ndarray:
+def transform_data(images: np.ndarray, threshold: float) -> np.ndarray:
     pcs = []
     for i in range(len(images)):
-        coords = np.argwhere(images[i] > 0.5)
+        coords = np.argwhere(images[i] > threshold)
         values = images[i, coords[:, 0], coords[:, 1]]
         pos = (coords - 14) / 28
         pc = np.concatenate([pos, values.reshape(-1, 1)], axis=1)
@@ -19,9 +20,30 @@ def transform_data(images: np.ndarray) -> np.ndarray:
     return pcs
 
 
-def main(batch_size, seed):
+def main(batch_size, seed, dataset, threshold):
     # download dataset
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+    if dataset == "mnist":
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+        nb_classes = 10
+    elif dataset == "cifar100-coarse":
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar100.load_data(
+            "coarse"
+        )
+        nb_classes = 20
+    elif dataset == "cifa100-fine":
+        (x_train, y_train), (x_test, y_test) = tf.keras.datasets.cifar100.load_data(
+            "fine"
+        )
+        nb_classes = 100
+    else:
+        raise ValueError(f"Dataset not recognized, found {dataset}")
+
+    # greyscale the rgb images
+    if len(x_train.shape) == 4:
+        x_train = x_train.mean(-1)
+        y_train = y_train.flatten()
+        x_test = x_test.mean(-1)
+        y_test = y_test.flatten()
 
     # normalize
     x_train = x_train / 255.0
@@ -32,14 +54,16 @@ def main(batch_size, seed):
     )
 
     train_generator = Dataset(
-        transform_data(inputs_train),
+        transform_data(inputs_train, threshold),
         targets_train,
         batch_size,
         smart_batching=True,
         seed=seed,
     )
-    val_generator = Dataset(transform_data(inputs_val), targets_val, batch_size)
-    test_generator = Dataset(transform_data(x_test), y_test, batch_size)
+    val_generator = Dataset(
+        transform_data(inputs_val, threshold), targets_val, batch_size
+    )
+    test_generator = Dataset(transform_data(x_test, threshold), y_test, batch_size)
 
     tfK.clear_session()
 
@@ -52,7 +76,7 @@ def main(batch_size, seed):
             "nb_mha_heads": 4,
             "mha_filters": [8, 64, 128],
             "nb_fc_heads": 1,
-            "fc_filters": [64, 16, 10],
+            "fc_filters": [64, 64, nb_classes],
             "batch_size": 32,
             "activation": "relu",
             "alpha": 0.2,
@@ -76,7 +100,7 @@ def main(batch_size, seed):
     mask_inputs = tf.keras.Input(shape=(None, None), name="mask")
     inputs = [pc_inputs, mask_inputs]
     x = base_net.feature_extraction(inputs)
-    outputs = tf.keras.layers.Dense(10, activation="softmax")(x)
+    outputs = tf.keras.layers.Dense(nb_classes, activation="softmax")(x)
     network = tf.keras.Model(inputs, outputs)
 
     network.compile(
@@ -96,6 +120,17 @@ def main(batch_size, seed):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--dataset",
+        "-d",
+        help="the dataset to load",
+        default="mnist",
+        choices=["cifar100-fine", "cifar100-coarse", "mnist"],
+    )
+    parser.add_argument("--threshold", "-t", type=float, help="image threshold", default=0.95)
+    args = parser.parse_args()
+
     batch_size = 32
     seed = 42
-    main(batch_size, seed)
+    main(batch_size, seed, args.dataset, args.threshold)

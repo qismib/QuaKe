@@ -87,7 +87,7 @@ def get_image(
 
 
 def load_tracks(
-    name: Path, geo: Geometry, is_signal: bool = False, seed: int = 42
+    name: Path, geo: Geometry, is_signal: bool = False
 ) -> Tuple[ak.Array, ak.Array, ak.Array, ak.Array]:
     """
     Loads events from file. Returns tracks starting from origin plus a random
@@ -109,7 +109,6 @@ def load_tracks(
         - name: the name of the file to read the tracks features
         - geo: detector geometry object, to get the axis resolution
         - is_signal: wether to concatenate subsequent rows for signal tracks
-        - seed: random generator seed for code reproducibility
 
     Returns
     -------
@@ -118,7 +117,6 @@ def load_tracks(
         - z hit position of shape=(tracks, [hits])
         - hit energy of shape=(tracks, [hits])
     """
-    rng = np.random.default_rng(seed=seed)
     with uproot.open(name) as sig_root:
         qtree = sig_root["qtree"]
 
@@ -136,18 +134,6 @@ def load_tracks(
         zs = cat_fn(zs)
         Es = cat_fn(Es)
         tid = cat_fn(tid)
-
-    Xs = ak.sum(xs[tid == 1] * Es[tid == 1], axis=1) / ak.sum(Es[tid == 1], axis=1)
-    Ys = ak.sum(ys[tid == 1] * Es[tid == 1], axis=1) / ak.sum(Es[tid == 1], axis=1)
-    Zs = ak.sum(zs[tid == 1] * Es[tid == 1], axis=1) / ak.sum(Es[tid == 1], axis=1)
-
-    normalize = (
-        lambda arr, shift, bw: arr - shift + rng.uniform(low=-bw, high=bw, size=1000)
-    )
-
-    xs = normalize(xs, Xs, geo.xbin_w)
-    ys = normalize(ys, Ys, geo.ybin_w)
-    zs = normalize(zs, Zs, geo.zbin_w)
     return xs, ys, zs, Es
 
 
@@ -198,7 +184,7 @@ def tracks2histograms(
         )
 
         # thresholding
-        cutoff = 0.1
+        cutoff = 0.1  # energy sensibility in MeV
         rows, cols = hist.nonzero()
         values = np.array(hist[rows, cols])[0]
 
@@ -211,9 +197,7 @@ def tracks2histograms(
         # threshold histograms
         if np.count_nonzero(underflow):
             values[underflow] = 0
-            hist = sparse.csr_matrix(
-                (values, (rows, cols)), shape=shape
-            )
+            hist = sparse.csr_matrix((values, (rows, cols)), shape=shape)
         hists.append(hist.reshape(1, -1))
 
     hists = sparse.vstack(hists)

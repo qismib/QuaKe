@@ -3,9 +3,9 @@ dataset_dir: !Path '../data_10.06.p01' # folder containing root files
 
 # geometry
 detector:
-  xlim: [-20, 20] # x boundaries in mm
-  ylim: [-20, 20] # y boundaries in mm
-  zlim: [-20, 20] # z boundaries in mm
+  xlim: [-250, 250] # x boundaries in mm
+  ylim: [-250, 250] # y boundaries in mm
+  zlim: [-250, 250] # z boundaries in mm
   resolution: [5, 5, 1] # [x, y, z] resolution in mm
 
 model:
@@ -21,10 +21,10 @@ model:
     net_dict:
       f_dims: 4
       nb_mha_heads: 4
-      mha_filters: [8, 16, 32]
-      nb_fc_heads: 4
-      fc_filters: [32]
-      batch_size: 8
+      mha_filters: [8, 64, 128]
+      nb_fc_heads: 1
+      fc_filters: [64, 16, 2]
+      batch_size: 32
       activation: relu
       alpha: 0.2
       dropout_rate: 0.0

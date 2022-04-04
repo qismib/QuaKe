@@ -2,12 +2,12 @@
 import tensorflow as tf
 from tensorflow.keras.layers import (
     Layer,
-    LayerNormalization,
     BatchNormalization,
     Dropout,
     Dense,
     MultiHeadAttention,
 )
+from quake.utils.configflow import TF_PI
 
 
 class LBA(Layer):
@@ -221,3 +221,67 @@ class Head(Layer):
             }
         )
         return config
+
+
+def get_batched_rotations(angles: tf.Tensor) -> tf.Tensor:
+    """
+    Returns the (3+1)d spatial rotation given batched arrays of angles. Fourth axis
+    remains unchanged as it contains hit energies.
+    Parameters
+    ----------
+        - angles: batch of three rotation angles of shape=(batch_size, 3)
+    Returns
+    -------
+        - batch of (3+1)d rotations of shape=(batch_size, 4, 4)
+    """
+    cos = tf.math.cos(angles)
+    sin = tf.math.sin(angles)
+    zeros = tf.zeros_like(angles[:, 0])
+    ones = tf.ones_like(angles[:, 0])
+    rot = [0.0] * 4
+    rot[0] = tf.stack(
+        [
+            cos[:, 0] * cos[:, 1],
+            cos[:, 0] * sin[:, 1] * sin[:, 2] - sin[:, 0] * cos[:, 2],
+            cos[:, 0] * sin[:, 1] * cos[:, 2] + sin[:, 0] * sin[:, 2],
+            zeros,
+        ],
+        axis=-1,
+    )
+    rot[1] = tf.stack(
+        [
+            sin[:, 0] * cos[:, 1],
+            sin[:, 0] * sin[:, 1] * sin[:, 2] + cos[:, 0] * cos[:, 2],
+            sin[:, 0] * sin[:, 1] * cos[:, 2] - cos[:, 0] * sin[:, 2],
+            zeros,
+        ],
+        axis=-1,
+    )
+    rot[2] = tf.stack(
+        [-sin[:, 1], cos[:, 1] * sin[:, 2], cos[:, 1] * cos[:, 2], zeros], axis=-1
+    )
+    rot[3] = tf.stack([zeros, zeros, zeros, ones], axis=-1)
+    rot = tf.stack(rot, axis=1)
+    return rot
+
+
+def apply_random_rotation(pc: tf.Tensor) -> tf.Tensor:
+    """
+    Rotates inputs in the 3D space. This rigid transformations ensure that the
+    network learns the geometric structure of the given point cloud, rather than
+    memorizing the point positions.
+    This function draws two angles in the [0,pi]x[0,2*pi] space.
+    Parameters
+    ----------
+        - pc: point cloud of shape=(B, max len, nb feats). Three feats are the
+              xyz coordinates, while the last one is the energy and should not
+              be modified
+    Returns
+    -------
+        - the rotated point cloud
+    """
+    batch_size = tf.shape(pc)[0]
+    angles = tf.random.uniform([batch_size, 3], maxval=2 * TF_PI)
+    rot = get_batched_rotations(angles)
+    rot_pc = tf.einsum("ijk,ilk->ijl", pc, rot)
+    return rot_pc

@@ -79,30 +79,32 @@ def preconfig_tf(setup: dict):
     import tensorflow as tf
 
     gpus = tf.config.list_physical_devices("GPU")
-    if len(gpus) == 0:
-        return
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
-    gpus = setup.get("gpu")
-    if gpus:
-        if isinstance(gpus, int):
-            gpus = [gpus]
-        gpus = [
-            tf.config.PhysicalDevice(f"/physical_device:GPU:{gpu}", "GPU")
-            for gpu in gpus
-        ]
-        tf.config.set_visible_devices(gpus, "GPU")
-        logger.warning(f"Host device: GPU {gpus}")
-    else:
-        logger.warning("Host device: CPU")
+    if len(gpus):
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        gpus = setup.get("gpu")
+        if gpus:
+            if isinstance(gpus, int):
+                gpus = [gpus]
+            gpus = [
+                tf.config.PhysicalDevice(f"/physical_device:GPU:{gpu}", "GPU")
+                for gpu in gpus
+            ]
+            tf.config.set_visible_devices(gpus, "GPU")
+            logger.warning(f"Host device: GPU {gpus}")
+        else:
+            logger.warning("Host device: CPU")
 
     if setup.get("debug"):
         logger.warning("Run all tf functions eagerly")
         tf.config.run_functions_eagerly(True)
 
+    from quake.utils.configflow import set_manual_seed_tf
+
+    set_manual_seed_tf(setup.get("seed"))
+
 
 def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dict):
-    print()
     """
     Training main function that triggers model's training.
     The specific training function must implement the following steps:

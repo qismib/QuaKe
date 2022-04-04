@@ -18,8 +18,9 @@ logger = logging.getLogger(PACKAGE + ".attention")
 to_np = lambda x: np.array(x, dtype=object)
 
 # no standardization on energy feature
-ENERGY_MEAN = 0.
-ENERGY_STD = 1.
+ENERGY_MEAN = 0.0
+ENERGY_STD = 1.0
+
 
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     """
@@ -75,14 +76,13 @@ def normalize_batch(batch: tf.Tensor, geo: Geometry) -> tf.Tensor:
     -------
         - the normalized batch of shape=(batch_size, maxlen, nb feats)
     """
-
     min_pts = np.array([geo.xmin, geo.ymin, geo.zmin])
     max_pts = np.array([geo.xmax, geo.ymax, geo.zmax])
 
     mids = (max_pts + min_pts) / 2
     subs = float_me(np.concatenate([mids, [ENERGY_MEAN]])[None])
 
-    demi_ranges =  (max_pts - min_pts) / 2
+    demi_ranges = (max_pts - min_pts) / 2
     divs = float_me(np.concatenate([demi_ranges, [ENERGY_STD]])[None])
 
     normalized_batch = (batch - subs) / divs
@@ -123,7 +123,7 @@ class Dataset(tf.keras.utils.Sequence):
         self.sort_data()
         # Model.fit calls samples a batch first, spoiling the remaining batches
         self.is_first_pass = True
-    
+
     def sort_data(self):
         """
         Sorts inputs and targets according to increasing number of hits in
@@ -153,7 +153,7 @@ class Dataset(tf.keras.utils.Sequence):
                 - inputs batch of shape=(batch_size, maxlen, nb feats)
                 - mask batch of shape=(batch_size, maxlen, nb feats)
             - targets batch of shape=(batch_size,)
-        
+
         Note
         ----
 
@@ -325,6 +325,23 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
         smart_batching=True,
         seed=setup["seed"],
     )
+
+    # import matplotlib.pyplot as plt
+    # (inp, mask), _ = train_generator[0]
+    # ev = 2
+    # fig = plt.figure()
+    # ax = fig.add_subplot(projection='3d')
+    # print(inp[ev])
+    # print(mask[ev])
+    # ax.title.set_text(
+    #     f"Event number of points: {inp.shape[1]}\n"
+    #     f"Bin width {np.array(geo.bin_w)/(geo.xmax-geo.xmin)*2}"
+    # )
+    # im = ax.scatter(inp[ev,:,0], inp[ev,:,1], inp[ev,:,2], c=inp[ev,:,-1], s=10)
+    # plt.colorbar(im)
+    # plt.show()
+    # exit()
+
     val_generator = Dataset(inputs_val, targets_val, geo, batch_size)
     test_generator = Dataset(inputs_test, targets_test, geo, batch_size)
 

@@ -6,7 +6,7 @@ from tensorflow.keras.layers import Dense
 from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
 from .AbstractNet import AbstractNet
-from .layers import TransformerEncoder, Head, LBA, LBAD
+from .layers import TransformerEncoder, Head, LBA, LBAD, apply_random_rotation
 
 logger = logging.getLogger(PACKAGE + ".attention")
 
@@ -79,14 +79,10 @@ class AttentionNetwork(AbstractNet):
 
         for i, (fin, fout) in enumerate(zip(fins, fouts)):
             # attention layers
-            self.mhas.append(
-                TransformerEncoder(fin, self.nb_mha_heads, name=f"mha_{i}")
-            )
+            self.mhas.append(TransformerEncoder(fin, self.nb_mha_heads, name=f"Mha{i}"))
             # encoding layers (responsible of changing the feature axis dimension)
             self.encoding.append(
-                ff_layer(
-                    fout, self.activation, self.alpha, name=f"enc_{i}", **ff_kwargs
-                )
+                ff_layer(fout, self.activation, self.alpha, name=f"Enc{i}", **ff_kwargs)
             )
 
         # decoding layers
@@ -96,12 +92,12 @@ class AttentionNetwork(AbstractNet):
                 self.activation,
                 self.alpha,
                 self.dropout_rate,
-                name=f"dec_{i}",
+                name=f"Dec{i}",
             )
             for i in range(self.nb_fc_heads)
         ]
 
-        self.final = Dense(1, name="final")
+        self.final = Dense(1, name="FC")
 
         # explicitly build network weights
         build_with_shape = ((None, self.f_dims), (None, None))
@@ -112,24 +108,30 @@ class AttentionNetwork(AbstractNet):
         ]
         super(AttentionNetwork, self).build(batched_shape)
 
-    def call(self, inputs: Tuple[tf.Tensor, tf.Tensor]) -> tf.Tensor:
+    def call(
+        self, inputs: Tuple[tf.Tensor, tf.Tensor], training: bool = None
+    ) -> tf.Tensor:
         """
         Parameters
         ----------
             - inputs
                 - point cloud of hits of shape=(batch,[nb hits],f_dims)
                 - mask tensor of shape=(batch,[nb hits],f_dims)
+            - training: wether network is in training or inference mode
         Returns
         -------
             - merging probability of shape=(batch,)
         """
         x, mask = inputs
+        # rotate the point cloud by a random angle to enforce the
+        if training:
+            x = apply_random_rotation(x)
         for mha, enc in zip(self.mhas, self.encoding):
             x = mha(x, attention_mask=mask)
             x = enc(x)
 
-        # TODO: think about replacing it with max-pooling and average-pooling
-        # ops before reducing everything
+        # max pooling results in a function symmetric wrt its inputs
+        # the bottleneck is the width of the last encoding layer
         x = tf.reduce_max(x, axis=1)
 
         results = []

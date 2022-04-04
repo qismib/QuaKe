@@ -161,17 +161,20 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     train_network(msetup, train_folder, network, (train_generator, val_generator))
 
     # inference
+    network.evaluate(test_generator)
+
     res = network.predict(test_generator)
     tgts = test_generator.targets.astype(bool)
-    
+
     import numpy as np
     import matplotlib.pyplot as plt
+
     scores_true = res[tgts]
     scores_false = res[~tgts]
 
-    bins = np.linspace(0,1,101)
+    bins = np.linspace(0, 1, 101)
     h_true, _ = np.histogram(scores_true, bins=bins)
     h_false, _ = np.histogram(scores_false, bins=bins)
-    plt.hist(bins[:-1], bins, weights=h_true, histtype='step', lw=0.5, color='red')
-    plt.hist(bins[:-1], bins, weights=h_false, histtype='step', lw=0.5, color='green')
+    plt.hist(bins[:-1], bins, weights=h_true, histtype="step", lw=0.5, color="red")
+    plt.hist(bins[:-1], bins, weights=h_false, histtype="step", lw=0.5, color="green")
     plt.show()

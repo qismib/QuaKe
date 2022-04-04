@@ -96,8 +96,8 @@ class Dataset(tf.keras.utils.Sequence):
         self,
         inputs: np.ndarray,
         targets: np.ndarray,
-        geo: Geometry,
         batch_size: int,
+        geo: Geometry = None,
         smart_batching: bool = False,
         seed: int = 12345,
     ):
@@ -106,15 +106,15 @@ class Dataset(tf.keras.utils.Sequence):
         ----------
             - inputs: array of objects, each of shape=([nb hits], nb features)
             - targets: array of shape=(nb events)
-            - geo: object describing detector geometry
             - batch_size: the batch size
+            - geo: object describing detector geometry
             - smart_batching: wether to sample with smart batch algorithm
             - seed: random generator seed for reproducibility
         """
         self.inputs = to_np(inputs)
         self.targets = targets
-        self.geo = geo
         self.batch_size = batch_size
+        self.geo = geo
         self.smart_batching = smart_batching
         self.seed = seed
         self.data_len = len(self.targets)
@@ -174,7 +174,11 @@ class Dataset(tf.keras.utils.Sequence):
         padded_batch, masks = padding(batch_x)
         float_target = float_me(batch_y)
 
-        norm_batch = normalize_batch(padded_batch, self.geo)
+        norm_batch = (
+            normalize_batch(padded_batch, self.geo)
+            if self.geo is not None
+            else padded_batch
+        )
         return (norm_batch, masks), float_target
 
     def sample_smart_batch(self, idx: int) -> np.ndarray:

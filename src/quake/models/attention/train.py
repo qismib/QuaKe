@@ -18,7 +18,9 @@ from quake import PACKAGE
 logger = logging.getLogger(PACKAGE + ".attention")
 
 
-def load_and_compile_network(msetup: dict, run_tf_eagerly: bool) -> AttentionNetwork:
+def load_and_compile_network(
+    msetup: dict, run_tf_eagerly: bool = False
+) -> AttentionNetwork:
     """
     Loads and compiles attention network.
 

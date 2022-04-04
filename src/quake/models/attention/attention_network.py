@@ -1,12 +1,20 @@
 import logging
 from typing import Tuple
+from quake.models.train import train
 import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
 from .AbstractNet import AbstractNet
-from .layers import TransformerEncoder, Head, LBA, LBAD, apply_random_rotation
+from .layers import (
+    TransformerEncoder,
+    Head,
+    LBA,
+    LBAD,
+    apply_random_rotation_2d,
+    apply_random_rotation_3d,
+)
 
 logger = logging.getLogger(PACKAGE + ".attention")
 
@@ -25,6 +33,7 @@ class AttentionNetwork(AbstractNet):
     def __init__(
         self,
         f_dims: int = 4,
+        spatial_dims: int = 3,
         nb_mha_heads: int = 2,
         mha_filters: list = [8, 16],
         nb_fc_heads: int = 2,
@@ -42,6 +51,7 @@ class AttentionNetwork(AbstractNet):
         Parameters
         ----------
             - f_dims: number of point cloud feature dimensions
+            - spatial_dims: number of point cloud spatial feature dimensions
             - nb_mha_heads: the number of heads in the `MultiHeadAttention` layer
             - mha_filters: the output units for each `MultiHeadAttention` in the stack
             - nb_fc_heads: the number of `Head` layers to be concatenated
@@ -58,6 +68,7 @@ class AttentionNetwork(AbstractNet):
 
         # store args
         self.f_dims = f_dims
+        self.spatial_dims = spatial_dims
         self.nb_mha_heads = nb_mha_heads
         self.mha_filters = mha_filters
         self.nb_fc_heads = nb_fc_heads
@@ -68,6 +79,12 @@ class AttentionNetwork(AbstractNet):
         self.dropout_rate = dropout_rate
         self.use_bias = use_bias
         self.verbose = verbose
+
+        self.apply_random_rotation = (
+            apply_random_rotation_2d
+            if self.spatial_dims == 2
+            else apply_random_rotation_3d
+        )
 
         self.mhas = []
         self.encoding = []
@@ -97,7 +114,7 @@ class AttentionNetwork(AbstractNet):
             for i in range(self.nb_fc_heads)
         ]
 
-        self.final = Dense(1, name="FC")
+        self.final = Dense(1, name="Final")
 
         # explicitly build network weights
         build_with_shape = ((None, self.f_dims), (None, None))
@@ -122,10 +139,28 @@ class AttentionNetwork(AbstractNet):
         -------
             - merging probability of shape=(batch,)
         """
+        output = self.feature_extraction(inputs, training=training)
+        output = self.final(output)
+        output = tf.squeeze(sigmoid(output), axis=-1)
+        return output
+
+    def feature_extraction(
+        self, inputs: Tuple[tf.Tensor, tf.Tensor], training: bool = None
+    ) -> tf.Tensor:
+        """
+        This function provides the forward pass for feature extraction. The
+        downstream classification is independent.
+        Parameters
+        ----------
+            - inputs
+                - point cloud of hits of shape=(batch,[nb hits],f_dims)
+                - mask tensor of shape=(batch,[nb hits],f_dims)
+            - training: wether network is in training or inference mode
+        """
         x, mask = inputs
         # rotate the point cloud by a random angle to enforce the
         if training:
-            x = apply_random_rotation(x)
+            x = self.apply_random_rotation(x)
         for mha, enc in zip(self.mhas, self.encoding):
             x = mha(x, attention_mask=mask)
             x = enc(x)
@@ -140,7 +175,6 @@ class AttentionNetwork(AbstractNet):
 
         output = tf.stack(results, axis=-1)
         output = tf.reduce_mean(output, axis=-1)
-        output = tf.squeeze(sigmoid(self.final(output)), axis=-1)
         return output
 
     def overload_train_step(self, data):

@@ -22,6 +22,7 @@ model:
     es_patience: 100 # early stopping patience
     net_dict:
       f_dims: 4
+      spatial_dims: 3
       nb_mha_heads: 4
       mha_filters: [8, 64, 128]
       nb_fc_heads: 1

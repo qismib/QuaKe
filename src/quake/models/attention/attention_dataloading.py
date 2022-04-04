@@ -324,8 +324,8 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     train_generator = Dataset(
         inputs_train,
         targets_train,
-        geo,
         batch_size,
+        geo=geo,
         smart_batching=True,
         seed=setup["seed"],
     )
@@ -346,8 +346,8 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     # plt.show()
     # exit()
 
-    val_generator = Dataset(inputs_val, targets_val, geo, batch_size)
-    test_generator = Dataset(inputs_test, targets_test, geo, batch_size)
+    val_generator = Dataset(inputs_val, targets_val, batch_size, geo=geo)
+    test_generator = Dataset(inputs_test, targets_test, batch_size, geo=geo)
 
     print_dataset_balance(train_generator, "Train")
     print_dataset_balance(val_generator, "Validation")

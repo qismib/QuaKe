@@ -35,13 +35,13 @@ def load_and_compile_network(
     """
     lr = msetup["lr"]
     opt_kwarg = {"clipvalue": 0.5}
-    if msetup["optimizer"] == "Adam":
+    if msetup["optimizer"].lower() == "adam":
         opt = Adam(learning_rate=lr, **opt_kwarg)
-    elif msetup["optimizer"] == "SGD":
+    elif msetup["optimizer"].lower() == "sgd":
         opt = SGD(learning_rate=lr, **opt_kwarg)
-    elif msetup["optimizer"] == "RMSprop":
+    elif msetup["optimizer"].lower() == "rmsprop":
         opt = RMSprop(learning_rate=lr, **opt_kwarg)
-    elif msetup["optimizer"] == "Adagrad":
+    elif msetup["optimizer"].lower() == "adagrad":
         opt = Adagrad(learning_rate=lr, **opt_kwarg)
 
     network = AttentionNetwork(**msetup["net_dict"])

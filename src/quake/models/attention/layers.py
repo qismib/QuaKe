@@ -261,7 +261,7 @@ def get_batched_rotations_3d(angles: tf.Tensor) -> tf.Tensor:
     sin = tf.math.sin(angles)
     zeros = tf.zeros_like(angles[:, 0])
     ones = tf.ones_like(angles[:, 0])
-    rot = [0.0] * 3
+    rot = [0.0] * 4
     rot[0] = tf.stack(
         [
             cos[:, 0],

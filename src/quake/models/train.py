@@ -125,15 +125,9 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
 
     if modeltype == "svm":
         logger.info("Training SVM")
-        SVM_train(
-            data_folder,
-            setup["model"]["cnn"],
-            setup["model"]["svm"]["extrafeats"],
-            setup["detector"],
-        )
+        SVM_train(data_folder, setup)
     elif modeltype == "cnn":
         logger.info("Training CNN")
-        # CNN_train(data_folder, setup["model"]["cnn"], setup["seed"], setup["detector"])
         CNN_train(data_folder, setup)
     elif modeltype == "attention":
         logger.info("Training Attention Network")

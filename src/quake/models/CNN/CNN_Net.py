@@ -5,19 +5,28 @@ from tensorflow.keras.layers import Dense, Flatten, Dropout, Conv2D
 from tensorflow.keras.layers import LeakyReLU, Concatenate, Input
 
 
-def buildCNN(s_tr, opts: dict):
-    lr = opts["lr"]
-    feature_number = opts["feature_number"]
-    alpha = opts["alpha"]
-    dropout_rate = opts["dropout_rate"]
+def buildCNN(set, setup: dict):
+    """
+    Returns the CNN's architecture
 
-    input1 = Input((s_tr[0].shape[1:]))
-    input2 = Input((s_tr[1].shape[1:]))
-    input3 = Input((s_tr[2].shape[1:]))
+    Parameters
+    ----------
+        - set: dataset: 2D projections of voxelized data
+        - setup: settings dictionary
+    """
+    set_train = set[0]
+    lr = setup["model"]["cnn"]["lr"]
+    feature_number = setup["model"]["cnn"]["feature_number"]
+    alpha = setup["model"]["cnn"]["alpha"]
+    dropout_rate = setup["model"]["cnn"]["dropout_rate"]
 
-    d1 = convblocks(input1, 3, alpha, dropout_rate)
-    d2 = convblocks(input2, 3, alpha, dropout_rate)
-    d3 = convblocks(input3, 3, alpha, dropout_rate)
+    input1 = Input((set_train[0].shape[1:]))
+    input2 = Input((set_train[1].shape[1:]))
+    input3 = Input((set_train[2].shape[1:]))
+
+    d1 = convblocks(input1, 2, alpha, dropout_rate)
+    d2 = convblocks(input2, 2, alpha, dropout_rate)
+    d3 = convblocks(input3, 2, alpha, dropout_rate)
 
     f1 = Flatten()(d1)
     f2 = Flatten()(d2)
@@ -36,20 +45,30 @@ def buildCNN(s_tr, opts: dict):
     model.compile(
         loss=categorical_crossentropy, optimizer=Adam(lr), metrics=["accuracy"]
     )
+    model.summary()
     return model
 
 
 def convblocks(input_layer, iterations, alpha, dropout_rate):
-    c = list()
-    l = list()
-    d = list()
+    """
+    Returns sequences of convolutional-activation-dropout layers blocks
 
-    c.append(Conv2D(50, kernel_size=(2, 2))(input_layer))
+    Parameters
+    ----------
+        - input_layer: first layer of the Neural Network
+        - iterations: number of blocks
+        - alpha: ReLU leakage parameter
+        - dropout_rate: dropout strength
+    """
+    conv = list()
+    leaky = list()
+    drop = list()
+
     for i in range(0, iterations):
         if i == 0:
-            c.append(Conv2D(50, kernel_size=(2, 2))(input_layer))
+            conv.append(Conv2D(50, kernel_size=(2, 2))(input_layer))
         else:
-            c.append(Conv2D(50, kernel_size=(2, 2))(d[i - 1]))
-        l.append(LeakyReLU(alpha=alpha)(c[i]))
-        d.append(Dropout(dropout_rate)(l[i]))
-    return d[-1]
+            conv.append(Conv2D(50, kernel_size=(2, 2))(drop[i - 1]))
+        leaky.append(LeakyReLU(alpha=alpha)(conv[i]))
+        drop.append(Dropout(dropout_rate)(leaky[i]))
+    return drop[-1]

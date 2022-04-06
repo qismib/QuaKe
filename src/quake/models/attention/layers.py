@@ -25,9 +25,12 @@ class LBA(Layer):
         self.act = act
         self.alpha = alpha
 
-        self.linear = Dense(self.units, name="linear")
+        self.linear = Dense(
+            self.units,
+            name="linear",  # kernel_regularizer="l2", bias_regularizer="l2",
+        )
         self.activation = tf.keras.activations.get(self.act)
-        self.batchnorm = BatchNormalization(name="batchnorm")
+        # self.batchnorm = BatchNormalization(name="batchnorm")
 
     def build(self, input_shape):
         super().build(input_shape)
@@ -43,7 +46,7 @@ class LBA(Layer):
             - output tensor of shape=(B, ..., do)
         """
         x = self.linear(inputs)
-        x = self.batchnorm(x)
+        # x = self.batchnorm(x)
         if self.act == "relu":
             x = self.activation(x, alpha=self.alpha)
         else:
@@ -128,16 +131,34 @@ class TransformerEncoder(Layer):
         self.units = units
         self.mha_heads = mha_heads
 
-        self.mha = MultiHeadAttention(self.mha_heads, self.units, name="mha")
+        self.mha = MultiHeadAttention(
+            self.mha_heads,
+            self.units,
+            name="mha",
+            # kernel_regularizer="l2",
+            # bias_regularizer="l2",
+        )
 
         # self.norm0 = LayerNormalization(axis=-1, name="ln_0")
-        self.norm0 = BatchNormalization(axis=-1, name="bn_0")
+        # self.norm0 = BatchNormalization(axis=-1, name="bn_0")
 
-        self.fc0 = Dense(units, activation="relu", name="mlp_0")
-        self.fc1 = Dense(units, activation="relu", name="mlp_1")
+        self.fc0 = Dense(
+            units,
+            activation="relu",
+            name="mlp_0",
+            # kernel_regularizer="l2",
+            # bias_regularizer="l2",
+        )
+        self.fc1 = Dense(
+            units,
+            activation="relu",
+            name="mlp_1",
+            # kernel_regularizer="l2",
+            # bias_regularizer="l2",
+        )
 
         # self.norm1 = LayerNormalization(axis=-1, name="ln_1")
-        self.norm1 = BatchNormalization(axis=-1, name="bn_1")
+        # self.norm1 = BatchNormalization(axis=-1, name="bn_1")
 
     def build(self, input_shape):
         super(TransformerEncoder, self).build(input_shape)
@@ -153,10 +174,10 @@ class TransformerEncoder(Layer):
             - output tensor of shape=(B, L, d_in)
         """
         x += self.mha(x, x, attention_mask=attention_mask)
-        x = self.norm0(x)
+        # x = self.norm0(x)
         x += self.fc1(self.fc0(x))
-        output = self.norm1(x)
-        return output
+        # x = self.norm1(x)
+        return x
 
     def get_config(self) -> dict:
         return {"units": self.units, "mha_heads": self.mha_heads}

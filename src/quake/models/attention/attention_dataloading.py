@@ -17,10 +17,6 @@ from quake.utils.configflow import float_me
 logger = logging.getLogger(PACKAGE + ".attention")
 to_np = lambda x: np.array(x, dtype=object)
 
-# no standardization on energy feature
-ENERGY_MEAN = 0.0
-ENERGY_STD = 1.0
-
 
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
     """
@@ -62,31 +58,23 @@ def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     return float_me(rows), float_me(masks)
 
 
-def normalize_batch(batch: tf.Tensor, geo: Geometry) -> tf.Tensor:
+def standardize_batch(batch: tf.Tensor, mus: tf.Tensor, sigmas: tf.Tensor) -> tf.Tensor:
     """
-    Normalize input datapoints. Scale the coordinates to constrain the point
-    cloud into the unitary 3D box.
-    Standardize the energy to have unit standard deviation.
+    Standardize input features to have zero mean and unit standard deviation.
 
     Parameters
     ----------
-        - batch: inputs batch of shape=(batch_size, maxlen, nb feats)
-        - geo: object describing detector geometry
+        - inptus: inputs batch of shape=(events), each of shape=([nb hits], nb feats)
+        - mus: the feature means of shape=(nb_feats,)
+        - sigmas: the feature standard deviations of shape=(nb_feats,)
     Returns
     -------
         - the normalized batch of shape=(batch_size, maxlen, nb feats)
     """
-    min_pts = np.array([geo.xmin, geo.ymin, geo.zmin])
-    max_pts = np.array([geo.xmax, geo.ymax, geo.zmax])
-
-    mids = (max_pts + min_pts) / 2
-    subs = float_me(np.concatenate([mids, [ENERGY_MEAN]])[None])
-
-    demi_ranges = (max_pts - min_pts) / 2
-    divs = float_me(np.concatenate([demi_ranges, [ENERGY_STD]])[None])
-
-    normalized_batch = (batch - subs) / divs
-    return normalized_batch
+    mus = tf.expand_dims(mus, axis=0)
+    sigmas = tf.expand_dims(sigmas, axis=0)
+    z_scores = (batch - mus) / sigmas
+    return z_scores
 
 
 class Dataset(tf.keras.utils.Sequence):
@@ -97,8 +85,10 @@ class Dataset(tf.keras.utils.Sequence):
         inputs: np.ndarray,
         targets: np.ndarray,
         batch_size: int,
-        geo: Geometry = None,
         smart_batching: bool = False,
+        should_standardize: bool = True,
+        mus: tf.Tensor = None,
+        sigmas: tf.Tensor = None,
         seed: int = 12345,
     ):
         """
@@ -107,16 +97,29 @@ class Dataset(tf.keras.utils.Sequence):
             - inputs: array of objects, each of shape=([nb hits], nb features)
             - targets: array of shape=(nb events)
             - batch_size: the batch size
-            - geo: object describing detector geometry
             - smart_batching: wether to sample with smart batch algorithm
+            - should_standardize: wether to standardize the inputs or not
+            - mus: the features means of shape=(nb features)
+            - stds: the features standard deviations of shape=(nb features)
             - seed: random generator seed for reproducibility
         """
         self.inputs = to_np(inputs)
         self.targets = targets
         self.batch_size = batch_size
-        self.geo = geo
         self.smart_batching = smart_batching
+        self.should_standardize = should_standardize
+        self.mus = mus
+        self.sigmas = sigmas
         self.seed = seed
+
+        self.nb_features = self.inputs[0].shape[-1]
+
+        if self.should_standardize:
+            if self.mus is None or self.sigmas is None:
+                data = np.concatenate(self.inputs).reshape([-1, self.nb_features])
+                self.mus = float_me(data.mean(0))
+                self.sigmas = float_me(data.std(0))
+
         self.data_len = len(self.targets)
         self.available_idxs = np.arange(self.data_len)
         self.rng = np.random.default_rng(self.seed) if self.smart_batching else None
@@ -175,10 +178,11 @@ class Dataset(tf.keras.utils.Sequence):
         float_target = float_me(batch_y)
 
         norm_batch = (
-            normalize_batch(padded_batch, self.geo)
-            if self.geo is not None
+            standardize_batch(padded_batch, self.mus, self.sigmas)
+            if self.should_standardize
             else padded_batch
         )
+
         return (norm_batch, masks), float_target
 
     def sample_smart_batch(self, idx: int) -> np.ndarray:
@@ -325,29 +329,30 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
         inputs_train,
         targets_train,
         batch_size,
-        geo=geo,
         smart_batching=True,
+        should_standardize=True,
         seed=setup["seed"],
     )
 
-    # import matplotlib.pyplot as plt
-    # (inp, mask), _ = train_generator[0]
-    # ev = 2
-    # fig = plt.figure()
-    # ax = fig.add_subplot(projection='3d')
-    # print(inp[ev])
-    # print(mask[ev])
-    # ax.title.set_text(
-    #     f"Event number of points: {inp.shape[1]}\n"
-    #     f"Bin width {np.array(geo.bin_w)/(geo.xmax-geo.xmin)*2}"
-    # )
-    # im = ax.scatter(inp[ev,:,0], inp[ev,:,1], inp[ev,:,2], c=inp[ev,:,-1], s=10)
-    # plt.colorbar(im)
-    # plt.show()
-    # exit()
+    mus = train_generator.mus
+    sigmas = train_generator.sigmas
 
-    val_generator = Dataset(inputs_val, targets_val, batch_size, geo=geo)
-    test_generator = Dataset(inputs_test, targets_test, batch_size, geo=geo)
+    val_generator = Dataset(
+        inputs_val,
+        targets_val,
+        batch_size,
+        should_standardize=True,
+        mus=mus,
+        sigmas=sigmas,
+    )
+    test_generator = Dataset(
+        inputs_test,
+        targets_test,
+        batch_size,
+        should_standardize=True,
+        mus=mus,
+        sigmas=sigmas,
+    )
 
     print_dataset_balance(train_generator, "Train")
     print_dataset_balance(val_generator, "Validation")

@@ -1,6 +1,5 @@
 import logging
-from typing import Tuple
-from quake.models.train import train
+from typing import Tuple, List
 import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
@@ -126,7 +125,10 @@ class AttentionNetwork(AbstractNet):
         super(AttentionNetwork, self).build(batched_shape)
 
     def call(
-        self, inputs: Tuple[tf.Tensor, tf.Tensor], training: bool = None
+        self,
+        inputs: Tuple[tf.Tensor, tf.Tensor],
+        training: bool = None,
+        return_features: bool = False,
     ) -> tf.Tensor:
         """
         Parameters
@@ -135,13 +137,16 @@ class AttentionNetwork(AbstractNet):
                 - point cloud of hits of shape=(batch,[nb hits],f_dims)
                 - mask tensor of shape=(batch,[nb hits],f_dims)
             - training: wether network is in training or inference mode
+
         Returns
         -------
             - merging probability of shape=(batch,)
         """
-        output = self.feature_extraction(inputs, training=training)
-        output = self.final(output)
+        features = self.feature_extraction(inputs, training=training)
+        output = self.final(features)
         output = tf.squeeze(sigmoid(output), axis=-1)
+        if return_features:
+            return output, features
         return output
 
     def feature_extraction(
@@ -150,17 +155,24 @@ class AttentionNetwork(AbstractNet):
         """
         This function provides the forward pass for feature extraction. The
         downstream classification is independent.
+        The number of extracted feature per event is the number of neurons in
+        the last Head-type layer in the network.
+
         Parameters
         ----------
             - inputs
                 - point cloud of hits of shape=(batch,[nb hits],f_dims)
                 - mask tensor of shape=(batch,[nb hits],f_dims)
             - training: wether network is in training or inference mode
+
+        Returns
+        -------
+            - the tensor of extracted features, of shape=(batch, nb_features)
         """
         x, mask = inputs
         # rotate the point cloud by a random angle to enforce the
-        if training:
-            x = self.apply_random_rotation(x)
+        # if training:
+        #     x = self.apply_random_rotation(x)
         for mha, enc in zip(self.mhas, self.encoding):
             x = mha(x, attention_mask=mask)
             x = enc(x)
@@ -177,11 +189,20 @@ class AttentionNetwork(AbstractNet):
         output = tf.reduce_mean(output, axis=-1)
         return output
 
-    def overload_train_step(self, data):
+    def train_step(self, data: List[tf.Tensor]) -> dict:
         """
         Overloading of the train_step method, which is called during model.fit.
-        It can be used to print low level information on gradients. Mainly used
-        for debugging purposes.
+        Used for debugging purposes.
+
+        Saves the gradients at each step.
+
+        Parameters
+        ----------
+            - data: the batch of inputs of type [point cloud, mask]
+
+        Returns
+        -------
+            - the updated metrics dictionary
         """
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
@@ -199,26 +220,39 @@ class AttentionNetwork(AbstractNet):
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_weights))
 
-        # debugging gradients (look if they are vanishing)
-        print_gradients(zip(gradients, self.trainable_weights))
+        # save gradients for debugging purposes
+        self.current_gradients = gradients
+
+        # print_gradients_to_writer(zip(gradients, self.trainable_weights))
 
         # Update metrics (includes the metric that tracks the loss)
         self.compiled_metrics.update_state(y, y_pred)
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
 
+    def predict_and_extract(
+        self, generator: tf.keras.utils.Sequence
+    ) -> Tuple[tf.Tensor, tf.Tensor]:
+        """
+        Makes inference on all the data contained in `generator`. It returns both
+        the classification scores and the extracted features.
 
-def print_gradients(gradients):
-    for g, t in gradients:
-        tf.print(
-            "Param:",
-            g.name,
-            ", value:",
-            tf.reduce_mean(t),
-            tf.math.reduce_std(t),
-            ", grad:",
-            tf.reduce_mean(g),
-            tf.math.reduce_std(g),
-        )
-    tf.print("---------------------------")
-    return True
+        Parameters
+        ----------
+            - generator: the dataset generator
+
+        Returns
+        -------
+            - the network prediction tensor, of shape=(nb events,)
+            - the extrated features tensor, of shape=(nb events, nb_features)
+        """
+        # TODO [enhancement]: use the progbar and pass a verbose parameter
+        y_pred = []
+        features = []
+        for batch, _ in generator:
+            output, feats = self.call(batch, training=False, return_features=True)
+            y_pred.append(output)
+            features.append(feats)
+        y_pred = tf.concat(y_pred, axis=0)
+        features = tf.concat(features, axis=0)
+        return y_pred, features

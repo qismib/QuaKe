@@ -14,6 +14,11 @@ from tensorflow.keras.callbacks import (
 from .attention_dataloading import read_data, Dataset
 from .attention_network import AttentionNetwork
 from quake import PACKAGE
+from quake.utils.callbacks import DebuggingCallback
+from quake.utils.diagnostics import (
+    save_histogram_activations_image,
+    save_scatterplot_features_image,
+)
 
 logger = logging.getLogger(PACKAGE + ".attention")
 
@@ -90,6 +95,7 @@ def train_network(
 
     logdir = output / f"logs/{tm()}"
     checkpoint_filepath = output.joinpath("network.h5").as_posix()
+
     callbacks = [
         ModelCheckpoint(
             filepath=checkpoint_filepath,
@@ -101,9 +107,9 @@ def train_network(
         ),
         ReduceLROnPlateau(
             monitor="val_acc",
-            factor=0.75,
+            factor=0.5,
             mode="max",
-            verbose=1,
+            verbose=2,
             patience=msetup["reducelr_patience"],
             min_lr=msetup["min_lr"],
         ),
@@ -115,6 +121,7 @@ def train_network(
             # histogram_freq=5,
             # profile_batch=5,
         ),
+        DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(
@@ -165,18 +172,16 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     # inference
     network.evaluate(test_generator)
 
-    res = network.predict(test_generator)
-    tgts = test_generator.targets.astype(bool)
+    make_inference_plots(network, test_generator, train_folder)
 
-    import numpy as np
-    import matplotlib.pyplot as plt
 
-    scores_true = res[tgts]
-    scores_false = res[~tgts]
+def make_inference_plots(network: AttentionNetwork, test_generator, train_folder):
 
-    bins = np.linspace(0, 1, 101)
-    h_true, _ = np.histogram(scores_true, bins=bins)
-    h_false, _ = np.histogram(scores_false, bins=bins)
-    plt.hist(bins[:-1], bins, weights=h_true, histtype="step", lw=0.5, color="red")
-    plt.hist(bins[:-1], bins, weights=h_false, histtype="step", lw=0.5, color="green")
-    plt.show()
+    y_pred, features = network.predict_and_extract(test_generator)
+    y_true = test_generator.targets
+
+    fname = train_folder / "histogram_scores.png"
+    save_scatterplot_features_image(fname, features, y_true)
+
+    fname = train_folder / "scatterplot_features.png"
+    save_histogram_activations_image(fname, y_pred, y_true)

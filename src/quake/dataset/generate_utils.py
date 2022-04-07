@@ -43,6 +43,8 @@ class Geometry:
         self.ybins = np.linspace(self.ymin, self.ymax, self.nb_ybins + 1)
         self.zbins = np.linspace(self.zmin, self.zmax, self.nb_zbins + 1)
 
+        self.min_energy = detector["min_energy"]
+
         # TODO [enhancement]: think about using @property as setter and getter editable
         # geometry attributes
 
@@ -184,11 +186,10 @@ def tracks2histograms(
         )
 
         # thresholding
-        cutoff = 0.1  # energy sensibility in MeV
         rows, cols = hist.nonzero()
         values = np.array(hist[rows, cols])[0]
 
-        underflow = values < cutoff
+        underflow = values < geo.min_energy
 
         # remove empty histograms
         if not np.count_nonzero(~underflow):

@@ -38,7 +38,7 @@ def load_and_compile_network(
     -------
         - the compiled network
     """
-    lr = msetup["lr"]
+    lr = float(msetup["lr"])
     opt_kwarg = {"clipvalue": 0.5}
     if msetup["optimizer"].lower() == "adam":
         opt = Adam(learning_rate=lr, **opt_kwarg)
@@ -111,7 +111,7 @@ def train_network(
             mode="max",
             verbose=2,
             patience=msetup["reducelr_patience"],
-            min_lr=msetup["min_lr"],
+            min_lr=float(msetup["min_lr"],)
         ),
         TensorBoard(
             log_dir=logdir,

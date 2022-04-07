@@ -15,10 +15,10 @@ model:
   attention:
     ckpt: null # checkpoint, must be !Path object too
     optimizer: Adam
-    lr: 0.001 # learning rate
+    lr: 1e-3 # learning rate
     epochs: 10
     # hist_freq: 10
-    min_lr: 0.000001 # minimum lr
+    min_lr: 1e-6 # minimum lr
     reducelr_patience: 20 # reduce lr on plateau patience
     es_patience: 100 # early stopping patience
     net_dict:

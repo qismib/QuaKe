@@ -86,6 +86,8 @@ def scatterplot_features_image(features: tf.Tensor, y_true: tf.Tensor) -> plt.Fi
     features = (features - features.mean(0, keepdims=True)) / features.std(0, keepdims=True)
     nb_dims = features.shape[1]
     
+    y_true = bool_me(y_true).numpy()
+
     projection = '3d' if nb_dims == 3 else None # use 3D space only if nb_dims is 3
     # define scatter function arguments depending on point dimensionality
     if 1 < nb_dims <= 3:
@@ -105,8 +107,6 @@ def scatterplot_features_image(features: tf.Tensor, y_true: tf.Tensor) -> plt.Fi
         neg_args = (neg[:,0], neg[:,1])
     else:
         raise ValueError(f"The extracted features must be more than 1, got {nb_dims}")
-    
-    y_true = bool_me(y_true).numpy()
 
     figure = plt.figure()
     ax = figure.add_subplot(projection=projection)

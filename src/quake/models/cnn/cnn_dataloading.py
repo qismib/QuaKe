@@ -8,7 +8,7 @@ from math import ceil
 import numpy as np
 import tensorflow as tf
 import scipy
-from ..utils import dataset_split_util, print_dataset_balance
+from ..utils import dataset_split_util, get_dataset_balance_message
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
 
@@ -347,8 +347,8 @@ def read_data(
         sigmas=sigmas,
     )
 
-    print_dataset_balance(train_generator, "Train")
-    print_dataset_balance(val_generator, "Validation")
-    print_dataset_balance(test_generator, "Test")
+    logger.info(get_dataset_balance_message(train_generator, "Train"))
+    logger.info(get_dataset_balance_message(val_generator, "Validation"))
+    logger.info(get_dataset_balance_message(test_generator, "Test"))
 
     return train_generator, val_generator, test_generator

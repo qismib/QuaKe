@@ -188,8 +188,6 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
     NotImplementedError
         If extractor type not one of `svm` or `attention`
     """
-    import numpy as np
-
     extractor_type = setup["model"]["svm"]["feature_extractor"].lower()
     load_map_folder = train_folder.parent / extractor_type
 
@@ -208,7 +206,10 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
         data_folder, load_map_folder, setup, split_from_maps=True
     )
     geo = Geometry(setup["detector"])
-    network = load_net_fn(setup["model"][extractor_type], geo, setup["run_tf_eagerly"])
+    # extractor setup
+    esetup = setup["model"][extractor_type]
+    esetup.update({"ckpt": load_map_folder / f"{extractor_type}.h5"})
+    network = load_net_fn(esetup, geo, setup["run_tf_eagerly"])
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     train_features, train_labels = extract_feats(
         train_generator, network, should_add_extra_feats

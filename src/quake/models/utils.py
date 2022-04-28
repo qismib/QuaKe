@@ -60,7 +60,7 @@ def dataset_split_util(
     return train_arrays, val_arrays, test_arrays
 
 
-def print_dataset_balance(dataset: tf.keras.utils.Sequence, name: str):
+def get_dataset_balance_message(dataset: tf.keras.utils.Sequence, name: str):
     """
     Logs the dataset balancing between classes
     Parameters
@@ -69,10 +69,16 @@ def print_dataset_balance(dataset: tf.keras.utils.Sequence, name: str):
         The dataset to log.
     name: str
         The dataset name to be logged.
+
+    Returns
+    -------
+    msg: str
+        The balance message to be printed.
     """
     nb_examples = dataset.data_len
     positives = np.count_nonzero(dataset.targets)
-    logger.info(
+    msg = (
         f"{name} dataset balancing: {nb_examples} training points, "
         f"of which {positives/nb_examples*100:.2f}% positives"
     )
+    return msg

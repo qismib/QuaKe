@@ -8,7 +8,12 @@ from math import ceil
 import numpy as np
 import tensorflow as tf
 import scipy
-from ..utils import dataset_split_util, get_dataset_balance_message
+from ..utils import (
+    dataset_split_util,
+    get_dataset_balance_message,
+    load_splitting_maps,
+    save_splitting_maps,
+)
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
 
@@ -274,20 +279,10 @@ def read_data(
         data_folder, setup["detector"]
     )
     if split_from_maps:
-        # load splitting maps
-        fname = train_folder / "train_map.npy"
-        logger.info(f"Loading train index map from at {fname}")
-        train_map = np.load(fname)
+        logger.info(f"Loading splitting maps from folder: {train_folder}")
+        train_map, val_map, test_map = load_splitting_maps(train_folder)
         train_labels = labels[train_map]
-
-        fname = train_folder / "validation_map.npy"
-        logger.info(f"Loading validation index map from at {fname}")
-        val_map = np.load(fname)
         val_labels = labels[val_map]
-
-        fname = train_folder / "test_map.npy"
-        logger.info(f"Loading test index map from at {fname}")
-        test_map = np.load(fname)
         test_labels = labels[test_map]
     else:
         yz_train_wrap, yz_val_wrap, yz_test_wrap = dataset_split_util(
@@ -302,18 +297,8 @@ def read_data(
         _, val_labels, val_map = yz_val_wrap
         _, test_labels, test_map = yz_test_wrap
 
-        # save splitting maps
-        fname = train_folder / "train_map"
-        logger.info(f"Saving train index map for dataset reproducibility at {fname}")
-        np.save(fname, train_map)
-
-        fname = train_folder / "validation_map"
-        logger.info(f"Saving train index map for dataset reproducibility at {fname}")
-        np.save(fname, val_map)
-
-        fname = train_folder / "test_map"
-        logger.info(f"Saving train index map for dataset reproducibility at {fname}")
-        np.save(fname, test_map)
+        save_splitting_maps(train_folder, train_map, val_map, test_map)
+        logger.info(f"Saving splitting maps in folder {train_folder}")
 
     inputs_train = [yz_planes[train_map], xz_planes[train_map], xy_planes[train_map]]
     train_generator = Dataset(

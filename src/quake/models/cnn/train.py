@@ -23,7 +23,7 @@ logger = logging.getLogger(PACKAGE + ".cnn")
 
 
 def load_and_compile_network(
-    msetup: dict, geo: Geometry, run_tf_eagerly: bool = False
+    msetup: dict, run_tf_eagerly: bool = False, geo: Geometry = None
 ) -> CNN_Network:
     """Loads and compiles attention network.
 
@@ -31,10 +31,10 @@ def load_and_compile_network(
     ----------
     msetup: dict
         Attention model settings dictionary.
-    geo: Geometry
-        Object describing detector geometry.
     run_tf_eagerly: bool
         Wether to run tf eagerly, for debugging purposes.
+    geo: Geometry
+        Object describing detector geometry.
 
     Returns
     -------

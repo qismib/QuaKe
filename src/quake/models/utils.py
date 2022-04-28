@@ -1,8 +1,11 @@
 """ This module contains utility functions common to all models."""
+from typing import Tuple
+from pathlib import Path
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from quake import PACKAGE
+
 
 def dataset_split_util(
     data: np.ndarray,
@@ -78,3 +81,55 @@ def get_dataset_balance_message(dataset: tf.keras.utils.Sequence, name: str):
         f"of which {positives/nb_examples*100:.2f}% positives"
     )
     return msg
+
+
+def save_splitting_maps(
+    train_folder: Path, train_map: np.ndarray, val_map: np.ndarray, test_map: np.ndarray
+):
+    """Save splitting maps to folder.
+
+    Parameters
+    ----------
+    train_folder: Path
+        The train output folder path.
+    train_map: np.ndarray
+        The indices array of the training events.
+    val_map: np.ndarray
+        The indices array of the validation events.
+    test_map: np.ndarray
+        The indices array of the test events.
+    """
+    fname = train_folder / "train_map"
+    np.save(fname, train_map)
+    fname = train_folder / "validation_map"
+    np.save(fname, val_map)
+    fname = train_folder / "test_map"
+    np.save(fname, test_map)
+
+
+def load_splitting_maps(
+    train_folder: Path,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load splitting maps from folder.
+
+    Parameters
+    ----------
+    train_folder: Path
+        The train output folder path.
+
+    Returns
+    -------
+    train_map: np.ndarray
+        The indices array of the training events.
+    val_map: np.ndarray
+        The indices array of the validation events.
+    test_map: np.ndarray
+        The indices array of the test events.
+    """
+    fname = train_folder / "train_map.npy"
+    train_map = np.load(fname)
+    fname = train_folder / "validation_map.npy"
+    val_map = np.load(fname)
+    fname = train_folder / "test_map.npy"
+    test_map = np.load(fname)
+    return train_map, val_map, test_map

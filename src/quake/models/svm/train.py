@@ -209,7 +209,7 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
     # extractor setup
     esetup = setup["model"][extractor_type]
     esetup.update({"ckpt": load_map_folder / f"{extractor_type}.h5"})
-    network = load_net_fn(esetup, geo, setup["run_tf_eagerly"])
+    network = load_net_fn(esetup, setup["run_tf_eagerly"], geo=geo)
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     train_features, train_labels = extract_feats(
         train_generator, network, should_add_extra_feats

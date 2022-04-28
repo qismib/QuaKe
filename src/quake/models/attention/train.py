@@ -18,7 +18,7 @@ from quake import PACKAGE
 logger = logging.getLogger(PACKAGE + ".attention")
 
 
-def load_and_compile_network(msetup: dict, run_tf_eagerly: bool) -> AttentionNetwork:
+def load_and_compile_network(msetup: dict, run_tf_eagerly: bool, **kwargs) -> AttentionNetwork:
     """
     Loads and compiles attention network.
 
@@ -86,7 +86,7 @@ def train_network(
     train_generator, val_generator = generators
 
     logdir = output / f"logs/{tm()}"
-    checkpoint_filepath = output.joinpath("network.h5").as_posix()
+    checkpoint_filepath = output.joinpath("attention.h5").as_posix()
     callbacks = [
         ModelCheckpoint(
             filepath=checkpoint_filepath,
@@ -147,7 +147,9 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
         - setup: settings dictionary
     """
     # data loading
-    train_generator, val_generator, test_generator = read_data(data_folder, setup)
+    train_generator, val_generator, test_generator = read_data(
+        data_folder, train_folder, setup
+    )
 
     # model loading
     tfK.clear_session()

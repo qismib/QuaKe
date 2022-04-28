@@ -1,12 +1,8 @@
 """ This module contains utility functions common to all models."""
-import logging
 import numpy as np
 import tensorflow as tf
 from sklearn.model_selection import train_test_split
 from quake import PACKAGE
-
-logger = logging.getLogger(PACKAGE)
-
 
 def dataset_split_util(
     data: np.ndarray,

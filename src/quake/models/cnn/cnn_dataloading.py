@@ -8,12 +8,12 @@ from math import ceil
 import numpy as np
 import tensorflow as tf
 import scipy
+from ..utils import dataset_split_util, print_dataset_balance
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
-from ..utils import dataset_split_util, print_dataset_balance
 
 
-logger = logging.getLogger(PACKAGE)
+logger = logging.getLogger(PACKAGE + ".cnn")
 
 
 class Dataset(tf.keras.utils.Sequence):

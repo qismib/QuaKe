@@ -2,9 +2,7 @@
 from typing import Tuple
 import tensorflow as tf
 from tensorflow.keras.activations import sigmoid
-from tensorflow.keras.layers import Dense, Flatten
-from tensorflow.keras.layers import LeakyReLU, Concatenate, Input
-
+from tensorflow.keras.layers import Dense, Flatten, LeakyReLU, Concatenate, Input
 from .layers import CBA, CBAD
 from quake.models.attention.AbstractNet import AbstractNet
 

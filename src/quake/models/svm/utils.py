@@ -1,13 +1,9 @@
-"""This module implements the feature extraction utility functions."""
-import logging
-from pathlib import Path
+"""This module implements the utility functions for SVM training."""
 from typing import Tuple
 import numpy as np
 import tensorflow as tf
-from quake import PACKAGE
+from sklearn import preprocessing
 from ..attention.AbstractNet import AbstractNet
-
-logger = logging.getLogger(PACKAGE + ".SVM")
 
 
 def extract_feats(
@@ -76,3 +72,38 @@ def remove_outliers(features: np.ndarray, labels: np.ndarray) -> np.ndarray:
     # compute euclidean distance from all the feature means and put it < 3.5
     good_examples = np.all(good_examples, axis=1)
     return features[good_examples], labels[good_examples]
+
+
+def scaler(inputs: np.ndarray, kernel: str, should_do_scaling: bool):
+    """Utility function to provide scaling depending on selected kernel.
+
+    Transforms the input data for enhancing SVMs performances.
+
+    Parameters
+    ----------
+    inputs: np.ndarray
+        The input array, of shape=(nb events, nb features).
+    kernel: str
+        The kernel label.
+    should_do_scaling: bool
+        Wether to do input scaling or not.
+
+    Returns
+    -------
+    dataset: np.ndarray
+        The scaled inputs if `should_do_scaling` is True, the inputs themselves
+        otherwise.
+    """
+    if should_do_scaling:
+        if kernel == "linear" or kernel == "rbf":
+            scaler = preprocessing.PowerTransformer(
+                standardize=True
+            )  # nonlinear map to gaussian
+        elif kernel == "poly":
+            scaler = preprocessing.QuantileTransformer(
+                random_state=0
+            )  # nonlinear map to uniform dist
+        else:
+            NotImplementedError(f"scaler not implemented for {kernel} kernel")
+        return scaler.fit_transform(inputs)
+    return inputs

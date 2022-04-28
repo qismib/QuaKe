@@ -5,13 +5,13 @@ from time import time as tm
 from pathlib import Path
 import tensorflow as tf
 import tensorflow.keras.backend as tfK
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad
 from tensorflow.keras.callbacks import (
     TensorBoard,
     ModelCheckpoint,
     ReduceLROnPlateau,
     EarlyStopping,
 )
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad
 from .cnn_dataloading import read_data, Dataset
 from .cnn_network import CNN_Network
 from quake import PACKAGE
@@ -19,7 +19,7 @@ from quake.dataset.generate_utils import Geometry
 
 # from quake.utils.callbacks import DebuggingCallback
 
-logger = logging.getLogger(PACKAGE + ".attention")
+logger = logging.getLogger(PACKAGE + ".cnn")
 
 
 def load_and_compile_network(

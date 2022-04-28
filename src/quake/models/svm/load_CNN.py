@@ -1,4 +1,4 @@
-from tensorflow import keras
+import tensorflow as tf
 from pathlib import Path
 from tensorflow.keras import Model
 
@@ -12,26 +12,27 @@ def load_cnn(data_folder: Path):
     Parameters
     ----------
         - data_folder: the input data folder path
+
+    Returns
+    -------
+    tf.keras.Model
+        Loaded CNN model
+
     """
+    model_path = data_folder.parent / "models/cnn"
     try:
-        model = keras.models.load_model(str(data_folder.parent) + "/models/cnn/CNN.h5")
+        model = tf.keras.models.load_model(model_path / "CNN.h5")
         feature_layer = Model(
             inputs=model.inputs, outputs=model.get_layer("features").output
         )
 
-        train_map = np.loadtxt(
-            str(data_folder.parent) + "/models/cnn/train_map"
-        ).astype(int)
-        val_map = np.loadtxt(
-            str(data_folder.parent) + "/models/cnn/validation_map"
-        ).astype(int)
-        test_map = np.loadtxt(str(data_folder.parent) + "/models/cnn/test_map").astype(
-            int
-        )
+        train_map = np.loadtxt(model_path / "train_map").astype(int)
+        val_map = np.loadtxt(model_path / "validation_map").astype(int)
+        test_map = np.loadtxt(model_path / "test_map").astype(int)
     except:
         raise Exception(
             "SVM needs features computed by the CNN model, but there is no model "
-            f"in folder {data_folder.parent / 'models/cnn'} "
+            f"in folder {model_path} "
             "Please run 'train' with '--model cnn' first and try again."
         )
 

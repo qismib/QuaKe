@@ -243,12 +243,14 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     logger.debug(f"Data shape: {data.shape}")
     logger.debug(f"Targets shape: {targets.shape}")
 
+    split_ratio = setup["models"]["attention"["test_split_ratio"]]
+
     inputs_tv, inputs_test, targets_tv, targets_test = train_test_split(
-        data, targets, test_size=0.1, random_state=setup["seed"]
+        data, targets, test_size=2 * split_ratio, random_state=setup["seed"]
     )
 
     inputs_train, inputs_val, targets_train, targets_val = train_test_split(
-        inputs_tv, targets_tv, test_size=0.1, random_state=setup["seed"]
+        inputs_tv, targets_tv, test_size=split_ratio, random_state=setup["seed"]
     )
 
     batch_size = setup["model"]["attention"]["net_dict"]["batch_size"]

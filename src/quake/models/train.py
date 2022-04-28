@@ -120,15 +120,15 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     """
     preconfig_tf(setup)
     from .attention.train import attention_train
-    from .CNN.CNN_train import CNN_train
-    from .SVM.SVM_train import SVM_train
+    from .cnn.train import cnn_train
+    from .svm.train import svm_train
 
     if modeltype == "svm":
-        logger.info("Training SVM")
-        SVM_train(data_folder, setup)
+        logger.info("Training Support Vector Machine")
+        svm_train(data_folder, train_folder, setup)
     elif modeltype == "cnn":
-        logger.info("Training CNN")
-        CNN_train(data_folder, setup)
+        logger.info("Training Convolutional Neural Network")
+        cnn_train(data_folder, train_folder, setup)
     elif modeltype == "attention":
         logger.info("Training Attention Network")
         attention_train(data_folder, train_folder, setup)

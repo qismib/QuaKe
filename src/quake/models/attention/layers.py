@@ -16,9 +16,12 @@ class LBA(Layer):
     def __init__(self, units: int, act: str = "relu", alpha: float = 0.2, **kwargs):
         """
         Parameters:
-            - units: output feature dimensionality
-            - act: activation string
-            - alpha: leaky relu negative slope coefficient
+        units: int
+            Output feature dimensionality.
+        act: str
+            Activation string.
+        alpha: float
+            Leaky relu negative slope coefficient.
         """
         super().__init__(**kwargs)
         self.units = units
@@ -36,11 +39,13 @@ class LBA(Layer):
         """
         Parameters
         ----------
-            - inputs: input tensor of shape=(B, ..., d_in)
+        inputs: tf.Tensor
+            Input tensor of shape=(B, ..., d_in).
 
         Returns
         -------
-            - output tensor of shape=(B, ..., do)
+        tf.Tensor
+            Output tensor of shape=(B, ..., do).
         """
         x = self.linear(inputs)
         x = self.batchnorm(x)
@@ -68,11 +73,16 @@ class LBAD(LBA):
         **kwargs,
     ):
         """
-        Parameters:
-            - units: output feature dimensionality
-            - act: activation string
-            - alpha: leaky relu negative slope coefficient
-            - rate: dropout percentage
+        Parameters
+        ----------
+        units: int
+            Output feature dimensionality.
+        act: str
+            Activation string
+        alpha: float
+            Leaky relu negative slope coefficient.
+        rate: float
+            Dropout percentage.
         """
         self.units = units
         self.act = act
@@ -90,11 +100,13 @@ class LBAD(LBA):
         """
         Parameters
         ----------
-            - inputs: input tensor of shape=(B, ..., d_in)
+        tf.Tensor
+            inputs: input tensor of shape=(B, ..., d_in).
 
         Returns
         -------
-            - output tensor of shape=(B, ..., do)
+        tf.Tensor
+            Output tensor of shape=(B, ..., do).
         """
         x = super().call(inputs)
         x = self.dropout(x)

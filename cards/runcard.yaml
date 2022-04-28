@@ -18,6 +18,7 @@ model:
     min_lr: 0.000001 # minimum lr
     reducelr_patience: 20 # reduce lr on plateau patience
     es_patience: 100 # early stopping patience
+    test_split_ratio: 0.15 # validation and test sets have the same size
     net_dict:
       f_dims: 4
       nb_mha_heads: 4
@@ -31,15 +32,33 @@ model:
       use_bias: true
       name: AttentionNetwork
   cnn:
+    ckpt: null # checkpoint, must be !Path object too
+    optimizer: Adam
     lr: 0.001 # learning rate
     epochs: 25
+    # hist_freq: 10
+    min_lr: 0.001 # minimum lr
+    reducelr_patience: 20 # reduce lr on plateau patience
+    es_patience: 100 # early stopping patience
+    test_split_ratio: 0.15 # validation and test sets have the same size
+    net_dict:
+      nb_features: 2
+      nb_hidden_layers: 2
+      hidden_units: 50
+      kernel_size: [3,3]
+      strides: [1,1]
+      batch_size: 120
+      activation: relu
+      alpha: 0.05
+      dropout_rate: 0.25
+      use_bias: true
+      name: CNN
+
     feature_number: 4 # Intermediate dense layer size (the features for SVM)
-    batch_size: 120
-    alpha: 0.05
-    dropout_rate: 0.25
-    val_te_ratio: 0.15 # % of the total dataset (validation and test have the same size)
-    name: CNN
   svm:
-    extrafeats: False # If True: feature space includes (ntot, etot)
+    feature_extractor: cnn # the feature extraction network, available options cnn | attention
+    should_add_extra_feats: false # add nb active pixels and total energy to extracted features
+    kernels: [linear, poly, rbf]
+    should_do_scaling: false
     name: SVM
     

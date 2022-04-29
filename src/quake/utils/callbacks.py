@@ -9,9 +9,9 @@ from quake.models.AbstractNet import FeatureReturner
 
 
 class DebuggingCallback(tf.keras.callbacks.Callback):
-    """
-    Callback to register network activations and feature histograms to
+    """Callback to register network activations and feature histograms to
     TensorBoard on epoch end.
+
     Prints histograms for a batch of last layer activations and
     extracted features.
     Prints gradients received by all the layers as an histogram, as well as
@@ -22,8 +22,10 @@ class DebuggingCallback(tf.keras.callbacks.Callback):
         """
         Parameters
         ----------
-            - logdir: log directory
-            - validation_data: validation dataset generator
+        logdir: Path
+            Log directory.
+        validation_data: tf.keras.utils.Sequence
+            Validation dataset generator.
         """
         super().__init__()
         self.logdir = logdir
@@ -42,8 +44,7 @@ class DebuggingCallback(tf.keras.callbacks.Callback):
         ]
 
     def on_epoch_end(self, epoch, logs=None):
-        """
-        Extracts feature and final activation histograms.
+        """Extracts feature and final activation histograms.
         Extracts the (cumulative) gradients values trend and histograms.
         """
         # extract features and final activations
@@ -89,34 +90,38 @@ class DebuggingCallback(tf.keras.callbacks.Callback):
 
 
 def tf_histogram_activations(y_pred: tf.Tensor, y_true: tf.Tensor) -> tf.Tensor:
-    """
-    Returns a histogram of the network classification scores in tensor format.
+    """Returns a histogram of the network classification scores in tensor format.
 
     Parameters
     ----------
-        - y_pred: the tensor of predicted scores shape=(nb points,)
-        - y_true: the boolean tensor of ground truths of shape=(nb points,)
+    y_pred: tf.Tensor
+        The tensor of predicted scores shape=(nb points,).
+    y_true: tf.Tensor
+        The boolean tensor of ground truths of shape=(nb points,).
 
     Returns
     -------
-        - the RGBA image decoded in tensor form, of shape=(1, H, W, C). (C=4)
+    tf.Tensor
+        the RGBA image decoded in tensor form, of shape=(1, H, W, 4).
     """
     figure = histogram_activations_image(y_pred, y_true)
     return image_to_tensor(figure)
 
 
 def tf_scatterplot_features(features: tf.Tensor, y_true: tf.Tensor) -> tf.Tensor:
-    """
-    Returns a scatterplot of the first two features in tensor format.
+    """Returns a scatterplot of the first two features in tensor format.
 
     Parameters
     ----------
-        - features: the tensor of features shape=(nb points, nb_features)
-        - y_true: the boolean tensor of ground truths of shape=(nb points,)
+    features: tf.Tensor
+        The tensor of features shape=(nb points, nb_features).
+    y_true: tf.Tensor
+        The boolean tensor of ground truths of shape=(nb points,).
 
     Returns
     -------
-        - the RGBA image decoded in tensor form, of shape=(1, H, W, C). (C=4)
+    tf.Tensor
+        The RGBA image decoded in tensor form, of shape=(1, H, W, 4).
     """
     figure = scatterplot_features_image(features, y_true)
     return image_to_tensor(figure)

@@ -1,6 +1,5 @@
 import logging
-from typing import Tuple, List
-from numpy import isin
+from typing import Tuple
 import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
@@ -20,8 +19,8 @@ logger = logging.getLogger(PACKAGE + ".attention")
 
 
 class AttentionNetwork(AbstractNet):
-    """
-    Class defining Attention Network.
+    """Class defining Attention Network.
+
     In this approach the network is trained as a binary classifier. Inpiut is a
     point cloud with features accompaining each node: features describe 3D hit
     position and hit energy.
@@ -50,19 +49,32 @@ class AttentionNetwork(AbstractNet):
         """
         Parameters
         ----------
-            - f_dims: number of point cloud feature dimensions
-            - spatial_dims: number of point cloud spatial feature dimensions
-            - nb_mha_heads: the number of heads in the `MultiHeadAttention` layer
-            - mha_filters: the output units for each `MultiHeadAttention` in the stack
-            - nb_fc_heads: the number of `Head` layers to be concatenated
-            - fc_filters: the output units for each `Head` in the stack
-            - batch_size: the effective batch size for gradient descent
-            - activation: default keras layer activation
-            - alpha: leaky relu negative slope coefficient
-            - dropout_rate: dropout percentage
-            - use_bias: wether to use bias or not
-            - verbose: wether to print extra training information
-            - name: the name of the neural network instance
+        f_dims: int
+            Number of point cloud feature dimensions.
+        spatial_dims: int
+            Number of point cloud spatial feature dimensions.
+        nb_mha_heads: int
+            The number of heads in the `MultiHeadAttention` layer.
+        mha_filters: list
+            The output units for each `MultiHeadAttention` in the stack.
+        nb_fc_heads: int
+            The number of `Head` layers to be concatenated.
+        fc_filters: list
+            The output units for each `Head` in the stack.
+        batch_size: int
+            The effective batch size for gradient descent.
+        activation: str
+            Default keras layer activation.
+        alpha: float
+            Leaky relu negative slope coefficient.
+        dropout_rate: float
+            Dropout percentage.
+        use_bias: bool
+            Wether to use bias or not.
+        verbose: bool
+            Wether to print extra training information.
+        name: str
+            The name of the neural network instance.
         """
         super(AttentionNetwork, self).__init__(name=name, **kwargs)
 
@@ -130,17 +142,21 @@ class AttentionNetwork(AbstractNet):
         inputs: Tuple[tf.Tensor, tf.Tensor],
         training: bool = None,
     ) -> tf.Tensor:
-        """
+        """Network forward pass.
+
         Parameters
         ----------
-            - inputs
-                - point cloud of hits of shape=(batch,[nb hits],f_dims)
-                - mask tensor of shape=(batch,[nb hits],f_dims)
-            - training: wether network is in training or inference mode
+        inputs: Tuple[tf.Tensor,m tf.Tensor]
+            The network inputs:
+            - point cloud of hits of shape=(batch,[nb hits],f_dims)
+            - mask tensor of shape=(batch,[nb hits],f_dims)
+        training: bool
+            Wether network is in training or inference mode.
 
         Returns
         -------
-            - merging probability of shape=(batch,)
+        output: tf.Tensor
+            Merging probability of shape=(batch,).
         """
         features = self.feature_extraction(inputs, training=training)
         output = self.final(features)
@@ -152,22 +168,25 @@ class AttentionNetwork(AbstractNet):
     def feature_extraction(
         self, inputs: Tuple[tf.Tensor, tf.Tensor], training: bool = None
     ) -> tf.Tensor:
-        """
-        This function provides the forward pass for feature extraction. The
-        downstream classification is independent.
+        """This function provides the forward pass for feature extraction.
+
+        The downstream classification is independent.
         The number of extracted feature per event is the number of neurons in
         the last Head-type layer in the network.
 
         Parameters
         ----------
-            - inputs
-                - point cloud of hits of shape=(batch,[nb hits],f_dims)
-                - mask tensor of shape=(batch,[nb hits],f_dims)
-            - training: wether network is in training or inference mode
+        inputs: Tuple[tf.Tensor,m tf.Tensor]
+            The network inputs:
+            - point cloud of hits of shape=(batch,[nb hits],f_dims)
+            - mask tensor of shape=(batch,[nb hits],f_dims)
+        training: bool
+            Wether network is in training or inference mode.
 
         Returns
         -------
-            - the tensor of extracted features, of shape=(batch, nb_features)
+        features: tf.Tensor
+            The tensor of extracted features, of shape=(batch, nb_features).
         """
         x, mask = inputs
         # rotate the point cloud by a random angle to enforce the
@@ -189,20 +208,22 @@ class AttentionNetwork(AbstractNet):
         output = tf.reduce_mean(output, axis=-1)
         return output
 
-    def train_step(self, data: List[tf.Tensor]) -> dict:
-        """
-        Overloading of the train_step method, which is called during model.fit.
-        Used for debugging purposes.
+    def train_step(self, data: list[tf.Tensor]) -> dict:
+        """Overloading of the train_step method.
+
+        This function is called during `model.fit`. Used for debugging purposes.
 
         Saves the gradients at each step.
 
         Parameters
         ----------
-            - data: the batch of inputs of type [point cloud, mask]
+        data: list[tf.Tensor]
+            The batch of inputs of type [point cloud, mask].
 
         Returns
         -------
-            - the updated metrics dictionary
+        dict:
+            The updated metrics dictionary.
         """
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.

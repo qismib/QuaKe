@@ -27,17 +27,19 @@ logger = logging.getLogger(PACKAGE + ".attention")
 def load_and_compile_network(
     msetup: dict, run_tf_eagerly: bool, **kwargs
 ) -> AttentionNetwork:
-    """
-    Loads and compiles attention network.
+    """Loads and compiles attention network.
 
     Parameters
     ----------
-        - msetup: attention model settings dictionary
-        - run_tf_eagerly: wether to run tf eagerly, for debugging purposes
+    msetup: dict
+        Attention model settings dictionary.
+    run_tf_eagerly: bool
+        Wether to run tf eagerly, for debugging purposes.
 
     Returns
     -------
-        - the compiled network
+    network: AttentionNetwork
+        The compiled network.
     """
     lr = float(msetup["lr"])
     opt_kwarg = {"clipvalue": 0.5}
@@ -78,19 +80,23 @@ def train_network(
     network: AttentionNetwork,
     generators: Tuple[Dataset, Dataset],
 ) -> AttentionNetwork:
-    """
-    Trains the network.
+    """Trains the network.
 
     Parameters
     ----------
-        - msetup: attention model settings dictionary
-        - output: the output folder
-        - network: the network to be trained
-        - generators: the train and validation generators
+    msetup: dict
+        Attention model settings dictionary.
+    output: path
+        The output folder.
+    network: AttentionNetwork
+        The network to be trained.
+    generators: Tuple[Dataset, Dataset]
+        The train and validation generators.
 
     Returns
     -------
-        - the trained network
+    network: AttentionNetwork
+        The trained network.
     """
     train_generator, val_generator = generators
 
@@ -123,7 +129,7 @@ def train_network(
             # histogram_freq=5,
             # profile_batch=5,
         ),
-        DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
+        # DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(
@@ -150,14 +156,16 @@ def train_network(
 
 
 def attention_train(data_folder: Path, train_folder: Path, setup: dict):
-    """
-    Attention Network training.
+    """Attention Network training.
 
     Parameters
     ----------
-        - data_folder: the input data folder path
-        - train_folder: the train output folder path
-        - setup: settings dictionary
+    data_folder: Path
+        The input data folder path.
+    train_folder: Path
+        The train output folder path.
+    setup: dict
+        Settings dictionary.
     """
     # data loading
     train_generator, val_generator, test_generator = read_data(
@@ -179,7 +187,22 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     make_inference_plots(network, test_generator, train_folder)
 
 
-def make_inference_plots(network: AttentionNetwork, test_generator, train_folder):
+def make_inference_plots(
+    train_folder: Path,
+    network: AttentionNetwork,
+    test_generator: tf.keras.utils.Sequence,
+):
+    """Plots accuracy plots.
+
+    Parameters
+    ----------
+    train_folder: Path
+        The train output folder path.
+    network: AttentionNetwork
+        The trained network.
+    test_generator: tf.keras.utils.Sequence
+        Test generator
+    """
     with FeatureReturner(network) as fr:
         y_pred, features = fr.predict(test_generator, verbose=1)
     y_true = test_generator.targets

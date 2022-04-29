@@ -191,4 +191,4 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
     # inference
     network.evaluate(test_generator)
 
-    # make_inference_plots(network, test_generator, train_folder)
+    # make_inference_plots(train_folder, network, test_generator)

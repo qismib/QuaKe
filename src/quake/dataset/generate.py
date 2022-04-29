@@ -21,12 +21,12 @@ logger = logging.getLogger(PACKAGE + ".datagen")
 
 
 def add_arguments_datagen(parser: ArgumentParser):
-    """
-    Adds datagen subparser arguments.
+    """Adds datagen subparser arguments.
 
     Parameters
     ----------
-        - parser: datagen subparser object
+    parser: ArgumentParser
+        Datagen subparser object.
     """
     parser.add_argument(
         "runcard",
@@ -49,12 +49,14 @@ def add_arguments_datagen(parser: ArgumentParser):
 
 
 def datagen(args: Namespace):
-    """
-    Data generation wrapper function: calls the data generation main function.
+    """Data generation wrapper function.
+
+    Calls the data generation main function.
 
     Parameters
     ----------
-        - args: command line parsed arguments.
+    args: Namespace
+        Command line parsed arguments.
     """
     # load runcard and setup output folder structure
     setup = load_runcard(args.runcard)
@@ -79,16 +81,20 @@ def datagen_main(
     detector: dict,
     should_show: bool = False,
 ):
-    """
-    Data generation main function: extracts a dataset from a folder containing
-    root files.
+    """Data generation main function.
+
+    Extracts a dataset from a folder containing root files.
 
     Parameters
     ----------
-        - in_folder: the input folder path
-        - out_folder: the output folder path
-        - detector: the detector geometry settings
-        - should_show: wether to show a visual example or not
+    in_folder: Path
+        The input folder path.
+    out_folder: Path
+        The output folder path.
+    detector: dict
+        The detector geometry settings.
+    should_show: bool
+        Wether to show a visual example or not.
     """
     logger.info(f"Generate data to {out_folder}/data")
     xresolution, _, zresolution = detector["resolution"]

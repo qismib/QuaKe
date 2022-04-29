@@ -13,21 +13,23 @@ logger = logging.getLogger(PACKAGE)
 
 
 def path_constructor(loader, node):
+    """PyYaml utility function."""
     value = loader.construct_scalar(node)
     return Path(value)
 
 
 def load_runcard(runcard_file: Path) -> dict:
-    """
-    Load runcard from yaml file.
+    """Load runcard from yaml file.
 
     Parameters
     ----------
-        - runcard_file: the yaml to dump the dictionary
+    runcard_file: Path
+        The yaml to dump the dictionary.
 
     Returns
     -------
-        - the loaded settings dictionary
+    runcard: dict
+        The loaded settings dictionary.
 
     Note
     ----
@@ -45,17 +47,19 @@ def load_runcard(runcard_file: Path) -> dict:
 
 
 def path_representer(dumper, data):
+    """PyYaml utility function."""
     return dumper.represent_scalar("!Path", "%s" % data)
 
 
 def save_runcard(fname: Path, setup: dict):
-    """
-    Save runcard to yaml file.
+    """Save runcard to yaml file.
 
     Parameters
     ----------
-        - fname: the yaml output file
-        - setup: the settings dictionary to be dumped
+    fname: Path
+        The yaml output file.
+    setup: Path
+        The settings dictionary to be dumped.
 
     Note
     ----
@@ -67,14 +71,18 @@ def save_runcard(fname: Path, setup: dict):
 
 
 def check_in_folder(folder: Path, should_force: bool):
-    """
-    Creates the query folder. The `should_force` parameters controls the
-    function behavior in case `folder` exists.
+    """Creates the query folder.
+
+    The `should_force` parameters controls the function behavior in case
+    `folder` exists. If true, it overwrites the existent directory, otherwise
+    exit.
 
     Parameters
     ----------
-        - folder: the directory to be checked
-        - should_force: wether to replace the already existing directory
+    folder: Path
+        The directory to be checked.
+    should_force: bool
+        Wether to replace the already existing directory.
     """
     try:
         folder.mkdir()
@@ -90,13 +98,14 @@ def check_in_folder(folder: Path, should_force: bool):
 
 
 def initialize_output_folder(output: Path, should_force: bool):
-    """
-    Creates the output directory structure.
+    """Creates the output directory structure.
 
     Parameters
     ----------
-        - output: the output directory
-        - should_force: wether to replace the already existing output directory
+    output: Path
+        The output directory.
+    should_force: bool
+        Wether to replace the already existing output directory.
     """
     check_in_folder(output, should_force)
     output.joinpath("cards").mkdir()
@@ -105,6 +114,12 @@ def initialize_output_folder(output: Path, should_force: bool):
 
 
 def set_manual_seed(seed: int):
-    """Set libraries random seed for reproducibility."""
+    """Set random and numpy libraries random seed for reproducibility.
+
+    Parameters
+    ----------
+    seed: int
+        Random generator seed for code reproducibility.
+    """
     random.seed(seed)
     np.random.seed(seed)

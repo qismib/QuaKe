@@ -122,9 +122,10 @@ class LBAD(LBA):
 
 
 class TransformerEncoder(Layer):
-    """
-    Implementation of ViT Encoder layer. This block exploits the fast
-    implementation of the Attention mechanism for better memory management.
+    """Implementation of ViT Encoder layer.
+
+    This block exploits the fast implementation of the Attention mechanism for
+    better memory management.
     """
 
     def __init__(
@@ -136,8 +137,10 @@ class TransformerEncoder(Layer):
         """
         Parameters
         ----------
-            - units: output feature dimensionality
-            - mha_heads: number of heads in MultiHeadAttention layers
+        units: int
+            Output feature dimensionality.
+        mha_heads: int
+            Number of heads in MultiHeadAttention layers.
         """
         super(TransformerEncoder, self).__init__(**kwargs)
         self.units = units
@@ -179,11 +182,15 @@ class TransformerEncoder(Layer):
         """
         Parameters
         ----------
-            - x: input tensor of shape=(B, L, d_in)
-            - attention_mask: masking tensor of shape=(B, L, L)
+        x: tf.Tensor
+            Input tensor of shape=(B, L, d_in).
+        attention_mask: tf.Tensor
+            Masking tensor of shape=(B, L, L).
+
         Returns
         -------
-            - output tensor of shape=(B, L, d_in)
+        tf.Tensor:
+            Output tensor of shape=(B, L, d_in).
         """
         x += self.mha(x, x, attention_mask=attention_mask)
         # x = self.norm0(x)
@@ -210,10 +217,16 @@ class Head(Layer):
         """
         Parameters
         ----------
-            - filters: the number of filters for each dense layer
-            - activation: layer activation
-            - name: the layer name
-            - dropout_rate: the dropout percentage
+        filters: list
+            The number of filters for each dense layer.
+        activation: str
+            Layer activation.
+        alpha: float
+            Leaky relu negative slope coefficient.
+        dropout_rate:
+            The dropout percentage.
+        name:
+            The layer name.
         """
         super().__init__(name=name, **kwargs)
         self.filters = filters
@@ -234,10 +247,13 @@ class Head(Layer):
         Layer forward pass.
         Parameters
         ----------
-            - x : inputs of shape=(B,N,K,di)
+        x: tf.Tensor
+            Inputs of shape=(B,N,K,di).
+
         Returns
         -------
-            - output tensor of shape=(B,N,K,do)
+        tf.Tensor
+            Output tensor of shape=(B,N,K,do).
         """
         for l in self.ff:
             x = l(x)
@@ -260,12 +276,16 @@ def get_batched_rotations_2d(angles: tf.Tensor) -> tf.Tensor:
     """
     Returns the (2+1)d spatial rotation given batched arrays of angles. Third axis
     remains unchanged as it contains hit energies.
+
     Parameters
     ----------
-        - angles: batch of three rotation angles of shape=(batch_size,)
+    angles: tf.Tensor
+        Batch of three rotation angles of shape=(batch_size,).
+
     Returns
     -------
-        - batch of (2+1)d rotations of shape=(batch_size, 3, 3)
+    tf.Tensor:
+        Batch of (2+1)d rotations of shape=(batch_size, 3, 3).
     """
     cos = tf.math.cos(angles)
     sin = tf.math.sin(angles)
@@ -280,15 +300,19 @@ def get_batched_rotations_2d(angles: tf.Tensor) -> tf.Tensor:
 
 
 def get_batched_rotations_3d(angles: tf.Tensor) -> tf.Tensor:
-    """
-    Returns the (3+1)d spatial rotation given batched arrays of angles. Fourth axis
-    remains unchanged as it contains hit energies.
+    """Returns the (3+1)d spatial rotation given batched arrays of angles.
+
+    Fourth axis remains unchanged as it contains hit energies.
+
     Parameters
     ----------
-        - angles: batch of three rotation angles of shape=(batch_size, 3)
+    angles: tf.Tensor
+        Batch of three rotation angles of shape=(batch_size, 3).
+
     Returns
     -------
-        - batch of (3+1)d rotations of shape=(batch_size, 4, 4)
+    rot: tf.Tensor
+        Batch of (3+1)d rotations of shape=(batch_size, 4, 4).
     """
     cos = tf.math.cos(angles)
     sin = tf.math.sin(angles)
@@ -322,20 +346,22 @@ def get_batched_rotations_3d(angles: tf.Tensor) -> tf.Tensor:
 
 
 def apply_random_rotation_2d(pc: tf.Tensor) -> tf.Tensor:
-    """
-    Rotates inputs in the 2D space. This rigid transformations ensure that the
-    network learns the geometric structure of the given point cloud, rather than
-    memorizing the point positions.
-    This function draws one anglein the [0,2*pi] space.
+    """Rotates inputs in the 2D space.
+
+    This rigid transformations ensure that the network learns the geometric
+    structure of the given point cloud, rather than memorizing the point
+    positions. This function draws one anglein the [0,2*pi] space.
+
     Parameters
     ----------
-        - pc: point cloud of shape=(B, max len, nb feats). Three feats are the
-              xyz coordinates, while the last one is the energy and should not
-              be modified
-        - nb_dims: number of spatial dimensions
+    pc: tf.Tensor
+        Point cloud of shape=(B, max len, nb feats). Three feats are the xyz
+        coordinates, while the last one is the energy and should not be modified.
+
     Returns
     -------
-        - the rotated point cloud
+    tf.Tensor
+        The rotated point cloud.
     """
     batch_size = tf.shape(pc)[0]
     angles = tf.random.uniform([batch_size], maxval=2 * TF_PI)
@@ -345,20 +371,23 @@ def apply_random_rotation_2d(pc: tf.Tensor) -> tf.Tensor:
 
 
 def apply_random_rotation_3d(pc: tf.Tensor) -> tf.Tensor:
-    """
-    Rotates inputs in the 3D space. This rigid transformations ensure that the
-    network learns the geometric structure of the given point cloud, rather than
-    memorizing the point positions.
+    """Rotates inputs in the 3D space.
+
+    This rigid transformations ensure that the network learns the geometric
+    structure of the given point cloud, rather than memorizing the point
+    positions.
     This function draws three angles in the [0,2*pi]^3 space.
+
     Parameters
     ----------
-        - pc: point cloud of shape=(B, max len, nb feats). Three feats are the
-              xyz coordinates, while the last one is the energy and should not
-              be modified
-        - nb_dims: number of spatial dimensions
+    pc: tf.Tensor
+        Point cloud of shape=(B, max len, nb feats). Three feats are the xyz
+        coordinates, while the last one is the energy and should not be modified.
+
     Returns
     -------
-        - the rotated point cloud
+    tf.Tensor
+        The rotated point cloud.
     """
     batch_size = tf.shape(pc)[0]
     angles = tf.random.uniform([batch_size, 3], maxval=2 * TF_PI)

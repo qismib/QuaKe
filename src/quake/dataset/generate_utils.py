@@ -21,7 +21,8 @@ class Geometry:
         """
         Parameters
         ----------
-            - detector: the detector geometry settings
+        detector: dict
+            The detector geometry settings.
         """
         # geometry imputs
         self.xmin, self.xmax = self.xlim = detector["xlim"]
@@ -57,15 +58,21 @@ def get_image(
     xbin_w: float,
     ybin_w: float,
 ):
-    """
-    Plots track in the [-20,20]x[-20,20] mm box, with the histogram cell grids.
+    """Plots track in the [-20,20]x[-20,20] mm box, with the histogram cell
+    grids.
+
     Parameters
     ----------
-        - fname: the name dataset file name
-        - x: x coordinate array of shape=(nb_hits,)
-        - y: y coordinate array of shape=(nb_hits,)
-        - xbin_w: bin width in the x coordinate
-        - ybin_w: bin width in the y coordinate
+    fname: Path
+        The name dataset file name.
+    x: np.ndarray
+        x coordinate array of shape=(nb_hits,).
+    y: np.ndarray
+        y coordinate array of shape=(nb_hits,).
+    xbin_w: float
+        Bin width in the x coordinate.
+    ybin_w: float
+        Bin width in the y coordinate.
     """
     n_xbins = int(np.ceil(40 / xbin_w)) + 1
     n_ybins = int(np.ceil(40 / ybin_w)) + 1
@@ -91,14 +98,17 @@ def get_image(
 def load_tracks(
     name: Path, geo: Geometry, is_signal: bool = False, seed: int = 42
 ) -> Tuple[ak.Array, ak.Array, ak.Array, ak.Array]:
-    """
-    Loads events from file. Returns tracks starting from origin plus a random
+    """Loads events from file.
+
+    Returns tracks starting from origin plus a random
     shift sampled uniformly in the box [-xw,xw]x[-yw,yw]x[-zw,zw]. Where `<axis>w`
     is the detector resolution in mm on that specific axis.
     If `is_signal` is True: subsequent row couples refer to two b tracks and
     they are merged together. Jagged arrays are treated with awkward module,
     regular ones with numpy instead.
+
     Features are:
+
         - TrackPostX: float, x hit position
         - TrackPostY: float, y hit position
         - TrackPostZ: float, z hit position
@@ -108,17 +118,25 @@ def load_tracks(
 
     Parameters
     ----------
-        - name: the name of the file to read the tracks features
-        - geo: detector geometry object, to get the axis resolution
-        - is_signal: wether to concatenate subsequent rows for signal tracks
-        - seed: random generator seed for code reproducibility
+    name: Path
+        The name of the file to read the tracks features.
+    geo: Geometry
+        Detector geometry object, to get the axis resolution.
+    is_signal: bool
+        Wether to concatenate subsequent rows for signal tracks.
+    seed: int
+        Random generator seed for code reproducibility.
 
     Returns
     -------
-        - x hit position of sh-ape=(tracks, [hits])
-        - y hit position of shape=(tracks, [hits])
-        - z hit position of shape=(tracks, [hits])
-        - hit energy of shape=(tracks, [hits])
+    xs: ak.Array
+        x hit position of sh-ape=(tracks, [hits]).
+    ys: ak.Array
+        y hit position of shape=(tracks, [hits]).
+    zs: ak.Array
+        z hit position of shape=(tracks, [hits]).
+    Es: ak.Array
+        hit energy of shape=(tracks, [hits]).
     """
     rng = np.random.default_rng(seed=seed)
     with uproot.open(name) as sig_root:
@@ -156,23 +174,29 @@ def load_tracks(
 def tracks2histograms(
     xs: ak.Array, ys: ak.Array, zs: ak.Array, Es: ak.Array, geo: Geometry
 ) -> ak.Array:
-    """
-    Compute energy histogram from track hit positions. This function converts
-    the simulated hit energy depositions to pixel images. The Geometry object,
-    passed as a parameter, controls the binning resolution and other
-    histogramming settings.
+    """Compute energy histogram from track hit positions.
+
+    This function converts the simulated hit energy depositions to pixel images.
+    The Geometry object, passed as a parameter, controls the binning resolution
+    and other histogramming settings.
 
     Parameters
     ----------
-        - xs: x hit position of shape=(tracks, [hits])
-        - ys: y hit position of shape=(tracks, [hits])
-        - zs: z hit position of shape=(tracks, [hits])
-        - Es: hit energy of shape=(tracks, [hits])
-        - geo: detector geometry
+    xs: ak.Array
+        x hit position of shape=(tracks, [hits]).
+    ys: ak.Array
+        y hit position of shape=(tracks, [hits]).
+    zs: ak.Array
+        z hit position of shape=(tracks, [hits]).
+    Es: ak.Array
+        Hit energy of shape=(tracks, [hits]).
+    geo: Geometry
+        Detector geometry.
 
     Returns
     -------
-        - sparse energy histogram of shape=()
+    hists: ak.Array
+        Sparse energy histogram.
     """
     logger.debug("Converting to histogram ...")
     hists = []
@@ -216,5 +240,4 @@ def tracks2histograms(
         hists.append(hist.reshape(1, -1))
 
     hists = sparse.vstack(hists)
-
     return hists

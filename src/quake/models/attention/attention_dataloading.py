@@ -24,30 +24,39 @@ to_np = lambda x: np.array(x, dtype=object)
 
 
 def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
-    """
-    In place back projection to input original order before dataset sorting.
+    """In place back projection to input original order before dataset sorting.
+
     This is useful when predicting network results and initial order matters.
+
     Parameters
     ----------
-        - array: iterable to be sorted back of shape=(nb events)
-        - ordering: the array that originally sorted the data of shape=(nb events)
+    array: np.ndarray
+        Iterable to be sorted back of shape=(nb events).
+    ordering: np.ndarray
+        The array that originally sorted the data of shape=(nb events).
+
     Returns
     -------
-        - the originally ordered array
+    np.ndarray
+        the originally ordered array.
     """
     return np.put_along_axis(array, ordering, array, axis=0)
 
 
 def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
-    """
-    Pads the inputs to fit data into a tensor.
+    """Pads the inputs to fit data into a tensor.
+
     Parameters
     ----------
-        - array: iterable of objects each of shape=([nb hits], nb features)
+    array: np.ndarray
+        Iterable of objects each of shape=([nb hits], nb features).
+
     Returns
     -------
-        - padded data of shape=(maxlen, nb features)
-        - mask of shape=(maxlen, maxlen)
+    tf.Tensor
+        Padded data of shape=(maxlen, nb features).
+    tf.Tensor
+        Mask of shape=(maxlen, maxlen).
     """
     maxlen = array[-1].shape[0]
     pwidth = lambda x: [[0, maxlen - len(x)], [0, 0]]
@@ -64,17 +73,21 @@ def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
 
 
 def standardize_batch(batch: tf.Tensor, mus: tf.Tensor, sigmas: tf.Tensor) -> tf.Tensor:
-    """
-    Standardize input features to have zero mean and unit standard deviation.
+    """Standardize input features to have zero mean and unit standard deviation.
 
     Parameters
     ----------
-        - inptus: inputs batch of shape=(events), each of shape=([nb hits], nb feats)
-        - mus: the feature means of shape=(nb_feats,)
-        - sigmas: the feature standard deviations of shape=(nb_feats,)
+    inputs: tf.Tensor
+        Inputs batch of shape=(events), each of shape=([nb hits], nb feats).
+    mus: tf.Tensor
+        The feature means of shape=(nb_feats,).
+    sigmas: tf.Tensor
+        The feature standard deviations of shape=(nb_feats,).
+
     Returns
     -------
-        - the normalized batch of shape=(batch_size, maxlen, nb feats)
+    z_scores: tf.Tensor
+        The normalized batch of shape=(batch_size, maxlen, nb feats).
     """
     mus = tf.expand_dims(mus, axis=0)
     sigmas = tf.expand_dims(sigmas, axis=0)
@@ -99,14 +112,22 @@ class Dataset(tf.keras.utils.Sequence):
         """
         Parameters
         ----------
-            - inputs: array of objects, each of shape=([nb hits], nb features)
-            - targets: array of shape=(nb events)
-            - batch_size: the batch size
-            - smart_batching: wether to sample with smart batch algorithm
-            - should_standardize: wether to standardize the inputs or not
-            - mus: the features means of shape=(nb features)
-            - stds: the features standard deviations of shape=(nb features)
-            - seed: random generator seed for reproducibility
+        inputs: np.ndarray
+            Array of objects, each of shape=([nb hits], nb features).
+        targets: np.ndarray
+            Array of shape=(nb events).
+        batch_size: int
+            The batch size.
+        smart_batching: bool
+            Wether to sample with smart batch algorithm.
+        should_standardize: bool
+            Wether to standardize the inputs or not.
+        mus: tf.Tensor
+            The features means of shape=(nb features).
+        stds: tf.Tensor
+            The features standard deviations of shape=(nb features).
+        seed: int
+            Random generator seed for reproducibility.
         """
         self.inputs = to_np(inputs)
         self.targets = targets
@@ -133,9 +154,10 @@ class Dataset(tf.keras.utils.Sequence):
         self.is_first_pass = True
 
     def sort_data(self):
-        """
-        Sorts inputs and targets according to increasing number of hits in
-        event. This is needed for dynamic batching.
+        """Sorts inputs and targets according to increasing number of hits in
+        event.
+
+        This is needed for dynamic batching.
         """
         fn = lambda pair: len(pair[0])
         indices = np.arange(self.data_len)
@@ -154,18 +176,23 @@ class Dataset(tf.keras.utils.Sequence):
         """
         Parameters
         ----------
-            - idx: the number of batch drawn by the generator
+        idx: int
+            The number of batch drawn by the generator.
+
         Returns
         -------
-            - network inputs:
-                - inputs batch of shape=(batch_size, maxlen, nb feats)
-                - mask batch of shape=(batch_size, maxlen, nb feats)
-            - targets batch of shape=(batch_size,)
+        network inputs: Tuple[tf.Tensor, tf.Tensor]
+            The batched network inputs:
+            - inputs batch of shape=(batch_size, maxlen, nb feats)
+            - mask batch of shape=(batch_size, maxlen, nb feats)
+        targets: tf.Tensor
+            Targets batch of shape=(batch_size,).
 
         Note
         ----
 
         The input feature axis contains the following data:
+
             - normalized x coordinate [mm]
             - normalized y coordinate [mm]
             - normalized z coordinate [mm]
@@ -191,16 +218,20 @@ class Dataset(tf.keras.utils.Sequence):
         return (norm_batch, masks), float_target
 
     def sample_smart_batch(self, idx: int) -> np.ndarray:
-        """
-        Returns indices of the smart batch samples. Smart batching randomly
-        draws an example `i` from the available training points, then samples
-        the batch with the [i: i + batch_size] slice.
+        """Returns indices of the smart batch samples.
+
+        Smart batching randomly draws an example `i` from the available training
+        points, then samples the batch with the [i: i + batch_size] slice.
+
         Parameters
         ----------
-            - idx: the number of batch drawn by the generator
+        idx: int
+            The number of batch drawn by the generator.
+
         Returns
         -------
-            - the array of indices to sample the smart batch of shape=(batch size)
+        np.ndarray:
+            The array of indices to sample the smart batch of shape=(batch size).
         """
         nb_available = len(self.available_idxs)
         if nb_available <= self.batch_size:
@@ -222,14 +253,15 @@ class Dataset(tf.keras.utils.Sequence):
         return ii
 
     def __len__(self) -> int:
-        """
-        Returns the number of batches contained in the generator.
+        """Returns the number of batches contained in the generator.
+
         Returns
         -------
-            - generator length
+        int:
+            Generator length.
         """
         return ceil(len(self.inputs) / self.batch_size)
-    
+
     def get_extra_features(self) -> np.ndarray:
         """Computes custom extra features from events.
 
@@ -246,22 +278,26 @@ class Dataset(tf.keras.utils.Sequence):
         """
         # TODO: maybe use awkward arrays to do this
         nb_active = [event.shape[0] for event in self.inputs]
-        tot_energy = [event[:,-1].sum() for event in self.inputs]
+        tot_energy = [event[:, -1].sum() for event in self.inputs]
         extra_features = np.stack([nb_active, tot_energy], axis=1)
         return extra_features
 
 
 def get_data(file: Path, geo: Geometry) -> np.ndarray:
-    """
-    Returns the point cloud from file
+    """Returns the point cloud from file.
+
     Parameters
     ----------
-        - file: the .npz input file path
-        - geo: object describing detector geometry
+    file: Path
+        The .npz input file path.
+    geo: Geometry
+        Object describing detector geometry.
+
     Returns
     -------
-        - array of objects of shape=(nb events,) each entry represents a point
-          cloud of shape=([nb hits], nb feats)
+    point cloud: np.ndarray
+        array of objects of shape=(nb events,) each entry represents a point
+        cloud of shape=([nb hits], nb feats).
     """
     data = scipy.sparse.load_npz(file)
     evt, coords = data.nonzero()

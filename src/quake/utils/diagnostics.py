@@ -4,25 +4,31 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
-from quake.utils.configflow import bool_me
 from sklearn.manifold import TSNE
+from quake.utils.configflow import bool_me
+from .configflow import arrayLike
 
 
-def histogram_activations_image(y_pred: tf.Tensor, y_true: tf.Tensor) -> plt.Figure:
+def histogram_activations_image(y_pred: arrayLike, y_true: arrayLike) -> plt.Figure:
     """
     Returns a histogram of the network classification scores.
     Overlapped histograms scores for the positive and negative samples.
 
     Parameters
     ----------
-        - y_pred: the tensor of predicted scores shape=(nb points,)
-        - y_true: the tensor of ground truths of shape=(nb points,)
+    y_pred: arrayLike
+        The tensor of predicted scores shape=(nb points,).
+    y_true: arrayLike
+        The tensor of ground truths of shape=(nb points,).
 
     Returns
     -------
-        - the pyplot histograms
+    figure: plt.Figure
+        The pyplot histograms.
     """
-    y_pred = y_pred.numpy()
+    if isinstance(y_pred, tf.Tensor):
+        y_pred = y_pred.numpy()
+
     y_true = bool_me(y_true).numpy()
 
     scores_true = y_pred[y_true]
@@ -62,9 +68,9 @@ def histogram_activations_image(y_pred: tf.Tensor, y_true: tf.Tensor) -> plt.Fig
     return figure
 
 
-def scatterplot_features_image(features: tf.Tensor, y_true: tf.Tensor) -> plt.Figure:
-    """
-    Returns a 2D scatterplot of the input features.
+def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Figure:
+    """Returns a 2D scatterplot of the input features.
+
     Useful to look visually the separation in the 2D plane for binary
     classification.
     The input features should have shape `(nb points, nb dims)`.
@@ -75,14 +81,20 @@ def scatterplot_features_image(features: tf.Tensor, y_true: tf.Tensor) -> plt.Fi
 
     Parameters
     ----------
-        - features: the tensor of features shape=(nb points, nb_features)
-        - y_true: the tensor of ground truths of shape=(nb points,)
+    features: arrayLike
+        The tensor of features shape=(nb points, nb_features).
+    y_true: arrayLike
+        The tensor of ground truths of shape=(nb points,).
 
     Returns
     -------
-        - the pyplot scatterplot
+    figure: plt.Figure
+        The pyplot scatterplot.
     """
-    features = features.numpy()
+    y_true = bool_me(y_true).numpy()
+
+    if isinstance(features, tf.Tensor):
+        features = features.numpy()
     features = (features - features.mean(0, keepdims=True)) / features.std(
         0, keepdims=True
     )
@@ -125,17 +137,20 @@ def scatterplot_features_image(features: tf.Tensor, y_true: tf.Tensor) -> plt.Fi
 
 
 def image_to_tensor(figure: plt.Figure) -> tf.Tensor:
-    """
-    Converts a pyplot image to a tensor. Useful for TensorBoard loading.
-    Saves first the image in memory and then dumps to tensor.
+    """Converts a pyplot image to a tensor.
+
+    Useful for TensorBoard loading. Saves first the image in memory and then
+    dumps to tensor.
 
     Parameters
     ----------
-        - figure: the image to be converted
+    figure: plt.Figure
+        The image to be converted.
 
     Returns
     -------
-        - the RGBA image decoded in tensor form, of shape=(1, H, W, C). (C=4)
+    tf.Tensor
+        The RGBA image decoded in tensor form, of shape=(1, H, W, C). (C=4)
     """
     buffer = io.BytesIO()
     plt.savefig(buffer, format="png")
@@ -149,14 +164,16 @@ def image_to_tensor(figure: plt.Figure) -> tf.Tensor:
 def save_scatterplot_features_image(
     fname: Path, features: tf.Tensor, y_true: tf.Tensor
 ):
-    """
-    Saves to file a scatterplot of the first two features in tensor format.
+    """Saves to file a scatterplot of the first two features in tensor format.
 
     Parameters
     ----------
-        - fname: the file where to save the plot
-        - features: the tensor of features shape=(nb points, nb_features)
-        - y_true: the boolean tensor of ground truths of shape=(nb points,)
+    fname: Path
+        The file where to save the plot.
+    features: tf.Tensor
+        The tensor of features shape=(nb points, nb_features).
+    y_true: tf.Tensor
+        The boolean tensor of ground truths of shape=(nb points,).
     """
     figure = scatterplot_features_image(features, y_true)
     plt.savefig(fname, bbox_inches="tight", dpi=300)
@@ -164,15 +181,16 @@ def save_scatterplot_features_image(
 
 
 def save_histogram_activations_image(fname: Path, y_pred: tf.Tensor, y_true: tf.Tensor):
-    """
-    Saves to file
-    Returns a scatterplot of the first two features in tensor format.
+    """Saves histogram image to file.
 
     Parameters
     ----------
-        - fname: the file where to save the plot
-        - y_pred: the tensor of predicted scores shape=(nb points,)
-        - y_true: the tensor of ground truths of shape=(nb points,)
+    fname: Path
+        The file where to save the plot.
+    y_pred: tf.Tensor
+        The tensor of predicted scores shape=(nb points,).
+    y_true: tf.Tensor
+        The tensor of ground truths of shape=(nb points,).
     """
     figure = histogram_activations_image(y_pred, y_true)
     plt.savefig(fname, bbox_inches="tight", dpi=300)

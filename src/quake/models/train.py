@@ -20,12 +20,12 @@ logger = logging.getLogger(PACKAGE + ".train")
 
 
 def add_arguments_train(parser: ArgumentParser):
-    """
-    Adds train subparser arguments.
+    """Adds train subparser arguments.
 
     Parameters
     ----------
-        - parser: train subparser object
+    parser: ArgumentParser
+        Train subparser object.
     """
     valid_models = ["svm", "cnn", "attention"]
     parser.add_argument("--output", "-o", type=Path, help="the output folder")
@@ -49,12 +49,12 @@ def add_arguments_train(parser: ArgumentParser):
 
 
 def train(args: Namespace):
-    """
-    Train wrapper function: calls the train main function.
+    """Train wrapper function: calls the train main function.
 
     Parameters
     ----------
-        - args: command line parsed arguments.
+    args: Namespace
+        Command line parsed arguments..
     """
     # load runcard and setup output folder structure
     if args.interactive:
@@ -108,20 +108,30 @@ def preconfig_tf(setup: dict):
 
 
 def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dict):
-    """
-    Training main function that triggers model's training.
+    """Training main function that triggers model's training.
+
     The specific training function must implement the following steps:
-        - data loading
-        - model loading
-        - training
-        - evaluation
+
+    - data loading
+    - model loading
+    - training
+    - evaluation
 
     Parameters
     ----------
-        - data_folder: the input data folder path
-        - train_folder: the train output folder path
-        - modeltype: available options svm | cnn | attention
-        - setup: settings dictionary
+    data_folder: Path
+        The input data folder path.
+    train_folder: Path
+        The train output folder path.
+    modeltype: str
+        Available options svm | cnn | attention.
+    setup: dict
+        Settings dictionary.
+
+    Raises
+    ------
+    NotImplementedError
+        If `modeltype` is not one of svm, cnn, attention
     """
     preconfig_tf(setup)
     from .attention.train import attention_train

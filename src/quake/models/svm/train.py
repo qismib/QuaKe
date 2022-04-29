@@ -226,10 +226,6 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
     dataset = [train_features, val_features, test_features]
     labels = [train_labels, val_labels, test_labels]
 
-    print(list(map(lambda x: x.shape, dataset)))
-    print(list(map(lambda x: x.shape, labels)))
-    exit()
-
     # SVM training and hyperparameter optimization
     classical_svms = svm_hyperparameter_training(
         train_folder,

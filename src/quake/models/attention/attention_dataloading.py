@@ -229,6 +229,26 @@ class Dataset(tf.keras.utils.Sequence):
             - generator length
         """
         return ceil(len(self.inputs) / self.batch_size)
+    
+    def get_extra_features(self) -> np.ndarray:
+        """Computes custom extra features from events.
+
+        Extra features are:
+
+        - number of active pixels in 3D event
+        - total energy in the event
+
+        Returns
+        -------
+        extra_features: np.ndarray
+            Number of active pixels and tot energy for each event, of
+            shape=(nb events, 2).
+        """
+        # TODO: maybe use awkward arrays to do this
+        nb_active = [event.shape[0] for event in self.inputs]
+        tot_energy = [event[:,-1].sum() for event in self.inputs]
+        extra_features = np.stack([nb_active, tot_energy], axis=1)
+        return extra_features
 
 
 def get_data(file: Path, geo: Geometry) -> np.ndarray:

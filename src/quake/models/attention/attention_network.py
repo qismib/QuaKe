@@ -1,12 +1,20 @@
 import logging
-from typing import Tuple
+from typing import Tuple, List
+from numpy import isin
 import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
 from .AbstractNet import AbstractNet
-from .layers import TransformerEncoder, Head, LBA, LBAD
+from .layers import (
+    TransformerEncoder,
+    Head,
+    LBA,
+    LBAD,
+    apply_random_rotation_2d,
+    apply_random_rotation_3d,
+)
 
 logger = logging.getLogger(PACKAGE + ".attention")
 
@@ -25,6 +33,7 @@ class AttentionNetwork(AbstractNet):
     def __init__(
         self,
         f_dims: int = 4,
+        spatial_dims: int = 3,
         nb_mha_heads: int = 2,
         mha_filters: list = [8, 16],
         nb_fc_heads: int = 2,
@@ -42,6 +51,7 @@ class AttentionNetwork(AbstractNet):
         Parameters
         ----------
             - f_dims: number of point cloud feature dimensions
+            - spatial_dims: number of point cloud spatial feature dimensions
             - nb_mha_heads: the number of heads in the `MultiHeadAttention` layer
             - mha_filters: the output units for each `MultiHeadAttention` in the stack
             - nb_fc_heads: the number of `Head` layers to be concatenated
@@ -58,6 +68,7 @@ class AttentionNetwork(AbstractNet):
 
         # store args
         self.f_dims = f_dims
+        self.spatial_dims = spatial_dims
         self.nb_mha_heads = nb_mha_heads
         self.mha_filters = mha_filters
         self.nb_fc_heads = nb_fc_heads
@@ -69,6 +80,12 @@ class AttentionNetwork(AbstractNet):
         self.use_bias = use_bias
         self.verbose = verbose
 
+        self.apply_random_rotation = (
+            apply_random_rotation_2d
+            if self.spatial_dims == 2
+            else apply_random_rotation_3d
+        )
+
         self.mhas = []
         self.encoding = []
 
@@ -79,14 +96,10 @@ class AttentionNetwork(AbstractNet):
 
         for i, (fin, fout) in enumerate(zip(fins, fouts)):
             # attention layers
-            self.mhas.append(
-                TransformerEncoder(fin, self.nb_mha_heads, name=f"mha_{i}")
-            )
+            self.mhas.append(TransformerEncoder(fin, self.nb_mha_heads, name=f"Mha{i}"))
             # encoding layers (responsible of changing the feature axis dimension)
             self.encoding.append(
-                ff_layer(
-                    fout, self.activation, self.alpha, name=f"enc_{i}", **ff_kwargs
-                )
+                ff_layer(fout, self.activation, self.alpha, name=f"Enc{i}", **ff_kwargs)
             )
 
         # decoding layers
@@ -96,12 +109,12 @@ class AttentionNetwork(AbstractNet):
                 self.activation,
                 self.alpha,
                 self.dropout_rate,
-                name=f"dec_{i}",
+                name=f"Dec{i}",
             )
             for i in range(self.nb_fc_heads)
         ]
 
-        self.final = Dense(1, name="final")
+        self.final = Dense(1, name="Final")
 
         # explicitly build network weights
         build_with_shape = ((None, self.f_dims), (None, None))
@@ -112,24 +125,60 @@ class AttentionNetwork(AbstractNet):
         ]
         super(AttentionNetwork, self).build(batched_shape)
 
-    def call(self, inputs: Tuple[tf.Tensor, tf.Tensor]) -> tf.Tensor:
+    def call(
+        self,
+        inputs: Tuple[tf.Tensor, tf.Tensor],
+        training: bool = None,
+    ) -> tf.Tensor:
         """
         Parameters
         ----------
             - inputs
                 - point cloud of hits of shape=(batch,[nb hits],f_dims)
                 - mask tensor of shape=(batch,[nb hits],f_dims)
+            - training: wether network is in training or inference mode
+
         Returns
         -------
             - merging probability of shape=(batch,)
         """
+        features = self.feature_extraction(inputs, training=training)
+        output = self.final(features)
+        output = tf.squeeze(sigmoid(output), axis=-1)
+        if self.return_features:
+            return output, features
+        return output
+
+    def feature_extraction(
+        self, inputs: Tuple[tf.Tensor, tf.Tensor], training: bool = None
+    ) -> tf.Tensor:
+        """
+        This function provides the forward pass for feature extraction. The
+        downstream classification is independent.
+        The number of extracted feature per event is the number of neurons in
+        the last Head-type layer in the network.
+
+        Parameters
+        ----------
+            - inputs
+                - point cloud of hits of shape=(batch,[nb hits],f_dims)
+                - mask tensor of shape=(batch,[nb hits],f_dims)
+            - training: wether network is in training or inference mode
+
+        Returns
+        -------
+            - the tensor of extracted features, of shape=(batch, nb_features)
+        """
         x, mask = inputs
+        # rotate the point cloud by a random angle to enforce the
+        # if training:
+        #     x = self.apply_random_rotation(x)
         for mha, enc in zip(self.mhas, self.encoding):
             x = mha(x, attention_mask=mask)
             x = enc(x)
 
-        # TODO: think about replacing it with max-pooling and average-pooling
-        # ops before reducing everything
+        # max pooling results in a function symmetric wrt its inputs
+        # the bottleneck is the width of the last encoding layer
         x = tf.reduce_max(x, axis=1)
 
         results = []
@@ -138,14 +187,22 @@ class AttentionNetwork(AbstractNet):
 
         output = tf.stack(results, axis=-1)
         output = tf.reduce_mean(output, axis=-1)
-        output = tf.squeeze(sigmoid(self.final(output)), axis=-1)
         return output
 
-    def overload_train_step(self, data):
+    def train_step(self, data: List[tf.Tensor]) -> dict:
         """
         Overloading of the train_step method, which is called during model.fit.
-        It can be used to print low level information on gradients. Mainly used
-        for debugging purposes.
+        Used for debugging purposes.
+
+        Saves the gradients at each step.
+
+        Parameters
+        ----------
+            - data: the batch of inputs of type [point cloud, mask]
+
+        Returns
+        -------
+            - the updated metrics dictionary
         """
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
@@ -163,26 +220,12 @@ class AttentionNetwork(AbstractNet):
         # Update weights
         self.optimizer.apply_gradients(zip(gradients, self.trainable_weights))
 
-        # debugging gradients (look if they are vanishing)
-        print_gradients(zip(gradients, self.trainable_weights))
+        # save gradients for debugging purposes
+        self.current_gradients = gradients
+
+        # print_gradients_to_writer(zip(gradients, self.trainable_weights))
 
         # Update metrics (includes the metric that tracks the loss)
         self.compiled_metrics.update_state(y, y_pred)
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
-
-
-def print_gradients(gradients):
-    for g, t in gradients:
-        tf.print(
-            "Param:",
-            g.name,
-            ", value:",
-            tf.reduce_mean(t),
-            tf.math.reduce_std(t),
-            ", grad:",
-            tf.reduce_mean(g),
-            tf.math.reduce_std(g),
-        )
-    tf.print("---------------------------")
-    return True

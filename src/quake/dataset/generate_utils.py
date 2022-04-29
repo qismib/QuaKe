@@ -43,6 +43,8 @@ class Geometry:
         self.ybins = np.linspace(self.ymin, self.ymax, self.nb_ybins + 1)
         self.zbins = np.linspace(self.zmin, self.zmax, self.nb_zbins + 1)
 
+        self.min_energy = detector["min_energy"]
+
         # TODO [enhancement]: think about using @property as setter and getter editable
         # geometry attributes
 
@@ -190,18 +192,23 @@ def tracks2histograms(
 
         yz_digits = y_digits * geo.nb_zbins + z_digits
         shape = (geo.nb_xbins, geo.nb_ybins * geo.nb_zbins)
-        cutoff = 0.1
+
+        # the csr_matrix automatically sums all the entries that fall in the
+        # same pixel
         hist = sparse.csr_matrix(
             (energy.to_numpy(), (x_digits, yz_digits)), shape=shape
         )
+
         # thresholding
-        cutoff = 0.1
         rows, cols = hist.nonzero()
         values = np.array(hist[rows, cols])[0]
-        underflow = values < cutoff
+
+        underflow = values < geo.min_energy
+
         # remove empty histograms
         if not np.count_nonzero(~underflow):
             continue
+
         # threshold histograms
         if np.count_nonzero(underflow):
             values[underflow] = 0

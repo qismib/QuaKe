@@ -8,8 +8,13 @@ from pathlib import Path
 from math import ceil
 import numpy as np
 import scipy
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+from ..utils import (
+    dataset_split_util,
+    get_dataset_balance_message,
+    load_splitting_maps,
+    save_splitting_maps,
+)
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
 from quake.utils.configflow import float_me
@@ -58,6 +63,25 @@ def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     return float_me(rows), float_me(masks)
 
 
+def standardize_batch(batch: tf.Tensor, mus: tf.Tensor, sigmas: tf.Tensor) -> tf.Tensor:
+    """
+    Standardize input features to have zero mean and unit standard deviation.
+
+    Parameters
+    ----------
+        - inptus: inputs batch of shape=(events), each of shape=([nb hits], nb feats)
+        - mus: the feature means of shape=(nb_feats,)
+        - sigmas: the feature standard deviations of shape=(nb_feats,)
+    Returns
+    -------
+        - the normalized batch of shape=(batch_size, maxlen, nb feats)
+    """
+    mus = tf.expand_dims(mus, axis=0)
+    sigmas = tf.expand_dims(sigmas, axis=0)
+    z_scores = (batch - mus) / sigmas
+    return z_scores
+
+
 class Dataset(tf.keras.utils.Sequence):
     """Dataset sequence."""
 
@@ -67,6 +91,9 @@ class Dataset(tf.keras.utils.Sequence):
         targets: np.ndarray,
         batch_size: int,
         smart_batching: bool = False,
+        should_standardize: bool = True,
+        mus: tf.Tensor = None,
+        sigmas: tf.Tensor = None,
         seed: int = 12345,
     ):
         """
@@ -76,13 +103,28 @@ class Dataset(tf.keras.utils.Sequence):
             - targets: array of shape=(nb events)
             - batch_size: the batch size
             - smart_batching: wether to sample with smart batch algorithm
+            - should_standardize: wether to standardize the inputs or not
+            - mus: the features means of shape=(nb features)
+            - stds: the features standard deviations of shape=(nb features)
             - seed: random generator seed for reproducibility
         """
         self.inputs = to_np(inputs)
         self.targets = targets
         self.batch_size = batch_size
         self.smart_batching = smart_batching
+        self.should_standardize = should_standardize
+        self.mus = mus
+        self.sigmas = sigmas
         self.seed = seed
+
+        self.nb_features = self.inputs[0].shape[-1]
+
+        if self.should_standardize:
+            if self.mus is None or self.sigmas is None:
+                data = np.concatenate(self.inputs).reshape([-1, self.nb_features])
+                self.mus = float_me(data.mean(0))
+                self.sigmas = float_me(data.std(0))
+
         self.data_len = len(self.targets)
         self.available_idxs = np.arange(self.data_len)
         self.rng = np.random.default_rng(self.seed) if self.smart_batching else None
@@ -119,6 +161,15 @@ class Dataset(tf.keras.utils.Sequence):
                 - inputs batch of shape=(batch_size, maxlen, nb feats)
                 - mask batch of shape=(batch_size, maxlen, nb feats)
             - targets batch of shape=(batch_size,)
+
+        Note
+        ----
+
+        The input feature axis contains the following data:
+            - normalized x coordinate [mm]
+            - normalized y coordinate [mm]
+            - normalized z coordinate [mm]
+            - normalized pixel energy value [MeV]
         """
         # smart batching
         if self.smart_batching:
@@ -128,7 +179,16 @@ class Dataset(tf.keras.utils.Sequence):
         batch_x = self.inputs[ii]
         batch_y = self.targets[ii]
         # for some reason the output requires explicit casting to tf.Tensors
-        return padding(batch_x), float_me(batch_y)
+        padded_batch, masks = padding(batch_x)
+        float_target = float_me(batch_y)
+
+        norm_batch = (
+            standardize_batch(padded_batch, self.mus, self.sigmas)
+            if self.should_standardize
+            else padded_batch
+        )
+
+        return (norm_batch, masks), float_target
 
     def sample_smart_batch(self, idx: int) -> np.ndarray:
         """
@@ -169,6 +229,26 @@ class Dataset(tf.keras.utils.Sequence):
             - generator length
         """
         return ceil(len(self.inputs) / self.batch_size)
+    
+    def get_extra_features(self) -> np.ndarray:
+        """Computes custom extra features from events.
+
+        Extra features are:
+
+        - number of active pixels in 3D event
+        - total energy in the event
+
+        Returns
+        -------
+        extra_features: np.ndarray
+            Number of active pixels and tot energy for each event, of
+            shape=(nb events, 2).
+        """
+        # TODO: maybe use awkward arrays to do this
+        nb_active = [event.shape[0] for event in self.inputs]
+        tot_energy = [event[:,-1].sum() for event in self.inputs]
+        extra_features = np.stack([nb_active, tot_energy], axis=1)
+        return extra_features
 
 
 def get_data(file: Path, geo: Geometry) -> np.ndarray:
@@ -201,25 +281,36 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     return pc
 
 
-def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
-    """
-    Loads data for attention network
+def read_data(
+    data_folder: Path, train_folder: Path, setup: dict, split_from_maps: bool = False
+) -> Tuple[Dataset, Dataset, Dataset]:
+    """Loads data for attention network.
 
     Parameters
     ----------
-        - data_folder: the input data folder path
-        - setup: settings dictionary
+    data_folder: Path
+        The input data folder path.
+    train_folder: Path
+        The train output folder path.
+    setup: dict
+        Settings dictionary.
+    split_from_maps: bool
+        Wether to load splitting maps from file to restore train/val/test
+        datasets from a previous splitting.
 
     Returns
     -------
-        - train generator
-        - val generator
-        - test generator
+    train_generator: Dataset
+        Train generator.
+    val_generator: Dataset
+        Validation generator.
+    test_generator: Dataset
+        Test generator.
     """
     geo = Geometry(setup["detector"])
     data_sig_l = []
     data_bkg_l = []
-    for file in folder.iterdir():
+    for file in data_folder.iterdir():
         # signal files
         is_signal = file.name[0] == "b"
         is_background = file.name[0] == "e"
@@ -243,13 +334,30 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
     logger.debug(f"Data shape: {data.shape}")
     logger.debug(f"Targets shape: {targets.shape}")
 
-    inputs_tv, inputs_test, targets_tv, targets_test = train_test_split(
-        data, targets, test_size=0.1, random_state=setup["seed"]
-    )
+    if split_from_maps:
+        logger.info(f"Loading splitting maps from folder: {train_folder}")
+        train_map, val_map, test_map = load_splitting_maps(train_folder)
+        inputs_train = data[train_map]
+        inputs_val = data[val_map]
+        inputs_test = data[test_map]
+        targets_train = targets[train_map]
+        targets_val = targets[val_map]
+        targets_test = targets[test_map]
+    else:
+        split_ratio = setup["model"]["attention"]["test_split_ratio"]
+        train_wrap, val_wrap, test_wrap = dataset_split_util(
+            data,
+            targets,
+            split_ratio=split_ratio,
+            seed=setup["seed"],
+            with_indices=True,
+        )
+        inputs_train, targets_train, train_map = train_wrap
+        inputs_val, targets_val, val_map = val_wrap
+        inputs_test, targets_test, test_map = test_wrap
 
-    inputs_train, inputs_val, targets_train, targets_val = train_test_split(
-        inputs_tv, targets_tv, test_size=0.1, random_state=setup["seed"]
-    )
+        save_splitting_maps(train_folder, train_map, val_map, test_map)
+        logger.info(f"Saving splitting maps in folder {train_folder}")
 
     batch_size = setup["model"]["attention"]["net_dict"]["batch_size"]
 
@@ -258,30 +366,32 @@ def read_data(folder: Path, setup: dict) -> Tuple[Dataset, Dataset, Dataset]:
         targets_train,
         batch_size,
         smart_batching=True,
+        should_standardize=True,
         seed=setup["seed"],
     )
-    val_generator = Dataset(inputs_val, targets_val, batch_size)
-    test_generator = Dataset(inputs_test, targets_test, batch_size)
 
-    print_dataset_balance(train_generator, "Train")
-    print_dataset_balance(val_generator, "Validation")
-    print_dataset_balance(test_generator, "Test")
+    mus = train_generator.mus
+    sigmas = train_generator.sigmas
+
+    val_generator = Dataset(
+        inputs_val,
+        targets_val,
+        batch_size,
+        should_standardize=True,
+        mus=mus,
+        sigmas=sigmas,
+    )
+    test_generator = Dataset(
+        inputs_test,
+        targets_test,
+        batch_size,
+        should_standardize=True,
+        mus=mus,
+        sigmas=sigmas,
+    )
+
+    logger.info(get_dataset_balance_message(train_generator, "Train"))
+    logger.info(get_dataset_balance_message(val_generator, "Validation"))
+    logger.info(get_dataset_balance_message(test_generator, "Test"))
 
     return train_generator, val_generator, test_generator
-
-
-def print_dataset_balance(dataset: Dataset, name: str):
-    """
-    Logs the dataset balancing between classes
-
-    Parameters
-    ----------
-        - dataset: the dataset to log
-        - name: the dataset name to be logged
-    """
-    nb_examples = dataset.data_len
-    positives = np.count_nonzero(dataset.targets)
-    logger.info(
-        f"{name} dataset balancing: {nb_examples} training points, "
-        f"of which {positives/nb_examples*100:.2f}% positives"
-    )

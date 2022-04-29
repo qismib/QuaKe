@@ -44,12 +44,6 @@ def add_arguments_datagen(parser: ArgumentParser):
     parser.add_argument(
         "--show", action="store_true", help="show a track visual example"
     )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        help="random generator seed for code reproducibility",
-        default=42,
-    )
 
     parser.set_defaults(func=datagen)
 
@@ -76,7 +70,6 @@ def datagen(args: Namespace):
         setup["output"] / "data",
         setup["detector"],
         args.show,
-        args.seed,
     )
 
 
@@ -85,7 +78,6 @@ def datagen_main(
     out_folder: Path,
     detector: dict,
     should_show: bool = False,
-    seed: int = 42,
 ):
     """
     Data generation main function: extracts a dataset from a folder containing
@@ -97,7 +89,6 @@ def datagen_main(
         - out_folder: the output folder path
         - detector: the detector geometry settings
         - should_show: wether to show a visual example or not
-        - seed: random generator seed for code reproducibility
     """
     logger.info(f"Generate data to {out_folder}/data")
     xresolution, _, zresolution = detector["resolution"]
@@ -108,7 +99,7 @@ def datagen_main(
             assert file.name[0] in ["b", "e"]
             is_signal = file.name[0] == "b"
             geo = Geometry(detector)
-            xs, ys, zs, Es = load_tracks(file, geo, is_signal, seed)
+            xs, ys, zs, Es = load_tracks(file, geo, is_signal)
             track_fn = lambda t, i: t[i].to_numpy()
             if should_show:
                 # a plot for debugging purposes
@@ -122,14 +113,6 @@ def datagen_main(
                 )
             data_sparse = tracks2histograms(xs, ys, zs, Es, geo)
             fname = out_folder / file.name
-            # try:
-            #     assert data_sparse.nonzero()[1].shape == data_sparse.data.shape
-            # except:
-            #     coords = data_sparse.nonzero()[1]
-            #     energies = data_sparse.data
-            #     print(f"Mismatch found in {fname}: coordinates are {coords.shape} and energies are {energies.shape}")
-            #     print("Coords", coords[:10], coords[10:])
-            #     print("Energies", energies[:10], energies[10:])
 
             sparse.save_npz(fname, data_sparse)
             logger.info(f"Histogram saved at {fname}.npz")

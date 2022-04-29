@@ -1,45 +1,50 @@
+""" This module provides functions for CNN network training and loading."""
 import logging
 from typing import Tuple
 from time import time as tm
 from pathlib import Path
 import tensorflow as tf
 import tensorflow.keras.backend as tfK
-from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad
 from tensorflow.keras.callbacks import (
     TensorBoard,
     ModelCheckpoint,
     ReduceLROnPlateau,
     EarlyStopping,
 )
-from .attention_dataloading import read_data, Dataset
-from .attention_network import AttentionNetwork
+from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad
+from .cnn_dataloading import read_data, Dataset
+from .cnn_network import CNN_Network
 from quake import PACKAGE
-from quake.utils.callbacks import DebuggingCallback
-from quake.utils.diagnostics import (
-    save_histogram_activations_image,
-    save_scatterplot_features_image,
-)
+from quake.dataset.generate_utils import Geometry
 
-logger = logging.getLogger(PACKAGE + ".attention")
+# from quake.utils.callbacks import DebuggingCallback
+
+logger = logging.getLogger(PACKAGE + ".cnn")
 
 
 def load_and_compile_network(
-    msetup: dict, run_tf_eagerly: bool, **kwargs
-) -> AttentionNetwork:
-    """
-    Loads and compiles attention network.
+    msetup: dict, run_tf_eagerly: bool = False, geo: Geometry = None
+) -> CNN_Network:
+    """Loads and compiles attention network.
 
     Parameters
     ----------
-        - msetup: attention model settings dictionary
-        - run_tf_eagerly: wether to run tf eagerly, for debugging purposes
+    msetup: dict
+        Attention model settings dictionary.
+    run_tf_eagerly: bool
+        Wether to run tf eagerly, for debugging purposes.
+    geo: Geometry
+        Object describing detector geometry.
 
     Returns
     -------
-        - the compiled network
+    network: CNN_Network
+        The compiled network.
     """
     lr = float(msetup["lr"])
-    opt_kwarg = {"clipvalue": 0.5}
+    opt_kwarg = {
+        # "clipvalue": 0.5,
+    }
     if msetup["optimizer"].lower() == "adam":
         opt = Adam(learning_rate=lr, **opt_kwarg)
     elif msetup["optimizer"].lower() == "sgd":
@@ -49,12 +54,15 @@ def load_and_compile_network(
     elif msetup["optimizer"].lower() == "adagrad":
         opt = Adagrad(learning_rate=lr, **opt_kwarg)
 
-    network = AttentionNetwork(**msetup["net_dict"])
+    network = CNN_Network(
+        nb_bins=[geo.nb_xbins, geo.nb_ybins, geo.nb_zbins], **msetup["net_dict"]
+    )
     loss = tf.keras.losses.BinaryCrossentropy(name="xent")
     metrics = [
         tf.keras.metrics.BinaryAccuracy(name="acc"),
         tf.keras.metrics.Precision(name="prec"),
         tf.keras.metrics.Recall(name="rec"),
+        tf.keras.metrics.AUC(name="auc"),
     ]
 
     network.compile(
@@ -74,27 +82,32 @@ def load_and_compile_network(
 def train_network(
     msetup: dict,
     output: Path,
-    network: AttentionNetwork,
+    network: CNN_Network,
     generators: Tuple[Dataset, Dataset],
-) -> AttentionNetwork:
-    """
-    Trains the network.
+) -> CNN_Network:
+    """Trains the CNN network.
 
     Parameters
     ----------
-        - msetup: attention model settings dictionary
-        - output: the output folder
-        - network: the network to be trained
-        - generators: the train and validation generators
+    msetup: dict
+        Attention model settings dictionary.
+    output: Path
+        The output folder.
+    network:CNN_Network
+        The network to be trained.
+    generators: Tuple[Dataset, Dataset]
+        The train and validation generators.
 
     Returns
     -------
-        - the trained network
+    network: CNN_Network:
+        The trained network.
     """
     train_generator, val_generator = generators
 
     logdir = output / f"logs/{tm()}"
-    checkpoint_filepath = output.joinpath("attention.h5").as_posix()
+    checkpoint_filepath = output.joinpath("cnn.h5").as_posix()
+
     callbacks = [
         ModelCheckpoint(
             filepath=checkpoint_filepath,
@@ -122,7 +135,7 @@ def train_network(
             # histogram_freq=5,
             # profile_batch=5,
         ),
-        DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
+        # DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(
@@ -148,15 +161,17 @@ def train_network(
     return network
 
 
-def attention_train(data_folder: Path, train_folder: Path, setup: dict):
-    """
-    Attention Network training.
+def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
+    """CNN Network training.
 
     Parameters
     ----------
-        - data_folder: the input data folder path
-        - train_folder: the train output folder path
-        - setup: settings dictionary
+    data_folder: Path
+        The input data folder path.
+    train_folder: Path
+        The train output folder path.
+    setup: dict
+        Settings dictionary.
     """
     # data loading
     train_generator, val_generator, test_generator = read_data(
@@ -165,8 +180,9 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
 
     # model loading
     tfK.clear_session()
-    msetup = setup["model"]["attention"]
-    network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
+    msetup = setup["model"]["cnn"]
+    geo = Geometry(setup["detector"])
+    network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.summary()
 
     # training
@@ -175,16 +191,4 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     # inference
     network.evaluate(test_generator)
 
-    make_inference_plots(network, test_generator, train_folder)
-
-
-def make_inference_plots(network: AttentionNetwork, test_generator, train_folder):
-
-    y_pred, features = network.predict_and_extract(test_generator)
-    y_true = test_generator.targets
-
-    fname = train_folder / "histogram_scores.png"
-    save_scatterplot_features_image(fname, features, y_true)
-
-    fname = train_folder / "scatterplot_features.png"
-    save_histogram_activations_image(fname, y_pred, y_true)
+    # make_inference_plots(network, test_generator, train_folder)

@@ -79,20 +79,22 @@ def preconfig_tf(setup: dict):
     import tensorflow as tf
 
     gpus = tf.config.list_physical_devices("GPU")
-    if len(gpus) == 0:
-        return
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
-    gpus = setup.get("gpu")
-    if gpus:
-        if isinstance(gpus, int):
-            gpus = [gpus]
-        gpus = [
-            tf.config.PhysicalDevice(f"/physical_device:GPU:{gpu}", "GPU")
-            for gpu in gpus
-        ]
-        tf.config.set_visible_devices(gpus, "GPU")
-        logger.warning(f"Host device: GPU {gpus}")
+    if len(gpus):
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+        gpus = setup.get("gpu")
+        if gpus:
+            if isinstance(gpus, int):
+                gpus = [gpus]
+            gpus = [
+                tf.config.PhysicalDevice(f"/physical_device:GPU:{gpu}", "GPU")
+                for gpu in gpus
+            ]
+            tf.config.set_visible_devices(gpus, "GPU")
+            logger.warning(f"Host device: GPU {gpus}")
+        else:
+            tf.config.set_visible_devices([], "GPU")
+            logger.warning("Host device: CPU")
     else:
         logger.warning("Host device: CPU")
 
@@ -100,9 +102,12 @@ def preconfig_tf(setup: dict):
         logger.warning("Run all tf functions eagerly")
         tf.config.run_functions_eagerly(True)
 
+    from quake.utils.configflow import set_manual_seed_tf
+
+    set_manual_seed_tf(setup.get("seed"))
+
 
 def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dict):
-    print()
     """
     Training main function that triggers model's training.
     The specific training function must implement the following steps:
@@ -120,15 +125,15 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     """
     preconfig_tf(setup)
     from .attention.train import attention_train
-    from .CNN.CNN_train import CNN_train
-    from .SVM.SVM_train import SVM_train
+    from .cnn.train import cnn_train
+    from .svm.train import svm_train
 
     if modeltype == "svm":
-        logger.info("Training SVM")
-        SVM_train(data_folder, setup)
+        logger.info("Training Support Vector Machine")
+        svm_train(data_folder, train_folder, setup)
     elif modeltype == "cnn":
-        logger.info("Training CNN")
-        CNN_train(data_folder, setup)
+        logger.info("Training Convolutional Neural Network")
+        cnn_train(data_folder, train_folder, setup)
     elif modeltype == "attention":
         logger.info("Training Attention Network")
         attention_train(data_folder, train_folder, setup)

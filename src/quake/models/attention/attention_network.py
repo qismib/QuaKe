@@ -6,7 +6,7 @@ from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
 from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
-from .AbstractNet import AbstractNet
+from ..AbstractNet import AbstractNet
 from .layers import (
     TransformerEncoder,
     Head,

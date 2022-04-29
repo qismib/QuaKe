@@ -4,7 +4,7 @@ import tensorflow as tf
 from tensorflow.keras.activations import sigmoid
 from tensorflow.keras.layers import Dense, Flatten, LeakyReLU, Concatenate, Input
 from .layers import CBA, CBAD
-from quake.models.attention.AbstractNet import AbstractNet
+from ..AbstractNet import AbstractNet
 
 
 class CNN_Network(AbstractNet):
@@ -145,7 +145,6 @@ class CNN_Network(AbstractNet):
         self,
         inputs: Tuple[tf.Tensor, tf.Tensor, tf.Tensor],
         training: bool = None,
-        return_features: bool = False,
     ) -> tf.Tensor:
         """Convolutional network forward pass.
 
@@ -155,8 +154,6 @@ class CNN_Network(AbstractNet):
             yz, xz, xy, 2D projections, each of shape=(batch,H,W,C).
         training: bool
             Wether the netowrk is in training mode or not.
-        return_features: bool
-            Wether to return extracted features or not.
 
         Returns
         -------
@@ -166,7 +163,7 @@ class CNN_Network(AbstractNet):
         features = self.feature_extraction(inputs, training=training)
         output = self.final(features)
         output = tf.squeeze(sigmoid(output), axis=-1)
-        if return_features:
+        if self.return_features:
             return output, features
         return output
 

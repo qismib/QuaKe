@@ -5,6 +5,7 @@ from .diagnostics import (
     histogram_activations_image,
     image_to_tensor,
 )
+from quake.models.AbstractNet import FeatureReturner
 
 
 class DebuggingCallback(tf.keras.callbacks.Callback):
@@ -46,7 +47,8 @@ class DebuggingCallback(tf.keras.callbacks.Callback):
         Extracts the (cumulative) gradients values trend and histograms.
         """
         # extract features and final activations
-        y_pred, features = self.model.predict_and_extract(self.validation_data)
+        with FeatureReturner(self.model) as fr:
+            y_pred, features = fr.predict(self.validation_data, verbose=0)
 
         self.current_weights = [
             tf.convert_to_tensor(var)

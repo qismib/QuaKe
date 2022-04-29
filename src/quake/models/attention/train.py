@@ -13,6 +13,7 @@ from tensorflow.keras.callbacks import (
 )
 from .attention_dataloading import read_data, Dataset
 from .attention_network import AttentionNetwork
+from ..AbstractNet import FeatureReturner
 from quake import PACKAGE
 from quake.utils.callbacks import DebuggingCallback
 from quake.utils.diagnostics import (
@@ -179,8 +180,8 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
 
 
 def make_inference_plots(network: AttentionNetwork, test_generator, train_folder):
-
-    y_pred, features = network.predict_and_extract(test_generator)
+    with FeatureReturner(network) as fr:
+        y_pred, features = fr.predict(test_generator, verbose=1)
     y_true = test_generator.targets
 
     fname = train_folder / "histogram_scores.png"

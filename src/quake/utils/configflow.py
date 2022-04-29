@@ -1,8 +1,10 @@
 """ This module contains setups to configure tensorflow. """
 import tensorflow as tf
+import numpy as np
 
 TF_DTYPE_INT = tf.int32
 TF_DTYPE = tf.float32
+TF_DTYPE_BOOL = tf.bool
 
 EPS = 1e-6
 
@@ -13,9 +15,15 @@ def float_me(x):
 
 EPS_TF = float_me(EPS)
 
+TF_PI = float_me(np.pi)
+
 
 def int_me(x):
     return tf.cast(x, dtype=TF_DTYPE_INT)
+
+
+def bool_me(x):
+    return tf.cast(x, dtype=TF_DTYPE_BOOL)
 
 
 def set_manual_seed_tf(seed: int):

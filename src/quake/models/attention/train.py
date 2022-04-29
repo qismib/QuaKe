@@ -14,6 +14,11 @@ from tensorflow.keras.callbacks import (
 from .attention_dataloading import read_data, Dataset
 from .attention_network import AttentionNetwork
 from quake import PACKAGE
+from quake.utils.callbacks import DebuggingCallback
+from quake.utils.diagnostics import (
+    save_histogram_activations_image,
+    save_scatterplot_features_image,
+)
 
 logger = logging.getLogger(PACKAGE + ".attention")
 
@@ -31,15 +36,16 @@ def load_and_compile_network(msetup: dict, run_tf_eagerly: bool, **kwargs) -> At
     -------
         - the compiled network
     """
-    lr = msetup["lr"]
-    if msetup["optimizer"] == "Adam":
-        opt = Adam(learning_rate=lr)
-    elif msetup["optimizer"] == "SGD":
-        opt = SGD(learning_rate=lr)
-    elif msetup["optimizer"] == "RMSprop":
-        opt = RMSprop(learning_rate=lr)
-    elif msetup["optimizer"] == "Adagrad":
-        opt = Adagrad(learning_rate=lr)
+    lr = float(msetup["lr"])
+    opt_kwarg = {"clipvalue": 0.5}
+    if msetup["optimizer"].lower() == "adam":
+        opt = Adam(learning_rate=lr, **opt_kwarg)
+    elif msetup["optimizer"].lower() == "sgd":
+        opt = SGD(learning_rate=lr, **opt_kwarg)
+    elif msetup["optimizer"].lower() == "rmsprop":
+        opt = RMSprop(learning_rate=lr, **opt_kwarg)
+    elif msetup["optimizer"].lower() == "adagrad":
+        opt = Adagrad(learning_rate=lr, **opt_kwarg)
 
     network = AttentionNetwork(**msetup["net_dict"])
     loss = tf.keras.losses.BinaryCrossentropy(name="xent")
@@ -98,19 +104,21 @@ def train_network(
         ),
         ReduceLROnPlateau(
             monitor="val_acc",
-            factor=0.75,
+            factor=0.5,
             mode="max",
-            verbose=1,
+            verbose=2,
             patience=msetup["reducelr_patience"],
-            min_lr=msetup["min_lr"],
+            min_lr=float(msetup["min_lr"],)
         ),
         TensorBoard(
             log_dir=logdir,
             # write_graph=True,
             # write_images=True,
-            # histogram_freq=1,
+            # update_freq='batch',
+            # histogram_freq=5,
             # profile_batch=5,
         ),
+        DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(
@@ -160,5 +168,19 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     # training
     train_network(msetup, train_folder, network, (train_generator, val_generator))
 
-    # evaluation
+    # inference
     network.evaluate(test_generator)
+
+    make_inference_plots(network, test_generator, train_folder)
+
+
+def make_inference_plots(network: AttentionNetwork, test_generator, train_folder):
+
+    y_pred, features = network.predict_and_extract(test_generator)
+    y_true = test_generator.targets
+
+    fname = train_folder / "histogram_scores.png"
+    save_scatterplot_features_image(fname, features, y_true)
+
+    fname = train_folder / "scatterplot_features.png"
+    save_histogram_activations_image(fname, y_pred, y_true)

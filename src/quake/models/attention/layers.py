@@ -2,12 +2,12 @@
 import tensorflow as tf
 from tensorflow.keras.layers import (
     Layer,
-    LayerNormalization,
     BatchNormalization,
     Dropout,
     Dense,
     MultiHeadAttention,
 )
+from quake.utils.configflow import TF_PI
 
 
 class LBA(Layer):
@@ -28,9 +28,12 @@ class LBA(Layer):
         self.act = act
         self.alpha = alpha
 
-        self.linear = Dense(self.units, name="linear")
+        self.linear = Dense(
+            self.units,
+            name="linear",  # kernel_regularizer="l2", bias_regularizer="l2",
+        )
         self.activation = tf.keras.activations.get(self.act)
-        self.batchnorm = BatchNormalization(name="batchnorm")
+        # self.batchnorm = BatchNormalization(name="batchnorm")
 
     def build(self, input_shape):
         super().build(input_shape)
@@ -48,7 +51,7 @@ class LBA(Layer):
             Output tensor of shape=(B, ..., do).
         """
         x = self.linear(inputs)
-        x = self.batchnorm(x)
+        # x = self.batchnorm(x)
         if self.act == "relu":
             x = self.activation(x, alpha=self.alpha)
         else:
@@ -140,16 +143,34 @@ class TransformerEncoder(Layer):
         self.units = units
         self.mha_heads = mha_heads
 
-        self.mha = MultiHeadAttention(self.mha_heads, self.units, name="mha")
+        self.mha = MultiHeadAttention(
+            self.mha_heads,
+            self.units,
+            name="mha",
+            # kernel_regularizer="l2",
+            # bias_regularizer="l2",
+        )
 
         # self.norm0 = LayerNormalization(axis=-1, name="ln_0")
-        self.norm0 = BatchNormalization(axis=-1, name="bn_0")
+        # self.norm0 = BatchNormalization(axis=-1, name="bn_0")
 
-        self.fc0 = Dense(units, activation="relu", name="mlp_0")
-        self.fc1 = Dense(units, activation="relu", name="mlp_1")
+        self.fc0 = Dense(
+            units,
+            activation="relu",
+            name="mlp_0",
+            # kernel_regularizer="l2",
+            # bias_regularizer="l2",
+        )
+        self.fc1 = Dense(
+            units,
+            activation="relu",
+            name="mlp_1",
+            # kernel_regularizer="l2",
+            # bias_regularizer="l2",
+        )
 
         # self.norm1 = LayerNormalization(axis=-1, name="ln_1")
-        self.norm1 = BatchNormalization(axis=-1, name="bn_1")
+        # self.norm1 = BatchNormalization(axis=-1, name="bn_1")
 
     def build(self, input_shape):
         super(TransformerEncoder, self).build(input_shape)
@@ -165,10 +186,10 @@ class TransformerEncoder(Layer):
             - output tensor of shape=(B, L, d_in)
         """
         x += self.mha(x, x, attention_mask=attention_mask)
-        x = self.norm0(x)
+        # x = self.norm0(x)
         x += self.fc1(self.fc0(x))
-        output = self.norm1(x)
-        return output
+        # x = self.norm1(x)
+        return x
 
     def get_config(self) -> dict:
         return {"units": self.units, "mha_heads": self.mha_heads}
@@ -233,3 +254,114 @@ class Head(Layer):
             }
         )
         return config
+
+
+def get_batched_rotations_2d(angles: tf.Tensor) -> tf.Tensor:
+    """
+    Returns the (2+1)d spatial rotation given batched arrays of angles. Third axis
+    remains unchanged as it contains hit energies.
+    Parameters
+    ----------
+        - angles: batch of three rotation angles of shape=(batch_size,)
+    Returns
+    -------
+        - batch of (2+1)d rotations of shape=(batch_size, 3, 3)
+    """
+    cos = tf.math.cos(angles)
+    sin = tf.math.sin(angles)
+    zeros = tf.zeros_like(angles)
+    ones = tf.ones_like(angles)
+    rot = [0.0] * 3
+    rot[0] = tf.stack([cos, sin, zeros], axis=-1)
+    rot[1] = tf.stack([-sin, cos, zeros], axis=-1)
+    rot[2] = tf.stack([zeros, zeros, ones], axis=-1)
+    rot = tf.stack(rot, axis=1)
+    return rot
+
+
+def get_batched_rotations_3d(angles: tf.Tensor) -> tf.Tensor:
+    """
+    Returns the (3+1)d spatial rotation given batched arrays of angles. Fourth axis
+    remains unchanged as it contains hit energies.
+    Parameters
+    ----------
+        - angles: batch of three rotation angles of shape=(batch_size, 3)
+    Returns
+    -------
+        - batch of (3+1)d rotations of shape=(batch_size, 4, 4)
+    """
+    cos = tf.math.cos(angles)
+    sin = tf.math.sin(angles)
+    zeros = tf.zeros_like(angles[:, 0])
+    ones = tf.ones_like(angles[:, 0])
+    rot = [0.0] * 4
+    rot[0] = tf.stack(
+        [
+            cos[:, 0],
+            sin[:, 0] * sin[:, 1] * sin[:, 2] - sin[:, 0] * cos[:, 2],
+            cos[:, 0] * sin[:, 1] * cos[:, 2] + sin[:, 0] * sin[:, 2],
+            zeros,
+        ],
+        axis=-1,
+    )
+    rot[1] = tf.stack(
+        [
+            sin[:, 0] * cos[:, 1],
+            sin[:, 0] * sin[:, 1] * sin[:, 2] + cos[:, 0] * cos[:, 2],
+            sin[:, 0] * sin[:, 1] * cos[:, 2] - cos[:, 0] * sin[:, 2],
+            zeros,
+        ],
+        axis=-1,
+    )
+    rot[2] = tf.stack(
+        [-sin[:, 1], cos[:, 1] * sin[:, 2], cos[:, 1] * cos[:, 2], zeros], axis=-1
+    )
+    rot[3] = tf.stack([zeros, zeros, zeros, ones], axis=-1)
+    rot = tf.stack(rot, axis=1)
+    return rot
+
+
+def apply_random_rotation_2d(pc: tf.Tensor) -> tf.Tensor:
+    """
+    Rotates inputs in the 2D space. This rigid transformations ensure that the
+    network learns the geometric structure of the given point cloud, rather than
+    memorizing the point positions.
+    This function draws one anglein the [0,2*pi] space.
+    Parameters
+    ----------
+        - pc: point cloud of shape=(B, max len, nb feats). Three feats are the
+              xyz coordinates, while the last one is the energy and should not
+              be modified
+        - nb_dims: number of spatial dimensions
+    Returns
+    -------
+        - the rotated point cloud
+    """
+    batch_size = tf.shape(pc)[0]
+    angles = tf.random.uniform([batch_size], maxval=2 * TF_PI)
+    rot = get_batched_rotations_2d(angles)
+    rot_pc = tf.einsum("ijk,ilk->ijl", pc, rot)
+    return rot_pc
+
+
+def apply_random_rotation_3d(pc: tf.Tensor) -> tf.Tensor:
+    """
+    Rotates inputs in the 3D space. This rigid transformations ensure that the
+    network learns the geometric structure of the given point cloud, rather than
+    memorizing the point positions.
+    This function draws three angles in the [0,2*pi]^3 space.
+    Parameters
+    ----------
+        - pc: point cloud of shape=(B, max len, nb feats). Three feats are the
+              xyz coordinates, while the last one is the energy and should not
+              be modified
+        - nb_dims: number of spatial dimensions
+    Returns
+    -------
+        - the rotated point cloud
+    """
+    batch_size = tf.shape(pc)[0]
+    angles = tf.random.uniform([batch_size, 3], maxval=2 * TF_PI)
+    rot = get_batched_rotations_3d(angles)
+    rot_pc = tf.einsum("ijk,ilk->ijl", pc, rot)
+    return rot_pc

@@ -63,6 +63,25 @@ def padding(array: np.ndarray) -> Tuple[tf.Tensor, tf.Tensor]:
     return float_me(rows), float_me(masks)
 
 
+def standardize_batch(batch: tf.Tensor, mus: tf.Tensor, sigmas: tf.Tensor) -> tf.Tensor:
+    """
+    Standardize input features to have zero mean and unit standard deviation.
+
+    Parameters
+    ----------
+        - inptus: inputs batch of shape=(events), each of shape=([nb hits], nb feats)
+        - mus: the feature means of shape=(nb_feats,)
+        - sigmas: the feature standard deviations of shape=(nb_feats,)
+    Returns
+    -------
+        - the normalized batch of shape=(batch_size, maxlen, nb feats)
+    """
+    mus = tf.expand_dims(mus, axis=0)
+    sigmas = tf.expand_dims(sigmas, axis=0)
+    z_scores = (batch - mus) / sigmas
+    return z_scores
+
+
 class Dataset(tf.keras.utils.Sequence):
     """Dataset sequence."""
 
@@ -72,6 +91,9 @@ class Dataset(tf.keras.utils.Sequence):
         targets: np.ndarray,
         batch_size: int,
         smart_batching: bool = False,
+        should_standardize: bool = True,
+        mus: tf.Tensor = None,
+        sigmas: tf.Tensor = None,
         seed: int = 12345,
     ):
         """
@@ -81,13 +103,28 @@ class Dataset(tf.keras.utils.Sequence):
             - targets: array of shape=(nb events)
             - batch_size: the batch size
             - smart_batching: wether to sample with smart batch algorithm
+            - should_standardize: wether to standardize the inputs or not
+            - mus: the features means of shape=(nb features)
+            - stds: the features standard deviations of shape=(nb features)
             - seed: random generator seed for reproducibility
         """
         self.inputs = to_np(inputs)
         self.targets = targets
         self.batch_size = batch_size
         self.smart_batching = smart_batching
+        self.should_standardize = should_standardize
+        self.mus = mus
+        self.sigmas = sigmas
         self.seed = seed
+
+        self.nb_features = self.inputs[0].shape[-1]
+
+        if self.should_standardize:
+            if self.mus is None or self.sigmas is None:
+                data = np.concatenate(self.inputs).reshape([-1, self.nb_features])
+                self.mus = float_me(data.mean(0))
+                self.sigmas = float_me(data.std(0))
+
         self.data_len = len(self.targets)
         self.available_idxs = np.arange(self.data_len)
         self.rng = np.random.default_rng(self.seed) if self.smart_batching else None
@@ -124,6 +161,15 @@ class Dataset(tf.keras.utils.Sequence):
                 - inputs batch of shape=(batch_size, maxlen, nb feats)
                 - mask batch of shape=(batch_size, maxlen, nb feats)
             - targets batch of shape=(batch_size,)
+
+        Note
+        ----
+
+        The input feature axis contains the following data:
+            - normalized x coordinate [mm]
+            - normalized y coordinate [mm]
+            - normalized z coordinate [mm]
+            - normalized pixel energy value [MeV]
         """
         # smart batching
         if self.smart_batching:
@@ -133,7 +179,16 @@ class Dataset(tf.keras.utils.Sequence):
         batch_x = self.inputs[ii]
         batch_y = self.targets[ii]
         # for some reason the output requires explicit casting to tf.Tensors
-        return padding(batch_x), float_me(batch_y)
+        padded_batch, masks = padding(batch_x)
+        float_target = float_me(batch_y)
+
+        norm_batch = (
+            standardize_batch(padded_batch, self.mus, self.sigmas)
+            if self.should_standardize
+            else padded_batch
+        )
+
+        return (norm_batch, masks), float_target
 
     def sample_smart_batch(self, idx: int) -> np.ndarray:
         """
@@ -291,10 +346,29 @@ def read_data(
         targets_train,
         batch_size,
         smart_batching=True,
+        should_standardize=True,
         seed=setup["seed"],
     )
-    val_generator = Dataset(inputs_val, targets_val, batch_size)
-    test_generator = Dataset(inputs_test, targets_test, batch_size)
+
+    mus = train_generator.mus
+    sigmas = train_generator.sigmas
+
+    val_generator = Dataset(
+        inputs_val,
+        targets_val,
+        batch_size,
+        should_standardize=True,
+        mus=mus,
+        sigmas=sigmas,
+    )
+    test_generator = Dataset(
+        inputs_test,
+        targets_test,
+        batch_size,
+        should_standardize=True,
+        mus=mus,
+        sigmas=sigmas,
+    )
 
     logger.info(get_dataset_balance_message(train_generator, "Train"))
     logger.info(get_dataset_balance_message(val_generator, "Validation"))

@@ -135,7 +135,7 @@ class Dataset(tf.keras.utils.Sequence):
         nb_active_yz = np.count_nonzero(self.yz_planes, axis=(1, 2, 3))
         nb_active_xz = np.count_nonzero(self.xz_planes, axis=(1, 2, 3))
         nb_active_xy = np.count_nonzero(self.xy_planes, axis=(1, 2, 3))
-        tot_energy = self.yz_planes(1, 2, 3)
+        tot_energy = self.yz_planes.sum((1, 2, 3))
         extra_features = np.stack(
             [nb_active_xy, nb_active_xz, nb_active_yz, tot_energy], axis=1
         )

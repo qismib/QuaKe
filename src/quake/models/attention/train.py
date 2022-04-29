@@ -129,7 +129,7 @@ def train_network(
             # histogram_freq=5,
             # profile_batch=5,
         ),
-        # DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
+        DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(
@@ -154,6 +154,32 @@ def train_network(
 
     return network
 
+
+def make_inference_plots(
+    train_folder: Path,
+    network: AttentionNetwork,
+    test_generator: tf.keras.utils.Sequence,
+):
+    """Plots accuracy plots.
+
+    Parameters
+    ----------
+    train_folder: Path
+        The train output folder path.
+    network: AttentionNetwork
+        The trained network.
+    test_generator: tf.keras.utils.Sequence
+        Test generator
+    """
+    with FeatureReturner(network) as fr:
+        y_pred, features = fr.predict(test_generator, verbose=1)
+    y_true = test_generator.targets
+
+    fname = train_folder / "histogram_scores.png"
+    save_scatterplot_features_image(fname, features, y_true)
+
+    fname = train_folder / "scatterplot_features.png"
+    save_histogram_activations_image(fname, y_pred, y_true)
 
 def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     """Attention Network training.
@@ -184,31 +210,4 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     # inference
     network.evaluate(test_generator)
 
-    make_inference_plots(network, test_generator, train_folder)
-
-
-def make_inference_plots(
-    train_folder: Path,
-    network: AttentionNetwork,
-    test_generator: tf.keras.utils.Sequence,
-):
-    """Plots accuracy plots.
-
-    Parameters
-    ----------
-    train_folder: Path
-        The train output folder path.
-    network: AttentionNetwork
-        The trained network.
-    test_generator: tf.keras.utils.Sequence
-        Test generator
-    """
-    with FeatureReturner(network) as fr:
-        y_pred, features = fr.predict(test_generator, verbose=1)
-    y_true = test_generator.targets
-
-    fname = train_folder / "histogram_scores.png"
-    save_scatterplot_features_image(fname, features, y_true)
-
-    fname = train_folder / "scatterplot_features.png"
-    save_histogram_activations_image(fname, y_pred, y_true)
+    make_inference_plots(train_folder, network, test_generator)

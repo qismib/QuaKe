@@ -135,7 +135,7 @@ def train_network(
             # histogram_freq=5,
             # profile_batch=5,
         ),
-        # DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
+       #  DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(

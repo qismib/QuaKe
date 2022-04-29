@@ -23,7 +23,9 @@ from quake.utils.diagnostics import (
 logger = logging.getLogger(PACKAGE + ".attention")
 
 
-def load_and_compile_network(msetup: dict, run_tf_eagerly: bool, **kwargs) -> AttentionNetwork:
+def load_and_compile_network(
+    msetup: dict, run_tf_eagerly: bool, **kwargs
+) -> AttentionNetwork:
     """
     Loads and compiles attention network.
 
@@ -108,7 +110,9 @@ def train_network(
             mode="max",
             verbose=2,
             patience=msetup["reducelr_patience"],
-            min_lr=float(msetup["min_lr"],)
+            min_lr=float(
+                msetup["min_lr"],
+            ),
         ),
         TensorBoard(
             log_dir=logdir,

@@ -3,7 +3,7 @@ from typing import Tuple
 import numpy as np
 import tensorflow as tf
 from sklearn import preprocessing
-from ..attention.AbstractNet import AbstractNet
+from ..attention.AbstractNet import AbstractNet, FeatureReturner
 
 
 def extract_feats(
@@ -32,7 +32,8 @@ def extract_feats(
     labels: np.ndarray
         The labels array, of shape=(nb events,).
     """
-    features = network.predict_and_extract(generator)[1].numpy()
+    with FeatureReturner(network) as fr:
+        _, features = fr.predict(generator)
     labels = generator.targets
 
     # optional adding custom extra features

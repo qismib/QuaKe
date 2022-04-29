@@ -1,5 +1,6 @@
 import logging
 from typing import Tuple, List
+from numpy import isin
 import tensorflow as tf
 from tensorflow.keras import Input
 from tensorflow.keras.layers import Dense
@@ -128,7 +129,6 @@ class AttentionNetwork(AbstractNet):
         self,
         inputs: Tuple[tf.Tensor, tf.Tensor],
         training: bool = None,
-        return_features: bool = False,
     ) -> tf.Tensor:
         """
         Parameters
@@ -145,7 +145,7 @@ class AttentionNetwork(AbstractNet):
         features = self.feature_extraction(inputs, training=training)
         output = self.final(features)
         output = tf.squeeze(sigmoid(output), axis=-1)
-        if return_features:
+        if self.return_features:
             return output, features
         return output
 
@@ -229,30 +229,3 @@ class AttentionNetwork(AbstractNet):
         self.compiled_metrics.update_state(y, y_pred)
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
-
-    def predict_and_extract(
-        self, generator: tf.keras.utils.Sequence
-    ) -> Tuple[tf.Tensor, tf.Tensor]:
-        """
-        Makes inference on all the data contained in `generator`. It returns both
-        the classification scores and the extracted features.
-
-        Parameters
-        ----------
-            - generator: the dataset generator
-
-        Returns
-        -------
-            - the network prediction tensor, of shape=(nb events,)
-            - the extrated features tensor, of shape=(nb events, nb_features)
-        """
-        # TODO [enhancement]: use the progbar and pass a verbose parameter
-        y_pred = []
-        features = []
-        for batch, _ in generator:
-            output, feats = self.call(batch, training=False, return_features=True)
-            y_pred.append(output)
-            features.append(feats)
-        y_pred = tf.concat(y_pred, axis=0)
-        features = tf.concat(features, axis=0)
-        return y_pred, features

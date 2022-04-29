@@ -253,34 +253,3 @@ class CNN_Network(AbstractNet):
         self.compiled_metrics.update_state(y, y_pred)
         # Return a dict mapping metric names to current value
         return {m.name: m.result() for m in self.metrics}
-
-    def predict_and_extract(
-        self, generator: tf.keras.utils.Sequence
-    ) -> Tuple[tf.Tensor, tf.Tensor]:
-        """Makes inference on all the data contained in `generator`.
-
-        Returns both the classification scores and the extracted features.
-
-        Parameters
-        ----------
-        generator: tf.keras.utils.Sequence
-            The dataset generator.
-
-        Returns
-        -------
-        y_pred: tf.Tensor
-            The network prediction tensor, of shape=(nb events,).
-        features: tf.Tensor
-            The extracted features tensor, of shape=(nb events, nb_features).
-        """
-        # TODO [enhancement]: use the progbar and pass a verbose parameter
-        # TODO: move this function in the mother class
-        y_pred = []
-        features = []
-        for batch, _ in generator:
-            output, feats = self.call(batch, training=False, return_features=True)
-            y_pred.append(output)
-            features.append(feats)
-        y_pred = tf.concat(y_pred, axis=0)
-        features = tf.concat(features, axis=0)
-        return y_pred, features

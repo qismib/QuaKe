@@ -182,7 +182,7 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
     tfK.clear_session()
     msetup = setup["model"]["cnn"]
     geo = Geometry(setup["detector"])
-    network = load_and_compile_network(msetup, geo, setup["run_tf_eagerly"])
+    network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.summary()
 
     # training

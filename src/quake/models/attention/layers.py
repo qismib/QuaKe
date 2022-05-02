@@ -164,13 +164,13 @@ class TransformerEncoder(Layer):
             # kernel_regularizer="l2",
             # bias_regularizer="l2",
         )
-        self.fc1 = Dense(
-            units,
-            activation="relu",
-            name="mlp_1",
-            # kernel_regularizer="l2",
-            # bias_regularizer="l2",
-        )
+        # self.fc1 = Dense(
+        #     units,
+        #     activation="relu",
+        #     name="mlp_1",
+        #     # kernel_regularizer="l2",
+        #     # bias_regularizer="l2",
+        # )
 
         # self.norm1 = LayerNormalization(axis=-1, name="ln_1")
         # self.norm1 = BatchNormalization(axis=-1, name="bn_1")
@@ -192,9 +192,11 @@ class TransformerEncoder(Layer):
         tf.Tensor:
             Output tensor of shape=(B, L, d_in).
         """
-        x += self.mha(x, x, attention_mask=attention_mask)
+        # x += self.mha(x, x, attention_mask=attention_mask)
+        x += self.mha(x, x)
         # x = self.norm0(x)
-        x += self.fc1(self.fc0(x))
+        # x += self.fc1(self.fc0(x))
+        x += self.fc0(x)
         # x = self.norm1(x)
         return x
 

@@ -129,27 +129,23 @@ class AttentionNetwork(AbstractNet):
         self.final = Dense(1, name="Final")
 
         # explicitly build network weights
-        build_with_shape = ((None, self.f_dims), (None, None))
-        names = ("pc", "mask")
-        batched_shape = [(self.batch_size,) + i for i in build_with_shape]
-        self.input_layer = [
-            Input(shape=bws, name=n) for bws, n in zip(build_with_shape, names)
-        ]
+        build_with_shape = (None, self.f_dims)
+        names = "pc"
+        batched_shape = (self.batch_size,) + build_with_shape
+        self.input_layer = Input(shape=batched_shape, name=names)
         super(AttentionNetwork, self).build(batched_shape)
 
     def call(
         self,
-        inputs: Tuple[tf.Tensor, tf.Tensor],
+        inputs: tf.Tensor,
         training: bool = None,
     ) -> tf.Tensor:
         """Network forward pass.
 
         Parameters
         ----------
-        inputs: Tuple[tf.Tensor,m tf.Tensor]
-            The network inputs:
-            - point cloud of hits of shape=(batch,[nb hits],f_dims)
-            - mask tensor of shape=(batch,[nb hits],f_dims)
+        inputs: tf.Tensor
+            The input point cloud of hits of shape=(batch,[nb hits],f_dims).
         training: bool
             Wether network is in training or inference mode.
 
@@ -166,7 +162,7 @@ class AttentionNetwork(AbstractNet):
         return output
 
     def feature_extraction(
-        self, inputs: Tuple[tf.Tensor, tf.Tensor], training: bool = None
+        self, inputs: tf.Tensor, training: bool = None
     ) -> tf.Tensor:
         """This function provides the forward pass for feature extraction.
 
@@ -176,10 +172,8 @@ class AttentionNetwork(AbstractNet):
 
         Parameters
         ----------
-        inputs: Tuple[tf.Tensor,m tf.Tensor]
-            The network inputs:
-            - point cloud of hits of shape=(batch,[nb hits],f_dims)
-            - mask tensor of shape=(batch,[nb hits],f_dims)
+        inputs: tf.Tensor
+            The input point cloud of hits of shape=(batch,[nb hits],f_dims).
         training: bool
             Wether network is in training or inference mode.
 
@@ -188,12 +182,12 @@ class AttentionNetwork(AbstractNet):
         features: tf.Tensor
             The tensor of extracted features, of shape=(batch, nb_features).
         """
-        x, mask = inputs
+        x = inputs
         # rotate the point cloud by a random angle to enforce the
         # if training:
         #     x = self.apply_random_rotation(x)
         for mha, enc in zip(self.mhas, self.encoding):
-            x = mha(x, attention_mask=mask)
+            x = mha(x)
             x = enc(x)
 
         # max pooling results in a function symmetric wrt its inputs

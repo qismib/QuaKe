@@ -181,6 +181,7 @@ def make_inference_plots(
     fname = train_folder / "scatterplot_features.png"
     save_histogram_activations_image(fname, y_pred, y_true)
 
+
 def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     """Attention Network training.
 

@@ -90,19 +90,4 @@ Train a model on data extracted in folder.
 quake train <folder> --model <modeltype>
 ```
 
-## Updates: added CNN and SVM
 
-'quake train' has been updated and now '--model cnn', '--model svm' are implemented.
-The options are listed in the runcard.
-
-### Notes 
-
-SVM uses the features extracted by the CNN, so a CNN must exist in the output folder under /models/cnn.
-
-SVM can be trained using much less samples than CNN. Unfortunately this advantage vanishes beacause we need to train a CNN for building the SVM. Maybe we could try to extract features from the attention model?
-
-### TODO:
-
-Optimize SVM hyperparameters.
-Figure out if CNN architecture can be further optimized.
-Figure out if overfitting issues can be better managed. I suggest that adding more data and using less dropout may help enhancing the CNN performances.

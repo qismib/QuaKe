@@ -75,36 +75,41 @@ def remove_outliers(features: np.ndarray, labels: np.ndarray) -> np.ndarray:
     return features[good_examples], labels[good_examples]
 
 
-def scaler(inputs: np.ndarray, kernel: str, should_do_scaling: bool):
-    """Utility function to provide scaling depending on selected kernel.
+def rearrange_scale(
+    train_set: np.ndarray,
+    val_set: np.ndarray,
+    test_set: np.ndarray,
+    should_do_scaling: bool,
+) -> list[np.ndarray]:
+    """Utility function to provide scaling.
 
-    Transforms the input data for enhancing SVMs performances.
+    Rearranges the input data in a unique list and applies a scaling for enhancing SVMs performances.
 
     Parameters
     ----------
-    inputs: np.ndarray
-        The input array, of shape=(nb events, nb features).
-    kernel: str
-        The kernel label.
+    train_set: np.ndarray
+        The training array, of shape=(nb events, nb features).
+    val_set: np.ndarray
+        The validation array, of shape=(nb events, nb features).
+    test_set: np.ndarray
+        The test array, of shape=(nb events, nb features).
     should_do_scaling: bool
         Wether to do input scaling or not.
 
     Returns
     -------
-    dataset: np.ndarray
+    dataset: list[np.ndarray]
         The scaled inputs if `should_do_scaling` is True, the inputs themselves
         otherwise.
     """
+    full_dataset = [train_set, val_set, test_set]
     if should_do_scaling:
-        if kernel == "linear" or kernel == "rbf":
-            scaler = preprocessing.PowerTransformer(
-                standardize=True
-            )  # nonlinear map to gaussian
-        elif kernel == "poly":
-            scaler = preprocessing.QuantileTransformer(
-                random_state=0
-            )  # nonlinear map to uniform dist
-        else:
-            NotImplementedError(f"scaler not implemented for {kernel} kernel")
-        return scaler.fit_transform(inputs)
-    return inputs
+        #quantile_transformer = preprocessing.QuantileTransformer(random_state=0)
+        #quantile_transformer = preprocessing.PowerTransformer(standardize = True)
+        #scaler = quantile_transformer.fit(np.concatenate(full_dataset))
+        scaler = preprocessing.MinMaxScaler(feature_range=(-1, 1)).fit(
+            np.concatenate(full_dataset)
+        )
+        for i in range(3):
+            full_dataset[i] = scaler.transform(full_dataset[i])
+    return full_dataset

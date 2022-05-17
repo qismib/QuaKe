@@ -8,6 +8,10 @@ detector:
   xlim: [-20, 20] # x boundaries in mm
   ylim: [-20, 20] # y boundaries in mm
   zlim: [-20, 20] # z boundaries in mm
+  should_crop_planes: True
+  xlim_reduced: [-10, 10]
+  ylim_reduced: [-10, 10]
+  zlim_reduced: [-10, 10]
   resolution: [5, 5, 1] # [x, y, z] resolution in mm
   min_energy: 0.1 # energy sensitivity in MeV
 
@@ -48,7 +52,7 @@ model:
     net_dict:
       nb_features: 2
       nb_hidden_layers: 2
-      hidden_units: 50
+      hidden_units: 25
       kernel_size: [3,3]
       strides: [1,1]
       batch_size: 120
@@ -58,10 +62,10 @@ model:
       use_bias: true
       name: CNN
 
-    feature_number: 4 # Intermediate dense layer size (the features for SVM)
+    #feature_number: 4 # Intermediate dense layer size (the features for SVM)
   svm:
     feature_extractor: cnn # the feature extraction network, available options cnn | attention
-    should_add_extra_feats: false # add nb active pixels and total energy to extracted features
+    should_add_extra_feats: true # add nb active pixels and total energy to extracted features
     kernels: [linear, poly, rbf]
     should_do_scaling: false
     name: SVM

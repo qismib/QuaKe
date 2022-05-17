@@ -7,9 +7,12 @@ import numpy as np
 import uproot
 import awkward as ak
 from scipy import sparse
+from scipy.stats import poisson
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from quake import PACKAGE
+
+AVG_IONIZATION_ENERGY = 23.6 * 1e-6
 
 logger = logging.getLogger(PACKAGE + ".datagen")
 
@@ -38,6 +41,21 @@ class Geometry:
         self.nb_xbins = math.ceil((self.xmax - self.xmin) / self.xbin_w)
         self.nb_ybins = math.ceil((self.ymax - self.ymin) / self.ybin_w)
         self.nb_zbins = math.ceil((self.zmax - self.zmin) / self.zbin_w)
+
+        if detector["should_crop_planes"]:
+            # reduced number of bins
+            xmin_reduced, xmax_reduced = detector["xlim_reduced"]
+            ymin_reduced, ymax_reduced = detector["ylim_reduced"]
+            zmin_reduced, zmax_reduced = detector["zlim_reduced"]
+            self.nb_xbins_reduced = math.ceil(
+                (xmax_reduced - xmin_reduced) / self.xbin_w
+            )
+            self.nb_ybins_reduced = math.ceil(
+                (ymax_reduced - ymin_reduced) / self.ybin_w
+            )
+            self.nb_zbins_reduced = math.ceil(
+                (zmax_reduced - zmin_reduced) / self.zbin_w
+            )
 
         # bin edeges
         self.xbins = np.linspace(self.xmin, self.xmax, self.nb_xbins + 1)
@@ -172,7 +190,7 @@ def load_tracks(
 
 
 def tracks2histograms(
-    xs: ak.Array, ys: ak.Array, zs: ak.Array, Es: ak.Array, geo: Geometry
+    xs: ak.Array, ys: ak.Array, zs: ak.Array, Es: ak.Array, geo: Geometry, seed: int = 42
 ) -> ak.Array:
     """Compute energy histogram from track hit positions.
 
@@ -192,6 +210,8 @@ def tracks2histograms(
         Hit energy of shape=(tracks, [hits]).
     geo: Geometry
         Detector geometry.
+    seed: int
+        Random generator seed for code reproducibility.
 
     Returns
     -------
@@ -223,9 +243,13 @@ def tracks2histograms(
             (energy.to_numpy(), (x_digits, yz_digits)), shape=shape
         )
 
-        # thresholding
+        # applying charge pairs fluctuations and thresholding
         rows, cols = hist.nonzero()
         values = np.array(hist[rows, cols])[0]
+        values = np.array(
+            AVG_IONIZATION_ENERGY
+            * poisson.rvs(mu=values / AVG_IONIZATION_ENERGY, random_state=seed)
+        )
 
         underflow = values < geo.min_energy
 

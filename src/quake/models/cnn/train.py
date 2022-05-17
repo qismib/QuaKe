@@ -1,5 +1,6 @@
 """ This module provides functions for CNN network training and loading."""
 import logging
+import math
 from typing import Tuple
 from time import time as tm
 from pathlib import Path
@@ -30,7 +31,7 @@ def load_and_compile_network(
     Parameters
     ----------
     msetup: dict
-        Attention model settings dictionary.
+        CNN model settings dictionary.
     run_tf_eagerly: bool
         Wether to run tf eagerly, for debugging purposes.
     geo: Geometry
@@ -54,9 +55,12 @@ def load_and_compile_network(
     elif msetup["optimizer"].lower() == "adagrad":
         opt = Adagrad(learning_rate=lr, **opt_kwarg)
 
-    network = CNN_Network(
-        nb_bins=[geo.nb_xbins, geo.nb_ybins, geo.nb_zbins], **msetup["net_dict"]
-    )
+    if hasattr(geo, "nb_xbins_reduced"):
+        bins_number = [geo.nb_xbins_reduced, geo.nb_ybins_reduced, geo.nb_zbins_reduced]
+    else:
+        bins_number = [geo.nb_xbins, geo.nb_ybins, geo.nb_zbins]
+
+    network = CNN_Network(nb_bins=bins_number, **msetup["net_dict"])
     loss = tf.keras.losses.BinaryCrossentropy(name="xent")
     metrics = [
         tf.keras.metrics.BinaryAccuracy(name="acc"),
@@ -135,7 +139,7 @@ def train_network(
             # histogram_freq=5,
             # profile_batch=5,
         ),
-       #  DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
+        #  DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(

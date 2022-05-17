@@ -61,6 +61,7 @@ class CNN_Network(AbstractNet):
         name: str
             The name of the neural network instance.
         """
+
         super(CNN_Network, self).__init__(name=name, **kwargs)
 
         # store args
@@ -123,9 +124,10 @@ class CNN_Network(AbstractNet):
         self.dense_0 = Dense(10, name="fc_0")
         self.lrelu_0 = LeakyReLU(alpha=self.alpha, name="lrelu_0")
 
-        self.dense_1 = Dense(self.nb_features, name="fc_1")
-        self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="features")
-
+        # self.dense_1 = Dense(self.nb_features, name="fc_1")
+        # self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="features")
+        self.dense_1 = Dense(self.nb_features, name = "features")
+        self.lrelu_1 = LeakyReLU(alpha = self.alpha, name = "lrelu_1")
         self.final = Dense(1, name="final")
 
         # explicitly build network weights
@@ -206,7 +208,8 @@ class CNN_Network(AbstractNet):
 
         feats = self.cat([yz, xz, xy])
         x = self.lrelu_0(self.dense_0(feats))
-        features = self.lrelu_1(self.dense_1(x))
+        #features = self.lrelu_1(self.dense_1(x))
+        features = self.dense_1(x)
         return features
 
     def train_step(self, data: list[tf.Tensor]) -> dict:

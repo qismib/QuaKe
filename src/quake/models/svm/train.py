@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split, GridSearchCV, PredefinedSplit
 from sklearn.metrics import roc_auc_score
-from .utils import extract_feats, scaler
+from .utils import extract_feats, rearrange_scale
 from ..attention.train import load_and_compile_network as load_attention_network
 from ..attention.attention_dataloading import read_data as read_data_attention
 from ..cnn.cnn_dataloading import read_data as read_data_cnn
@@ -23,7 +23,6 @@ def svm_hyperparameter_training(
     labels: list[np.ndarray],
     kernels: list[str],
     should_add_extra_feats: bool,
-    should_do_scaling: bool,
 ) -> list[SVC]:
     """Grid-search optimization of SVM the hyperparameters.
 
@@ -39,8 +38,6 @@ def svm_hyperparameter_training(
         Classical SVM kernels labels.
     should_add_extra_feats: bool
         Wether to enhance extracted features with custom ones.
-    should_do_scaling: bool
-        Wether to do input scaling or not.
 
     Returns
     -------
@@ -63,7 +60,7 @@ def svm_hyperparameter_training(
         "kernel": ["linear"],
     }
     poly_grid = {
-        "C": [0.01, 0.1, 1, 10, 100],
+        "C": [0.01, 0.1, 1],
         "kernel": ["poly"],
         "degree": [2, 3],
     }
@@ -95,12 +92,10 @@ def svm_hyperparameter_training(
 
     for k, kernel in enumerate(kernels):
         logger.info(f"Fitting SVC with {kernel} kernel")
-        grid = GridSearchCV(SVC(), grids[k], refit=True, verbose=0, cv=validation_idx)
-        scaled_cv = scaler(set_train_val, kernel, should_do_scaling)
-        scaled_s_tr_svm = scaler(set_train_svm, kernel, should_do_scaling)
-        grid.fit(scaled_cv, labels_train_val)
+        grid = GridSearchCV(SVC(), grids[k], refit=True, verbose=2, cv=validation_idx)
+        grid.fit(set_train_val, labels_train_val)
         classical_svc = SVC(probability=True, **grid.best_params_)
-        classical_svc.fit(scaled_s_tr_svm, labels_train_svm)
+        classical_svc.fit(set_train_svm, labels_train_svm)
         pickle.dump(
             classical_svc,
             open(train_folder / "{kernel}.sav", "wb"),
@@ -114,7 +109,6 @@ def evaluate_svm(
     dataset: list[np.ndarray],
     labels: list[np.ndarray],
     kernels: list[str],
-    should_do_scaling: bool,
 ):
     """Evaluates performance scores.
 
@@ -137,8 +131,6 @@ def evaluate_svm(
         array has shape=(nb events,).
     kernels: list[str]
         Classical SVM kernels labels.
-    should_do_scaling: bool
-        Wether to do input scaling or not.
     """
     accuracy = lambda y, l: np.sum(y == l) / l.shape[0]
     sensitivity = lambda y, l: np.sum(np.logical_and(y == 1, l == 1)) / np.sum(l)
@@ -154,12 +146,11 @@ def evaluate_svm(
 
     for k, kernel in enumerate(kernels):
         for j in range(0, 3):
-            scaled_set = scaler(dataset[j], kernel, should_do_scaling)
-            y = models[k].predict(scaled_set)
+            y = models[k].predict(dataset[j])
             acc[k, j] = accuracy(y, labels[j])
             sen[k, j] = sensitivity(y, labels[j])
             spec[k, j] = specificity(y, labels[j])
-            y_prob = models[k].predict_proba(scaled_set)[:, 1]
+            y_prob = models[k].predict_proba(dataset[j])[:, 1]
             auc[k, j] = roc_auc_score(labels[j], y_prob)
     logger.info(
         "Metrics matrices. Rows: linear, poly, rbf. Columns: train, validation, test"
@@ -223,7 +214,12 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
     )
 
     # training and saving the SVMs
-    dataset = [train_features, val_features, test_features]
+    dataset = rearrange_scale(
+        train_features,
+        val_features,
+        test_features,
+        setup["model"]["svm"]["should_do_scaling"],
+    )
     labels = [train_labels, val_labels, test_labels]
 
     # SVM training and hyperparameter optimization
@@ -233,7 +229,6 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
         labels,
         setup["model"]["svm"]["kernels"],
         should_add_extra_feats,
-        setup["model"]["svm"]["should_do_scaling"],
     )
 
     # evaluating the performances on train, validation and test sets
@@ -242,5 +237,4 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
         dataset,
         labels,
         setup["model"]["svm"]["kernels"],
-        setup["model"]["svm"]["should_do_scaling"],
     )

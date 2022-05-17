@@ -194,7 +194,8 @@ def roll_crop(
 
 
 def load_projections_and_labels(
-    data_folder: Path, dsetup: dict
+    data_folder: Path,
+    dsetup: dict,
 ) -> Tuple[list[np.ndarray], list[np.ndarray]]:
     """Returns 2D projections from the voxelized data.
 
@@ -203,7 +204,9 @@ def load_projections_and_labels(
     folder: Path
         The input data folder path.
     dsetup: dict
-        Detector Settings dictionary.
+        Detector settings dictionary.
+    msetup: dict
+        CNN model settings dictionary.
 
     Returns
     -------
@@ -237,11 +240,24 @@ def load_projections_and_labels(
     # project on the three cartesian axes
     projections = [data.sum(1), data.sum(2), data.sum(3)]
 
-    # switch to True the conditional to halve picture resolution
-    if False:
-        projections[0] = roll_crop(projections[0], geo.nb_ybins // 2, geo.nb_zbins // 2)
-        projections[1] = roll_crop(projections[1], geo.nb_xbins // 2, geo.nb_zbins // 2)
-        projections[2] = roll_crop(projections[2], geo.nb_xbins // 2, geo.nb_ybins // 2)
+    if dsetup["should_crop_planes"]:
+        # returning the projections cropped around the centre
+        # lim_x = (geo.nb_xbins - geo.nb_xbins_reduced)//2
+        # lim_y = (geo.nb_ybins - geo.nb_ybins_reduced)//2
+        # lim_z = (geo.nb_zbins - geo.nb_zbins_reduced)//2
+        # projections[0] = projections[0][:, lim_y:-lim_y, lim_z:-lim_z, :]
+        # projections[1] = projections[1][:, lim_x:-lim_x, lim_z:-lim_z, :]
+        # projections[2] = projections[2][:, lim_x:-lim_x, lim_y:-lim_y, :]
+
+        projections[0] = roll_crop(
+            projections[0], geo.nb_ybins_reduced, geo.nb_zbins_reduced
+        )
+        projections[1] = roll_crop(
+            projections[1], geo.nb_xbins_reduced, geo.nb_zbins_reduced
+        )
+        projections[2] = roll_crop(
+            projections[2], geo.nb_xbins_reduced, geo.nb_ybins_reduced
+        )
 
     return projections, labels
 
@@ -276,7 +292,8 @@ def read_data(
         Test generator.
     """
     (yz_planes, xz_planes, xy_planes), labels = load_projections_and_labels(
-        data_folder, setup["detector"]
+        data_folder,
+        setup["detector"],
     )
     if split_from_maps:
         logger.info(f"Loading splitting maps from folder: {train_folder}")

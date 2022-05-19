@@ -25,7 +25,7 @@ logger = logging.getLogger(PACKAGE + ".attention")
 
 
 def load_and_compile_network(
-    msetup: dict, run_tf_eagerly: bool, **kwargs
+    msetup: dict, run_tf_eagerly: bool = False, **kwargs
 ) -> AttentionNetwork:
     """Loads and compiles attention network.
 

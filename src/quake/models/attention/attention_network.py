@@ -107,12 +107,12 @@ class AttentionNetwork(AbstractNet):
         ff_kwargs = {"rate": self.dropout_rate} if self.dropout_rate else {}
 
         for i, (fin, fout) in enumerate(zip(fins, fouts)):
-            # attention layers
-            self.mhas.append(TransformerEncoder(fin, self.nb_mha_heads, name=f"Mha{i}"))
             # encoding layers (responsible of changing the feature axis dimension)
             self.encoding.append(
-                ff_layer(fout, self.activation, self.alpha, name=f"Enc{i}", **ff_kwargs)
+                ff_layer(fin, self.activation, self.alpha, name=f"Enc{i}", **ff_kwargs)
             )
+            # attention layers
+            self.mhas.append(TransformerEncoder(fout, self.nb_mha_heads, name=f"Mha{i}"))
 
         # decoding layers
         self.heads = [
@@ -193,8 +193,8 @@ class AttentionNetwork(AbstractNet):
         # if training:
         #     x = self.apply_random_rotation(x)
         for mha, enc in zip(self.mhas, self.encoding):
-            x = mha(x, attention_mask=mask)
             x = enc(x)
+            x = mha(x, attention_mask=mask)
 
         # max pooling results in a function symmetric wrt its inputs
         # the bottleneck is the width of the last encoding layer

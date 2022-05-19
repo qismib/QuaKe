@@ -1,4 +1,5 @@
 from pathlib import Path
+import numpy as np
 import tensorflow as tf
 from .diagnostics import (
     scatterplot_features_image,
@@ -65,7 +66,7 @@ class DebuggingCallback(tf.keras.callbacks.Callback):
             )
             tf.summary.image(
                 "Features scatterplot",
-                tf_scatterplot_features(features, self.y_true),
+                tf_scatterplot_features(features, self.y_true, self.model.layers[-1]),
                 step=epoch,
             )
 
@@ -108,7 +109,7 @@ def tf_histogram_activations(y_pred: tf.Tensor, y_true: tf.Tensor) -> tf.Tensor:
     return image_to_tensor(figure)
 
 
-def tf_scatterplot_features(features: tf.Tensor, y_true: tf.Tensor) -> tf.Tensor:
+def tf_scatterplot_features(features: tf.Tensor, y_true: tf.Tensor, layer: tf.keras.layers.Layer) -> tf.Tensor:
     """Returns a scatterplot of the first two features in tensor format.
 
     Parameters
@@ -124,4 +125,28 @@ def tf_scatterplot_features(features: tf.Tensor, y_true: tf.Tensor) -> tf.Tensor
         The RGBA image decoded in tensor form, of shape=(1, H, W, 4).
     """
     figure = scatterplot_features_image(features, y_true)
+
+    # print decision line
+    pts = np.array([-3.5, 3.5])
+    ax = figure.axes[0]
+    kernel, bias = layer.weights
+    if kernel[1] != 0:
+        m = (-1.*kernel[0] / kernel[1]).numpy().flatten()
+        q = (-1.*bias / kernel[1]).numpy().flatten()
+        y_final = m * pts + q
+        # print(f"Decision line: y = {m:.3f} x + {q:.3f}")
+        msg = f"Decision line: y = {m[0]:.3f} x {'+' if np.sign(q) else '-'} {np.abs(q[0]):.3f}"
+    else:
+        if kernel[0] != 0:
+            q = (-1.*bias / kernel[1]).numpy().flatten()
+            msg = f"Vertical decision line at x = {q}"
+            pts = [q,q]
+            y_final = [-3.5,3.5]
+        else:
+            msg = "All weights are zero !"
+            pts = []
+            y_final = []
+    ax.title.set_text(f"Standardized network extracted features\n{msg}")
+    ax.plot(pts, y_final, lw=0.5, c="blue", linestyle="dashed")
+
     return image_to_tensor(figure)

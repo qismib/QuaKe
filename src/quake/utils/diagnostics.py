@@ -95,9 +95,9 @@ def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Fi
 
     if isinstance(features, tf.Tensor):
         features = features.numpy()
-    features = (features - features.mean(0, keepdims=True)) / features.std(
-        0, keepdims=True
-    )
+    mean = features.mean(0, keepdims=True)
+    std = features.std(0, keepdims=True)
+    features = (features - mean) / std
     nb_dims = features.shape[1]
 
     y_true = bool_me(y_true).numpy()
@@ -129,6 +129,8 @@ def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Fi
     ax.title.set_text("Standardized network extracted features")
     ax.scatter(*pos_args, c="green", s=10, label=r"$0\nu\beta\beta$")
     ax.scatter(*neg_args, c="red", s=10, label=r"$e^-$")
+    ax.set_xlim([-3.5,3.5])
+    ax.set_ylim([-3.5,3.5])
     ax.set_xlabel(r"$1^{st}$ feature $[\sigma_x]$")
     ax.set_ylabel(r"$2^{nd}$ feature $[\sigma_y]$")
     ax.legend()

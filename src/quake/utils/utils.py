@@ -40,6 +40,8 @@ def load_runcard(runcard_file: Path) -> dict:
     path: !Path 'path/to/file'
     ```
     """
+    if not isinstance(runcard_file, Path):
+        runcard_file = Path(runcard_file)
     yaml.add_constructor("!Path", path_constructor)
     with open(runcard_file, "r") as stream:
         runcard = yaml.load(stream, Loader=yaml.FullLoader)

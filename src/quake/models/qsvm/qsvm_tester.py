@@ -590,9 +590,12 @@ class SvmsComparison:
             The truth labels.
         """
         print(f"Starting the training session")
-        linear = {"kernel": "linear", "C": 10, "gamma": 10}
-        poly = {"kernel": "poly", "C": 1, "degree": 3}
-        rbf = {"kernel": "rbf", "C": 10, "gamma": 10}
+        # linear = {"kernel": "linear", "C": 10, "gamma": 10}
+        # poly = {"kernel": "poly", "C": 1, "degree": 3}
+        # rbf = {"kernel": "rbf", "C": 10, "gamma": 10}
+        linear = {"kernel": "linear", "C": 1, "gamma": 10}
+        poly = {"kernel": "poly", "C": 1, "degree": 2}
+        rbf = {"kernel": "rbf", "C": 10, "gamma": 0.1}
         opts = [linear, poly, rbf]
 
         svms_batch = [] # [trsize, folds, number of kernels]

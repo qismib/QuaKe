@@ -128,7 +128,8 @@ class CNN_Network(AbstractNet):
         # self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="features")
         self.dense_1 = Dense(self.nb_features, name = "features")
         self.lrelu_1 = LeakyReLU(alpha = self.alpha, name = "lrelu_1")
-        self.dense_2 = Dense(10, name = "dense_2")
+        self.dense_2 = Dense(30, name = "dense_2")
+        self.lrelu_2 = LeakyReLU(alpha = self.alpha)
         self.final = Dense(1, name="final")
 
         # explicitly build network weights
@@ -164,7 +165,7 @@ class CNN_Network(AbstractNet):
             Classification score of shape=(batch,).
         """
         features = self.feature_extraction(inputs, training=training)
-        output = self.final(self.dense_2(self.lrelu_1(features)))
+        output = self.final(self.lrelu_2(self.dense_2(self.lrelu_1(features))))
         output = tf.squeeze(sigmoid(output), axis=-1)
         if self.return_features:
             return output, features

@@ -35,16 +35,16 @@ quantum_kernels = make_kernels([zf, zzf, c1, c2], quantum_instance)
 
 settings = {
     'x': x,
-    'quantum_featuremaps': [zf, zzf, c1, c2],
+    'quantum_featuremaps': [zf, c2],
     'quantum_instance': quantum_instance,
-    'quantum_kernels': quantum_kernels,
-    'kernel_names': ['Z', 'ZZ', 'Custom1', 'Custom2'],
+    'quantum_kernels': [quantum_kernels[0],quantum_kernels[3]] ,
+    'kernel_names': ['Custom1', 'Custom2'],
     'cs': [10, 1000, 1000, 100],
-    'training_size': [500],
-    'val_size': 400,
-    'test_size': 400,
+    'training_size': [2000],
+    'val_size': 800,
+    'test_size': 800,
     'folder_name': Path('Output_Folder_weird_feat_layer_altric'),
-    'folds': 10,
+    'folds': 1,
     'backend': backend,
 } 
 
@@ -52,9 +52,9 @@ comparer = SvmsComparison(**settings)
 
 # comparer.train_svms_cv(dataset, labels)
 comparer.plot_data(dataset, labels)
-comparer.train_svms(dataset, labels)
+#comparer.train_svms(dataset, labels)
 
-comparer.learning_curves()
+#comparer.learning_curves()
 
 # comparer.plot_bloch_spheres(dataset, labels)
 # comparer.plot_kernels()

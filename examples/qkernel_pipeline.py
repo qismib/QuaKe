@@ -1,3 +1,8 @@
+#-------------
+# noisy_backend = AerSimulator.from_backend(real_hw)
+# real_hw = IBMQ.get_provider().backends(‘nome_device')[0]
+
+#-------------
 # Importing libraries
 from quake.utils.utils import load_runcard
 from pathlib import Path
@@ -35,28 +40,27 @@ settings = {
     'quantum_kernels': quantum_kernels,
     'kernel_names': ['Z', 'ZZ', 'Custom1', 'Custom2'],
     'cs': [10, 1000, 1000, 100],
-    'training_size': [20, 30],
-    'val_size': 100,
-    'test_size': 100,
-    'folder_name': Path('Statevector_1rep_highsample'),
-    'folds': 2,
+    'training_size': [500],
+    'val_size': 400,
+    'test_size': 400,
+    'folder_name': Path('Output_Folder_weird_feat_layer_altric'),
+    'folds': 10,
     'backend': backend,
 } 
 
 comparer = SvmsComparison(**settings)
-dataset = [np.pi/2*dataset[0], np.pi/2*dataset[1], np.pi/2*dataset[2]]
 
-comparer.train_svms_cv(dataset, labels)
+# comparer.train_svms_cv(dataset, labels)
 comparer.plot_data(dataset, labels)
 comparer.train_svms(dataset, labels)
 
 comparer.learning_curves()
 
-comparer.plot_decision_boundaries(cheap_version = True)
-comparer.plot_bloch_spheres(dataset, labels)
-comparer.plot_kernels()
-comparer.plot_featuremaps()
+# comparer.plot_bloch_spheres(dataset, labels)
+# comparer.plot_kernels()
+# comparer.plot_featuremaps()
 comparer.save(settings)
+# comparer.plot_decision_boundaries(cheap_version = False)
 
 # copy = SvmsComparison(**settings)
 # copy.load_files(comparer.path)

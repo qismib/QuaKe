@@ -92,8 +92,9 @@ def svm_hyperparameter_training(
 
     for k, kernel in enumerate(kernels):
         logger.info(f"Fitting SVC with {kernel} kernel")
-        grid = GridSearchCV(SVC(), grids[k], refit=True, verbose=2, cv=validation_idx)
+        grid = GridSearchCV(SVC(), grids[k], refit=True, verbose=0, cv=validation_idx)
         grid.fit(set_train_val, labels_train_val)
+        print(grid.best_params_)
         classical_svc = SVC(probability=True, **grid.best_params_)
         classical_svc.fit(set_train_svm, labels_train_svm)
         pickle.dump(

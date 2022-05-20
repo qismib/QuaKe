@@ -27,6 +27,7 @@ from qiskit.utils import QuantumInstance
 from qiskit import Aer
 from qiskit_machine_learning.utils.loss_functions import SVCLoss
 from typing import Tuple
+import matplotlib as mpl
 
 
 class QKTCallback:
@@ -218,18 +219,19 @@ def align_kernel(kernel: QuantumKernel, dataset: np.ndarray, labels: np.ndarray,
     aligned_kernel: QuantumKernel
         The aligned parametric circuit for encoding
     """
-    if labels.shape[0] > 100:
-        dataset, labels = get_subsample(dataset, labels, 100, 42)
+    if labels.shape[0] > 200:
+        dataset, labels = get_subsample(dataset, labels, 200, 42)
     loss_func = SVCLoss(C=c)
-    initial_point = [1]
+    initial_point = np.ones(dataset.shape[1])
     original_instance = kernel.quantum_instance
     if not kernel.quantum_instance.is_statevector:
         kernel.quantum_instance = QuantumInstance(Aer.get_backend('statevector_simulator'))
     cb_qkt = QKTCallback()
-    spsa_opt = SPSA(maxiter=10, callback=cb_qkt.callback, learning_rate=0.05, perturbation=0.05)
+    spsa_opt = SPSA(maxiter=10, callback=cb_qkt.callback, learning_rate=0.01, perturbation=0.01)
     qkt = QuantumKernelTrainer(quantum_kernel=kernel, loss=loss_func, optimizer=spsa_opt, initial_point=initial_point)
     try:
         qka_results = qkt.fit(dataset, labels)
+        print(qka_results)
         aligned_kernel = qka_results.quantum_kernel
     except:
         print("Couldn't perform kernel alignment. Returning a non-optimized kernel")
@@ -237,6 +239,8 @@ def align_kernel(kernel: QuantumKernel, dataset: np.ndarray, labels: np.ndarray,
         aligned_kernel = kernel
     if not original_instance.is_statevector:
         aligned_kernel.quantum_instance = original_instance
+    else:
+        aligned_kernel.quantum_instance = Aer.get_backend('statevector_simulator')
     return aligned_kernel
 
 # def align_kernel_2(kernel, dataset, labels, c):
@@ -306,7 +310,13 @@ def plot_bloch(x: ParameterVector, quantum_kernel:QuantumKernel, train_set: np.n
         b.add_points(pnts[train_labels == 0].T)
         b.render()
         ax.set_title(f"Feature {qb}", y=1.1, fontsize=10)
-    fig.suptitle(f'{title}{" kernel"}', y = 0.9)
+    # if nqubits == 2:
+    #     suptitle_y = 0.9
+    # elif nqubits == 3:
+    #     suptitle_y = 1.1
+    # else:
+    #     suptitle_y = 1
+    # fig.suptitle(f'{title}{" kernel"}', y = suptitle_y)
     return fig
 
 accuracy = lambda label, y: np.sum(label == y)/label.shape[0]
@@ -446,7 +456,6 @@ def plot_data_nd(dataset: list[np.ndarray], labels: list[np.ndarray], nfeatures:
     fig: plt.figure
         Figure showing the correlation matrix.
     """
-    fig = plt.figure(figsize=(50, 100))
     rows = (nfeatures - 1) // 2 + 1
     if nfeatures == 1:
         cols = 1
@@ -469,12 +478,13 @@ def plot_data_nd(dataset: list[np.ndarray], labels: list[np.ndarray], nfeatures:
         axs[row, col].legend(["Single beta", "Double beta"])
         axs[row, col].set_title(f' Feature {i}')
 
-    fig_correlation_matrix = plt.imshow(
+
+    fig_correlation_matrix = plt.matshow(
                         np.abs(np.asmatrix(np.corrcoef(dataset[0].T))),
                         interpolation="nearest",
                         origin="upper",
                         cmap="Blues",
-                    )                 
+                    ).figure
     plt.xticks(np.arange(nfeatures), [f'feature{i}' for i in range(nfeatures)], fontsize = 8)   
     plt.yticks(np.arange(nfeatures), [f'feature{i}' for i in range(nfeatures)], fontsize = 8)   
 
@@ -579,10 +589,10 @@ class SvmsComparison:
         labels: list[np.ndarray]
             The truth labels.
         """
-        print(f"Starting the session")
-        linear = {"kernel": "linear", "C": 1, "gamma": 10}
-        poly = {"kernel": "poly", "C": 0.1, "degree": 3}
-        rbf = {"kernel": "rbf", "C": 1, "gamma": 10}
+        print(f"Starting the training session")
+        linear = {"kernel": "linear", "C": 10, "gamma": 10}
+        poly = {"kernel": "poly", "C": 1, "degree": 3}
+        rbf = {"kernel": "rbf", "C": 10, "gamma": 10}
         opts = [linear, poly, rbf]
 
         svms_batch = [] # [trsize, folds, number of kernels]
@@ -637,14 +647,9 @@ class SvmsComparison:
                     te_preds.append(svcs[-1].predict(subset_test_data))
 
                 for q, encoding in enumerate(self.quantum_kernels):
-                    ker = encoding
-                    # if encoding.user_parameters:
-                    #     ker = align_kernel(encoding, subset_val_data, subset_val_labels, self.cs[q])
-                    # else:
-                    #     ker = encoding
-                    ker_matrix_train = ker.evaluate(x_vec=subset_train_data)
-                    ker_matrix_val = ker.evaluate(x_vec = subset_val_data, y_vec=subset_train_data)
-                    ker_matrix_test = ker.evaluate(x_vec = subset_test_data, y_vec=subset_train_data)
+                    ker_matrix_train = encoding.evaluate(x_vec=subset_train_data)
+                    ker_matrix_val = encoding.evaluate(x_vec = subset_val_data, y_vec=subset_train_data)
+                    ker_matrix_test = encoding.evaluate(x_vec = subset_test_data, y_vec=subset_train_data)
                     kers.append(np.real(ker_matrix_train))
                     clf = SVC(kernel = 'precomputed', C = self.cs[q]).fit(ker_matrix_train, subset_train_labels)
                     svcs.append(clf)
@@ -953,8 +958,6 @@ class SvmsComparison:
                 contour.suptitle(f'{kern_titles} with {trs} samples', y = 1.1, fontsize=titlesize)
                 save_object(self.path /  Path("Decision Boundaries"), contour, "Contours" + str(trs) + kern_titles + ".png")
                 plt.close(contour)
-                #plt.clf()
-                del contour
 
     def plot_bloch_spheres(self, dataset: list[np.ndarray], labels: list[np.ndarray]):
         """Plotting the Bloch spheres for every circuit.

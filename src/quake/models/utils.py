@@ -45,7 +45,6 @@ def dataset_split_util(
     if with_indices:
         idxs = np.arange(data.shape[0])
         arrays.append(idxs)
-
     first_split = train_test_split(
         *arrays, test_size=2 * split_ratio, random_state=seed
     )

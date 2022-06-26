@@ -158,9 +158,17 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
         3D voxelized histogram, of shape=(nb events, nb_xbins, nb_ybins, nb_zbins, 1)
     """
     matrix = scipy.sparse.load_npz(file)
-    shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins, 1)
-    hist3d = matrix.toarray().reshape(shape)
-    return hist3d
+    # shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins, 1)
+    shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins)
+    # matrix = matrix.tocoo()
+    indices = np.mat([matrix.row, matrix.col]).transpose()
+    matrix = tf.SparseTensor(indices, matrix.data, matrix.shape)
+    matrix = tf.sparse.reshape(matrix, (shape))
+    YZ_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=1), 3)
+    XZ_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=2), 3)
+    XY_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=3), 3)
+    # hist3d = matrix.toarray().reshape(shape)
+    return [YZ_plane, XZ_plane, XY_plane]
 
 
 def roll_crop(
@@ -218,27 +226,39 @@ def load_projections_and_labels(
     logger.debug("Loading data ...")
     geo = Geometry(dsetup)
 
-    data_sig = []
-    data_bkg = []
+    data_sig_x, data_sig_y, data_sig_z = [], [], []
+    data_bkg_x, data_bkg_y, data_bkg_z = [], [], []
 
     for file in data_folder.iterdir():
-        logger.debug(f"Loading file at {file.as_posix()}")
-        assert file.name[0] in ["b", "e"]
+        logger.info("Loading" + str(file))
         is_signal = file.name[0] == "b"
-        hist_3d = get_data(file, geo)
-        if is_signal:
-            data_sig.append(hist_3d)
-        else:
-            data_bkg.append(hist_3d)
+        if file.suffix == ".npz":
+            YZ_plane, XZ_plane, XY_plane = get_data(file, geo)
+            if is_signal:
+                data_sig_x.append(YZ_plane)
+                data_sig_y.append(XZ_plane)
+                data_sig_z.append(XY_plane)
+            else:
+                data_bkg_x.append(YZ_plane)
+                data_bkg_y.append(XZ_plane)
+                data_bkg_z.append(XY_plane)
 
-    data_sig = np.concatenate(data_sig, axis=0)
-    data_bkg = np.concatenate(data_bkg, axis=0)
+    data_sig_x = np.concatenate(data_sig_x, axis=0)
+    data_sig_y = np.concatenate(data_sig_y, axis=0)
+    data_sig_z = np.concatenate(data_sig_z, axis=0)
 
-    labels = np.concatenate([np.ones(data_sig.shape[0]), np.zeros(data_bkg.shape[0])])
+    data_bkg_x = np.concatenate(data_bkg_x, axis=0)
+    data_bkg_y = np.concatenate(data_bkg_y, axis=0)
+    data_bkg_z = np.concatenate(data_bkg_z, axis=0)
 
-    data = np.concatenate([data_sig, data_bkg], axis=0)
-    # project on the three cartesian axes
-    projections = [data.sum(1), data.sum(2), data.sum(3)]
+    projections = [
+        np.concatenate([data_sig_x, data_bkg_x]),
+        np.concatenate([data_sig_y, data_bkg_y]),
+        np.concatenate([data_sig_z, data_bkg_z]),
+    ]
+    labels = np.concatenate(
+        [np.ones(data_sig_x.shape[0]), np.zeros(data_bkg_x.shape[0])]
+    )
 
     if dsetup["should_crop_planes"]:
         # returning the projections cropped around the centre

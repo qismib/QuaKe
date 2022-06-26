@@ -1,91 +1,240 @@
+"""
+    This module implements custom quantum featuremaps.
+"""
 from qiskit.circuit import QuantumCircuit
 import numpy as np
 from qiskit.circuit import ParameterVector
 
 
-def z_featuremap(x, qubits, repeats):
+def z_featuremap(
+    x: ParameterVector, qubits: int, repeats: int = 1, align: bool = False
+) -> QuantumCircuit:
+    """
+    The Z featuremap
+
+    Parameters
+    ----------
+    x: ParameterVector
+        Circuit free parameter.
+    qubits: int
+        Number of qubits.
+    repeats: int
+        Circuit depth.
+    align: bool
+        Wether to perform alignment or not.
+
+    Returns
+    -------
+    z_featuremap: QuantumCircuit
+        The quantum featuremap.
+    """
     z_featuremap = QuantumCircuit(qubits)
-    # theta = ParameterVector("θ", qubits)
-    # for q in range(qubits):
-    #     z_featuremap.ry(theta[q], q)
+    if align:
+        theta = ParameterVector("θ", qubits)
+        for q in range(qubits):
+            z_featuremap.rx(theta[q], q)
     for i in range(repeats):
         for q in range(qubits):
             z_featuremap.h(q)
-            z_featuremap.p(2*x[q],q)
+            z_featuremap.p(2 * x[q], q)
         z_featuremap.barrier()
-    return z_featuremap 
+    return z_featuremap
 
 
-def zz_featuremap(x, qubits, repeats):
+def zz_featuremap(
+    x: ParameterVector, qubits: int, repeats: int = 1, align: bool = False
+) -> QuantumCircuit:
+    """
+    The ZZ featuremap
+
+    Parameters
+    ----------
+    x: ParameterVector
+        Circuit free parameter.
+    qubits: int
+        Number of qubits.
+    repeats: int
+        Circuit depth.
+    align: bool
+        Wether to perform alignment or not.
+
+    Returns
+    -------
+    zz_featuremap: QuantumCircuit
+        The quantum featuremap.
+    """
     zz_featuremap = QuantumCircuit(qubits)
-    # theta = ParameterVector("θ", qubits)
-    # for q in range(qubits):
-    #     zz_featuremap.ry(theta[q], q)
+    if align:
+        theta = ParameterVector("θ", qubits)
+        for q in range(qubits):
+            zz_featuremap.rx(theta[q], q)
     for i in range(repeats):
         for q in range(qubits):
             zz_featuremap.h(q)
-            zz_featuremap.p(2*x[q], q)
-        for q in range(qubits-1):
-            zz_featuremap.cx(q, q+1)
-            zz_featuremap.p(2*(np.pi-x[q])*(np.pi-x[q+1]), q+1)
-            zz_featuremap.cx(q, q+1)
+            zz_featuremap.p(2 * x[q], q)
+        for q in range(qubits - 1):
+            zz_featuremap.cx(q, q + 1)
+            zz_featuremap.p(2 * (np.pi - x[q]) * (np.pi - x[q + 1]), q + 1)
+            zz_featuremap.cx(q, q + 1)
 
         zz_featuremap.barrier()
-    return zz_featuremap  
+    return zz_featuremap
 
 
-def custom1_featuremap(x, qubits, repeats):
+def custom1_featuremap(
+    x: ParameterVector, qubits: int, repeats: int = 1, align: bool = False
+) -> QuantumCircuit:
+    """
+    Custom entangled map
+
+    Parameters
+    ----------
+    x: ParameterVector
+        Circuit free parameter.
+    qubits: int
+        Number of qubits.
+    repeats: int
+        Circuit depth.
+    align: bool
+        Wether to perform alignment or not.
+
+    Returns
+    -------
+    custom1_featuremap: QuantumCircuit
+        The quantum featuremap.
+    """
     custom1_featuremap = QuantumCircuit(qubits)
-    # theta = ParameterVector("θ", qubits)
-    # for q in range(qubits):
-    #     custom1_featuremap.ry(theta[q], q)
-    for _ in range(repeats):
+    if align:
+        theta = ParameterVector("θ", qubits)
         for q in range(qubits):
-            if q % 2 == 0: 
-                custom1_featuremap.ry(2*x[q], q)
-                custom1_featuremap.p(2*x[q], q)
-                #custom1_featuremap.h(q)
-            else:
-                custom1_featuremap.rx(2*x[q], q)
-                custom1_featuremap.p(2*x[q], q)
-        for i in range(qubits-1):
-            #for j in range(i+1, qubits):
-            custom1_featuremap.cx(i, i+1)
-            custom1_featuremap.p(x[i] * x[i+1], i+1)
-            custom1_featuremap.cx(i, i+1)
-        custom1_featuremap.barrier()
-    return custom1_featuremap  
-
-def custom2_featuremap(x, qubits, repeats):
-    custom2_featuremap = QuantumCircuit(qubits)
-    # theta = ParameterVector("θ", qubits)
-    # for q in range(qubits):
-    #     custom2_featuremap.ry(theta[q], q)
+            custom1_featuremap.rx(theta[q], q)
     for _ in range(repeats):
         for q in range(qubits):
             if q % 2 == 0:
-                custom2_featuremap.rx(np.arcsin(2/np.pi*x[q]), q)
-                custom2_featuremap.rz(np.arccos(2/np.pi*2/np.pi*x[q]*x[q]), q)
+                custom1_featuremap.ry(2 * x[q], q)
+                custom1_featuremap.p(2 * x[q], q)
+                # custom1_featuremap.h(q)
             else:
-                custom2_featuremap.rx(np.arcsin(2/np.pi*x[q]), q)
-                custom2_featuremap.rz(np.arccos(2/np.pi*2/np.pi*x[q]*x[q]), q)
-        custom2_featuremap.barrier()
-    return custom2_featuremap 
+                custom1_featuremap.rx(2 * x[q], q)
+                custom1_featuremap.p(2 * x[q], q)
+        for i in range(qubits - 1):
+            # for j in range(i+1, qubits):
+            custom1_featuremap.cx(i, i + 1)
+            custom1_featuremap.p(x[i] * x[i + 1], i + 1)
+            custom1_featuremap.cx(i, i + 1)
+        custom1_featuremap.barrier()
+    return custom1_featuremap
 
-def custom3_featuremap(x, qubits, repeats):
-    custom1_featuremap = QuantumCircuit(qubits)
-    theta = ParameterVector("θ", 1)
+
+def custom2_featuremap(
+    x: ParameterVector, qubits: int, repeats: int = 1, align: bool = False
+) -> QuantumCircuit:
+    """
+    Custom non-entangled map
+
+    Parameters
+    ----------
+    x: ParameterVector
+        Circuit free parameter.
+    qubits: int
+        Number of qubits.
+    repeats: int
+        Circuit depth.
+    align: bool
+        Wether to perform alignment or not.
+
+    Returns
+    -------
+    custom2_featuremap: QuantumCircuit
+        The quantum featuremap.
+    """
+    custom2_featuremap = QuantumCircuit(qubits)
+    if align:
+        theta = ParameterVector("θ", qubits)
+        for q in range(qubits):
+            custom2_featuremap.rx(theta[q], q)
     for _ in range(repeats):
         for q in range(qubits):
-            if q % 2 == 0: 
-                custom1_featuremap.h(q)
-                custom1_featuremap.rx(theta[0]*x[q], q)
+            if q % 2 == 0:
+                custom2_featuremap.rx(np.arcsin(2 / np.pi * x[q]), q)
+                custom2_featuremap.rz(np.arccos(2 / np.pi * 2 / np.pi * x[q] * x[q]), q)
             else:
-                custom1_featuremap.ry(theta[0]*x[q], q)
-        for i in range(qubits):
-            for j in range(i+1, qubits):
-                custom1_featuremap.cx(i, j)
-                custom1_featuremap.p(np.sin(x[i]) * np.cos(x[j]), j)
-                custom1_featuremap.cx(i, j)
-        custom1_featuremap.barrier()
-    return custom1_featuremap  
+                custom2_featuremap.rx(np.arcsin(2 / np.pi * x[q]), q)
+                custom2_featuremap.rz(np.arccos(2 / np.pi * 2 / np.pi * x[q] * x[q]), q)
+        custom2_featuremap.barrier()
+    return custom2_featuremap
+
+
+def genetic_featuremap(
+    x: ParameterVector, repeats: int = 1, align: bool = False
+) -> QuantumCircuit:
+    """
+    Entangled featuremap generated by a genetic optimization.
+
+    Parameters
+    ----------
+    x: ParameterVector
+        Circuit free parameter.
+    qubits: int
+        Number of qubits.
+    repeats: int
+        Circuit depth.
+    align: bool
+        Wether to perform alignment or not.
+
+    Returns
+    -------
+    genetic_featuremap: QuantumCircuit
+        The quantum featuremap.
+    """
+    genetic_featuremap = QuantumCircuit(2)
+    if align:
+        theta = ParameterVector("θ", 2)
+        genetic_featuremap.rx(theta[0], 0)
+        genetic_featuremap.rx(theta[1], 1)
+    for _ in range(repeats):
+        genetic_featuremap.ry(np.arcsin(2 / np.pi * x[0]), 0)
+        genetic_featuremap.ry(2 * x[1], 0)
+        genetic_featuremap.rx(np.arcsin(2 / np.pi * x[1]), 1)
+        genetic_featuremap.ry(np.arcsin(2 / np.pi * x[1]), 1)
+        genetic_featuremap.cx(0, 1)
+        genetic_featuremap.ry(2 * x[0], 1)
+        genetic_featuremap.barrier()
+    return genetic_featuremap
+
+
+def genetic_featuremap_2(
+    x: ParameterVector, repeats: int = 1, align: bool = False
+) -> QuantumCircuit:
+    """
+    Non-entangled featuremap generated by a genetic optimization.
+
+    Parameters
+    ----------
+    x: ParameterVector
+        Circuit free parameter.
+    qubits: int
+        Number of qubits.
+    repeats: int
+        Circuit depth.
+    align: bool
+        Wether to perform alignment or not.
+
+    Returns
+    -------
+    genetic_featuremap_2: QuantumCircuit
+        The quantum featuremap.
+    """
+    genetic_featuremap = QuantumCircuit(2)
+    if align:
+        theta = ParameterVector("θ", 2)
+        genetic_featuremap.rx(theta[0], 0)
+        genetic_featuremap.rx(theta[1], 1)
+    for _ in range(repeats):
+        genetic_featuremap.ry(2 * x[0], 0)
+        genetic_featuremap.rx(np.arccos(4 / np.pi / np.pi * x[1] * x[1]), 1)
+        genetic_featuremap.rz(np.arccos(4 / np.pi / np.pi * x[0] * x[0]), 0)
+        genetic_featuremap.h(1)
+        # genetic_featuremap.h(0)
+        genetic_featuremap.rz(2 * x[1], 1)
+    return genetic_featuremap

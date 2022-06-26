@@ -65,8 +65,15 @@ model:
     #feature_number: 4 # Intermediate dense layer size (the features for SVM)
   svm:
     feature_extractor: cnn # the feature extraction network, available options cnn | attention
-    should_add_extra_feats: true # add nb active pixels and total energy to extracted features
+    should_add_extra_feats: false # add nb active pixels and total energy to extracted features
     kernels: [linear, poly, rbf]
-    should_do_scaling: false
+    should_do_scaling: true
+    split_ratio: 0.1
     name: SVM
+  qsvm:
+    feature_extractor: cnn
+    should_add_extra_feats: false
+    should_do_scaling: true
+    split_ratio: 0.01
+    name: QSVM
     

@@ -190,7 +190,12 @@ def load_tracks(
 
 
 def tracks2histograms(
-    xs: ak.Array, ys: ak.Array, zs: ak.Array, Es: ak.Array, geo: Geometry, seed: int = 42
+    xs: ak.Array,
+    ys: ak.Array,
+    zs: ak.Array,
+    Es: ak.Array,
+    geo: Geometry,
+    seed: int = 42,
 ) -> ak.Array:
     """Compute energy histogram from track hit positions.
 

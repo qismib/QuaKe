@@ -104,10 +104,10 @@ def rearrange_scale(
     """
     full_dataset = [train_set, val_set, test_set]
     if should_do_scaling:
-        #quantile_transformer = preprocessing.QuantileTransformer(random_state=0)
-        #quantile_transformer = preprocessing.PowerTransformer(standardize = True)
-        #scaler = quantile_transformer.fit(np.concatenate(full_dataset))
-        scaler = preprocessing.MinMaxScaler(feature_range=(-np.pi/2, np.pi/2)).fit(
+        # quantile_transformer = preprocessing.QuantileTransformer(random_state=0)
+        # quantile_transformer = preprocessing.PowerTransformer(standardize = True)
+        # scaler = quantile_transformer.fit(np.concatenate(full_dataset))
+        scaler = preprocessing.MinMaxScaler(feature_range=(-np.pi / 2, np.pi / 2)).fit(
             np.concatenate(full_dataset)
         )
         for i in range(3):

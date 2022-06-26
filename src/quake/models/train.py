@@ -27,7 +27,7 @@ def add_arguments_train(parser: ArgumentParser):
     parser: ArgumentParser
         Train subparser object.
     """
-    valid_models = ["svm", "cnn", "attention"]
+    valid_models = ["qsvm", "svm", "cnn", "attention"]
     parser.add_argument("--output", "-o", type=Path, help="the output folder")
     parser.add_argument(
         "--model", "-m", type=str, help="the model to train", choices=valid_models
@@ -137,10 +137,14 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     from .attention.train import attention_train
     from .cnn.train import cnn_train
     from .svm.train import svm_train
+    from .qsvm.train import qsvm_train
 
     if modeltype == "svm":
         logger.info("Training Support Vector Machine")
         svm_train(data_folder, train_folder, setup)
+    elif modeltype == "qsvm":
+        logger.info("Training Quantum Support Vector Machine")
+        qsvm_train(data_folder, train_folder, setup)
     elif modeltype == "cnn":
         logger.info("Training Convolutional Neural Network")
         cnn_train(data_folder, train_folder, setup)

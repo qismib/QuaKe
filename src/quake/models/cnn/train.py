@@ -62,6 +62,7 @@ def load_and_compile_network(
 
     network = CNN_Network(nb_bins=bins_number, **msetup["net_dict"])
     loss = tf.keras.losses.BinaryCrossentropy(name="xent")
+    # loss = tf.keras.losses.LogCosh(name = "xent")
     metrics = [
         tf.keras.metrics.BinaryAccuracy(name="acc"),
         tf.keras.metrics.Precision(name="prec"),

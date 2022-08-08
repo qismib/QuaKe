@@ -1,10 +1,8 @@
 """
     This module implements a class for comparing classical and quantum Support Vector Machines (SVMs) by realizing training runs, returning the classification scores and several visualizations.
 """
-
 from pathlib import Path
 import pickle
-from tokenize import PlainToken
 import numpy as np
 from qiskit import QuantumCircuit
 from sklearn.svm import SVC
@@ -33,7 +31,6 @@ from qiskit.utils import QuantumInstance
 from qiskit import Aer
 from qiskit_machine_learning.utils.loss_functions import SVCLoss
 from typing import Tuple
-import matplotlib as mpl
 
 
 class QKTCallback:

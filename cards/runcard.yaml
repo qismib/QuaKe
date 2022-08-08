@@ -20,7 +20,7 @@ model:
     ckpt: null # checkpoint, must be !Path object too
     optimizer: Adam
     lr: 1e-3 # learning rate
-    epochs: 10
+    epochs: 50
     # hist_freq: 10
     min_lr: 1e-6 # minimum lr
     reducelr_patience: 20 # reduce lr on plateau patience
@@ -36,14 +36,14 @@ model:
       batch_size: 32
       activation: relu
       alpha: 0.2
-      dropout_rate: 0.0
+      dropout_rate: 0.02
       use_bias: true
       name: AttentionNetwork
   cnn:
     ckpt: null # checkpoint, must be !Path object too
     optimizer: Adam
     lr: 0.001 # learning rate
-    epochs: 25
+    epochs: 30
     # hist_freq: 10
     min_lr: 0.001 # minimum lr
     reducelr_patience: 20 # reduce lr on plateau patience
@@ -64,14 +64,14 @@ model:
 
     #feature_number: 4 # Intermediate dense layer size (the features for SVM)
   svm:
-    feature_extractor: cnn # the feature extraction network, available options cnn | attention
+    feature_extractor: attention # the feature extraction network, available options cnn | attention
     should_add_extra_feats: false # add nb active pixels and total energy to extracted features
     kernels: [linear, poly, rbf]
     should_do_scaling: true
     split_ratio: 0.1
     name: SVM
   qsvm:
-    feature_extractor: cnn
+    feature_extractor: attention
     should_add_extra_feats: false
     should_do_scaling: true
     split_ratio: 0.01

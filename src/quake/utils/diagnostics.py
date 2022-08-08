@@ -13,14 +13,12 @@ def histogram_activations_image(y_pred: arrayLike, y_true: arrayLike) -> plt.Fig
     """
     Returns a histogram of the network classification scores.
     Overlapped histograms scores for the positive and negative samples.
-
     Parameters
     ----------
     y_pred: arrayLike
         The tensor of predicted scores shape=(nb points,).
     y_true: arrayLike
         The tensor of ground truths of shape=(nb points,).
-
     Returns
     -------
     figure: plt.Figure
@@ -70,7 +68,6 @@ def histogram_activations_image(y_pred: arrayLike, y_true: arrayLike) -> plt.Fig
 
 def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Figure:
     """Returns a 2D scatterplot of the input features.
-
     Useful to look visually the separation in the 2D plane for binary
     classification.
     The input features should have shape `(nb points, nb dims)`.
@@ -78,14 +75,12 @@ def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Fi
     If `nb dims == 3`, plot features in 3D space.
     If `nb dims > 3`, use tSNE technique to reduce point to 2 dimensions and
     plot into 2D plane.
-
     Parameters
     ----------
     features: arrayLike
         The tensor of features shape=(nb points, nb_features).
     y_true: arrayLike
         The tensor of ground truths of shape=(nb points,).
-
     Returns
     -------
     figure: plt.Figure
@@ -95,9 +90,9 @@ def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Fi
 
     if isinstance(features, tf.Tensor):
         features = features.numpy()
-    features = (features - features.mean(0, keepdims=True)) / features.std(
-        0, keepdims=True
-    )
+    mean = features.mean(0, keepdims=True)
+    std = features.std(0, keepdims=True)
+    features = (features - mean) / std
     nb_dims = features.shape[1]
 
     y_true = bool_me(y_true).numpy()
@@ -129,6 +124,8 @@ def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Fi
     ax.title.set_text("Standardized network extracted features")
     ax.scatter(*pos_args, c="green", s=10, label=r"$0\nu\beta\beta$")
     ax.scatter(*neg_args, c="red", s=10, label=r"$e^-$")
+    ax.set_xlim([-3.5, 3.5])
+    ax.set_ylim([-3.5, 3.5])
     ax.set_xlabel(r"$1^{st}$ feature $[\sigma_x]$")
     ax.set_ylabel(r"$2^{nd}$ feature $[\sigma_y]$")
     ax.legend()
@@ -138,15 +135,12 @@ def scatterplot_features_image(features: arrayLike, y_true: arrayLike) -> plt.Fi
 
 def image_to_tensor(figure: plt.Figure) -> tf.Tensor:
     """Converts a pyplot image to a tensor.
-
     Useful for TensorBoard loading. Saves first the image in memory and then
     dumps to tensor.
-
     Parameters
     ----------
     figure: plt.Figure
         The image to be converted.
-
     Returns
     -------
     tf.Tensor
@@ -165,7 +159,6 @@ def save_scatterplot_features_image(
     fname: Path, features: tf.Tensor, y_true: tf.Tensor
 ):
     """Saves to file a scatterplot of the first two features in tensor format.
-
     Parameters
     ----------
     fname: Path
@@ -182,7 +175,6 @@ def save_scatterplot_features_image(
 
 def save_histogram_activations_image(fname: Path, y_pred: tf.Tensor, y_true: tf.Tensor):
     """Saves histogram image to file.
-
     Parameters
     ----------
     fname: Path

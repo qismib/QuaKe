@@ -121,8 +121,8 @@ class CNN_Network(AbstractNet):
 
         self.flatten = Flatten(name="flatten")
         self.cat = Concatenate(axis=-1, name="cat")
-        self.dense_0 = Dense(10, name="fc_0")
-        self.lrelu_0 = LeakyReLU(alpha=self.alpha, name="lrelu_0")
+        # self.dense_0 = Dense(10, name="fc_0")
+        # self.lrelu_0 = LeakyReLU(alpha=self.alpha, name="lrelu_0")
 
         # self.dense_1 = Dense(self.nb_features, name="fc_1")
         # self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="features")
@@ -140,7 +140,7 @@ class CNN_Network(AbstractNet):
         )
         names = ("yz", "xz", "xy")
         batched_shape = [(self.batch_size,) + i for i in build_with_shape]
-        self.input_layer = [
+        self.inputs_layer = [
             Input(shape=bws, name=n) for bws, n in zip(build_with_shape, names)
         ]
         super(CNN_Network, self).build(batched_shape)
@@ -211,8 +211,9 @@ class CNN_Network(AbstractNet):
         xy = self.flatten(xy_planes)
 
         feats = self.cat([yz, xz, xy])
-        x = self.lrelu_0(self.dense_0(feats))
-        features = self.dense_1(x)
+        # x = self.lrelu_0(self.dense_0(feats))
+        # features = self.dense_1(x)
+        features = self.dense_1(feats)
         return features
 
     def train_step(self, data: list[tf.Tensor]) -> dict:

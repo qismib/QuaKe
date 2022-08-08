@@ -4,6 +4,7 @@
 
 from pathlib import Path
 import pickle
+from tokenize import PlainToken
 import numpy as np
 from qiskit import QuantumCircuit
 from sklearn.svm import SVC
@@ -88,7 +89,7 @@ def get_features(
     Raises
     ------
     NotImplementedError
-        If extractor type not one of `svm` or `attention`.
+        If extractor type not one of `cnn` or `attention`.
 
     Returns
     -------
@@ -124,13 +125,13 @@ def get_features(
     network = load_net_fn(esetup, setup["run_tf_eagerly"], geo=geo)
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     train_features, train_labels = extract_feats(
-        train_generator, network, should_add_extra_feats
+        train_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
     val_features, val_labels = extract_feats(
-        val_generator, network, should_add_extra_feats
+        val_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
     test_features, test_labels = extract_feats(
-        test_generator, network, should_add_extra_feats
+        test_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
 
     # training and saving the SVMs
@@ -145,9 +146,7 @@ def get_features(
     return dataset, labels
 
 
-def get_spherical_coordinates(
-    statevector: Statevector, qubit: int
-) -> list([np.float64]):
+def get_spherical_coordinates(statevector: Statevector, qubit: int) -> list[np.float64]:
     """Getting qubit's spherical coordinates from the quantum vector state.
 
     Parameters
@@ -260,9 +259,11 @@ def plot_bloch(
     x: ParameterVector,
     quantum_kernel: QuantumKernel,
     train_set: np.ndarray,
-    train_labels: np.ndarray,
+    color_labels: np.ndarray,
+    path: Path,
+    kernel_title: str,
 ) -> plt.figure:
-    """Plotting the quantum-encoded dataset on Bloch spheres.
+    """Plotting and saving the quantum-encoded dataset on Bloch spheres.
 
     Parameters
     ----------
@@ -272,8 +273,12 @@ def plot_bloch(
         The encoding parametric circuit.
     train_set: np.ndarray
         Points to encode in the quantum state.
-    train_labels: np.ndarray
-        Truth labels.
+    color_labels: np.ndarray
+        Truth labels or prediction outcome.
+    path: Path
+        Saving directory.
+    kernel_title: str
+        Kernel name.
 
     Returns
     -------
@@ -296,9 +301,9 @@ def plot_bloch(
     for qb in range(nqubits):
         ax = fig.add_subplot(rows, cols, qb + 1, projection="3d")
         b = qutip.Bloch(fig=fig, axes=ax)
-        b.point_size = [1]
+        b.point_size = [5]
         b.point_marker = ["o"]
-        pnts = np.zeros((len(train_labels), 3))
+        pnts = np.zeros((len(color_labels), 3))
 
         for i, val in enumerate(train_set):
             bound_circuits = featuremap.assign_parameters({x: val})
@@ -308,31 +313,62 @@ def plot_bloch(
             ys = np.sin(spherical[0]) * np.sin(spherical[1])
             zs = np.cos(spherical[0])
             pnts[i] = [xs, ys, zs]
-        b.add_points(pnts[train_labels == 1].T)
-        b.add_points(pnts[train_labels == 0].T)
+        b.add_points(pnts[color_labels == 1].T)
+        b.add_points(pnts[color_labels == 0].T)
         b.render()
         ax.set_title(f"Feature {qb}", y=1.1, fontsize=10)
-    return fig
+
+    from matplotlib.patches import Patch
+    from matplotlib.lines import Line2D
+
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=r"$0\nu\beta\beta$",
+            markerfacecolor="r",
+            markersize=10,
+        ),
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=r"$\beta$",
+            markerfacecolor="b",
+            markersize=10,
+        ),
+    ]
+    fig.legend(handles=legend_elements, loc=(0.85, 0.75))
+
+    if nqubits > 5:
+        resolution = 500 * 5 / nqubits
+    else:
+        resolution = 500
+
+    save_object(path, fig, "Bloch Sphere" + kernel_title + ".png", dpi=resolution)
 
 
 accuracy = lambda label, y: np.sum(label == y) / label.shape[0]
 
 
 def make_kernels(
-    maps: list([QuantumCircuit]), backend: Union[Aer.get_backend, QuantumInstance]
-) -> list([QuantumKernel]):
+    maps: list[QuantumCircuit], backend: Union[Aer.get_backend, QuantumInstance]
+) -> list[QuantumKernel]:
     """Returning quantum kernels from quantum featuremaps.
 
     Parameters
     ----------
-    maps: list([QuantumCircuit]),
+    maps: list[QuantumCircuit],
         Quantum featuremaps.
     backend: Union[Aer.get_backend, QuantumInstance]
         Backend for circuit execution
 
     Returns
     -------
-    kernels: list([QuantumKernel])
+    kernels: list[QuantumKernel]
         Quantum kernels associated to the featuremaps.
     """
 
@@ -352,7 +388,7 @@ def make_kernels(
     return kernels
 
 
-def save_object(directory: Path, var: dict, name: str):
+def save_object(directory: Path, var: dict, name: str, dpi: int = 500):
     """Saving pickle or png images in a folder.
 
     Parameters
@@ -363,24 +399,26 @@ def save_object(directory: Path, var: dict, name: str):
         Object to save.
     name: str
         Filename.
+    dpi: int
+        Dot per inch picture resolution option.
     """
     if name.endswith(".pkl"):
         with open(directory / Path(name), "wb") as f:
             pickle.dump(var, f)
     elif name.endswith(".png"):
-        var.savefig(directory / Path(name), bbox_inches="tight", dpi=500)
+        var.savefig(directory / Path(name), bbox_inches="tight", dpi=dpi)
     else:
         print(f'{"Could not save "} {name} {", can only save .pkl and .png"}')
 
 
-def plot_data_2d(dataset: list([np.ndarray]), labels: list([np.ndarray])) -> plt.figure:
+def plot_data_2d(dataset: list[np.ndarray], labels: list[np.ndarray]) -> plt.figure:
     """Creating a picture that displays feature distribution of a 2D dataset.
 
     Parameters
     -----------
-    dataset: list([np.ndarray])
+    dataset: list[np.ndarray]
         The featurespace for SVM.
-    labels: list([np.ndarray])
+    labels: list[np.ndarray]
         The truth labels.
 
     Returns
@@ -396,14 +434,15 @@ def plot_data_2d(dataset: list([np.ndarray]), labels: list([np.ndarray])) -> plt
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     x1_min, x1_max = np.min(dataset[0][:, 0]), np.max(dataset[0][:, 0])
     x2_min, x2_max = np.min(dataset[0][:, 1]), np.max(dataset[0][:, 1])
+    x_min, x_max = np.min([x1_min, x2_min]), np.max([x1_max, x2_max])
     correlation_coefficients = np.zeros(2)
 
     for i in range(2):
         axs[0, i].hist(
-            dataset[0][labels[0] == 0, i], range=[x1_min, x1_max], bins=50, alpha=0.6
+            dataset[0][labels[0] == 0, i], range=[x_min, x_max], bins=50, alpha=0.6
         )
         axs[0, i].hist(
-            dataset[0][labels[0] == 1, i], range=[x2_min, x2_max], bins=50, alpha=0.6
+            dataset[0][labels[0] == 1, i], range=[x_min, x_max], bins=50, alpha=0.6
         )
         axs[0, i].legend(["Single beta", "Double beta"])
         axs[0, i].set_title("Feature " + str(i))
@@ -433,9 +472,16 @@ def plot_data_2d(dataset: list([np.ndarray]), labels: list([np.ndarray])) -> plt
             0, 1
         ]
 
+        # axs[1, i].text(
+        #     0.6,
+        #     -1.2,
+        #     f"L. correlation = {correlation_coefficients[i]:.2}",
+        #     bbox=props,
+        # )
+
         axs[1, i].text(
-            0.6,
-            -1.2,
+            (x1_max - x1_min) * 0.7 + x1_min,
+            (x2_max - x2_min) * 0.75 + x2_min,
             f"L. correlation = {correlation_coefficients[i]:.2}",
             bbox=props,
         )
@@ -446,15 +492,15 @@ def plot_data_2d(dataset: list([np.ndarray]), labels: list([np.ndarray])) -> plt
 
 
 def plot_data_nd(
-    dataset: list([np.ndarray]), labels: list([np.ndarray]), nfeatures: int
+    dataset: list[np.ndarray], labels: list[np.ndarray], nfeatures: int
 ) -> plt.figure:
     """Creating a picture that displays feature distribution of a n-dimensional dataset.
 
     Parameters
     -----------
-    dataset: list([np.ndarray])
+    dataset: list[np.ndarray]
         The featurespace for SVM.
-    labels: list([np.ndarray])
+    labels: list[np.ndarray]
         The truth labels.
     nfeatures: int
         The number of features in the dataset.
@@ -476,7 +522,7 @@ def plot_data_nd(
     fig.set_figwidth(5 * cols)
 
     for i in range(nfeatures):
-        x_min, x_max = np.min(dataset[0][:, 0]), np.max(dataset[0][:, 0])
+        x_min, x_max = np.min(dataset[0][:, i]), np.max(dataset[0][:, i])
         col = i % 2
         row = i // 2
         axs[row, col].hist(
@@ -511,8 +557,8 @@ def train_classic(
     training_labels: np.ndarray,
     val_dataset: np.ndarray,
     test_dataset: np.ndarray,
-    opts: list([dict]),
-) -> tuple([list([SVC]), list([np.ndarray]), list([np.ndarray]), list([np.ndarray])]):
+    opts: list[dict],
+) -> tuple([list[SVC], list[np.ndarray], list[np.ndarray], list[np.ndarray]]):
     """Training an ensamble of classical SVMs on the same dataset.
 
     Parameters
@@ -525,18 +571,18 @@ def train_classic(
         Dataset for validation.
     test_dataset: np.ndarray
         Dataset for test.
-    opts: list([dict])
+    opts: list[dict]
         Hyperparameters settings.
 
     Returns
     -------
-    svcs: list([SVC]):
+    svcs: list[SVC]:
         Model list.
-    pred_train: list([np.ndarray])
+    pred_train: list[np.ndarray]
         Train prediction list.
-    pred_val: list([np.ndarray])
+    pred_val: list[np.ndarray]
         Validation prediction list.
-    pred_test: list([np.ndarray])
+    pred_test: list[np.ndarray]
         Test prediction list.
     """
     svcs = []
@@ -556,18 +602,18 @@ def train_quantum(
     training_labels: np.ndarray,
     val_dataset: np.ndarray,
     test_dataset: np.ndarray,
-    quantum_kernels: list([QuantumKernel]),
-    cs: list([float]),
+    quantum_kernels: list[QuantumKernel],
+    cs: list[float],
 ) -> tuple(
     [
-        list([SVC]),
-        list([np.ndarray]),
-        list([np.ndarray]),
-        list([np.ndarray]),
-        list([np.ndarray]),
+        list[SVC],
+        list[np.ndarray],
+        list[np.ndarray],
+        list[np.ndarray],
+        list[np.ndarray],
     ]
 ):
-    """Training an ensamble of classical SVMs on the same dataset.
+    """Training an ensamble of classical QSVMs on the same dataset.
 
     Parameters
     -----------
@@ -579,22 +625,22 @@ def train_quantum(
         Dataset for validation.
     test_dataset: np.ndarray
         Dataset for test.
-    quantum_kernels: list([QuantumKernel])
+    quantum_kernels: list[QuantumKernel]
         Quantum kernels of the QSVMs.
-    cs: list([float]):
+    cs: list[float]:
         Cost hyperparameters.
 
     Returns
     -------
-    svcs: list([SVC]):
+    svcs: list[SVC]:
         Model list.
-    pred_train: list([np.ndarray])
+    pred_train: list[np.ndarray]
         Train prediction list.
-    pred_val: list([np.ndarray])
+    pred_val: list[np.ndarray]
         Validation prediction list.
-    pred_test: list([np.ndarray])
+    pred_test: list[np.ndarray]
         Test prediction list.
-    kers: list([np.ndarray])
+    kers: list[np.ndarray]
         Training kernel matrix.
     """
     kers = []
@@ -623,33 +669,33 @@ class SvmsComparison:
     def __init__(
         self,
         x: ParameterVector = None,
-        quantum_featuremaps: list([QuantumCircuit]) = [],
-        quantum_kernels: list([QuantumKernel]) = [],
-        cs: list([float]) = None,
+        quantum_featuremaps: list[QuantumCircuit] = [],
+        quantum_kernels: list[QuantumKernel] = [],
+        cs: list[float] = None,
         backend: Union[Aer.get_backend, QuantumInstance] = Aer.get_backend(
             "statevector_simulator"
         ),
         folder_name: Path = None,
-        training_size: list([int]) = [10, 20, 50, 100, 200],
+        training_size: list[int] = [10, 20, 50, 100, 200],
         val_size: int = 200,
         test_size: int = 200,
         folds: int = 20,
-        kernel_names: list([str]) = None,
+        kernel_names: list[str] = None,
         classic_opts=None,
     ):
         """
         Parameters:
         x: ParameterVector
             The free parameters of the circuit.
-        quantum_featuremaps: list([QuantumCircuit])
+        quantum_featuremaps: list[QuantumCircuit]
             The quantum featuremaps.
-        quantum_kernels: list([QuantumKernel])
+        quantum_kernels: list[QuantumKernel]
             The quantum kernels.
-        cs: list([float])
+        cs: list[float]
             Penalty hyperparameters for the SVM algorithm.
         backend: Union[Aer.get_backend, QuantumInstance]
             Backend for kernel matrices computations.
-        training_size: list([int])
+        training_size: list[int]
             Sizes of the training dataset.
         val_size: int
             Size of the validation dataset.
@@ -659,7 +705,7 @@ class SvmsComparison:
             Number of trainings to execute for each element of training_size.
         folder_name: Path
             Folder name in which to save results.
-        Kernel_Names list([str]):
+        Kernel_Names list[str]:
             Names of the quantum encodings.
         """
         self.x = x
@@ -689,14 +735,14 @@ class SvmsComparison:
             self.path = Path("../../" + str(t))
         self.path.mkdir(exist_ok=True)
 
-    def plot_data(self, dataset: list([np.ndarray]), labels: list([np.ndarray])):
+    def plot_data(self, dataset: list[np.ndarray], labels: list[np.ndarray]):
         """Plotting the feature distributions.
 
         Parameters:
         ----------
-        dataset: list([np.ndarray])
+        dataset: list[np.ndarray]
             The featurespace for SVM.
-        labels: list([np.ndarray])
+        labels: list[np.ndarray]
             The truth labels.
         """
         print(f"Plotting the dataset")
@@ -708,14 +754,14 @@ class SvmsComparison:
                 dataset, labels, nfeatures
             )
 
-    def train_svms(self, dataset: list([np.ndarray]), labels: list([np.ndarray])):
+    def train_svms(self, dataset: list[np.ndarray], labels: list[np.ndarray]):
         """Training classical and quantum SVMs and getting the predictions for different training set size and subsamples.
 
         Parameters:
         -----------
-        dataset: list([np.ndarray])
+        dataset: list[np.ndarray]
             The featurespae for SVM.
-        labels: list([np.ndarray])
+        labels: list[np.ndarray]
             The truth labels.
         """
         print(f"Starting the training session")
@@ -728,7 +774,7 @@ class SvmsComparison:
         validation_preds_batch = []
         test_preds_batch = []
 
-        seed = np.arange(1, 1 + self.folds)
+        seed = np.arange(166, 166 + self.folds)  # era 1
 
         self.do_kernel_alignment(dataset[0], labels[0])
         for trs in self.training_size:
@@ -853,17 +899,25 @@ class SvmsComparison:
             save_object(self.path, self.learning_curve_cv, "learning_curve_cv.png")
         if hasattr(self, "kernel_plot"):
             save_object(self.path, self.kernel_plot, "kernel_plot.png")
-        if hasattr(self, "new_acc"):
-            save_object(self.path, self.new_acc, "ACCURACY_other_backend.pkl")
+        if hasattr(self, "backend_compare_scores"):
+            save_object(
+                self.path, self.backend_compare_scores, "ACCURACY_other_backend.pkl"
+            )
+        if hasattr(self, "backend_compare_scores_all"):
+            save_object(
+                self.path,
+                self.backend_compare_scores_all,
+                "ACCURACY_other_backend_all.pkl",
+            )
         if hasattr(self, "opt_data"):
             save_object(self.path, self.opt_data, "Alignment_data.pkl")
 
-        if hasattr(self, "new_comparison"):
-            subfolder = self.path / Path("Comparison with an other backend")
+        if hasattr(self, "backend_plot"):
+            subfolder = self.path / Path("Backend Comparisons")
             subfolder.mkdir(exist_ok=True)
-            for i in range(len(self.new_comparison)):
+            for i in range(len(self.backend_plot)):
                 save_object(
-                    subfolder, self.new_comparison[i], self.titles[3 + i] + ".png"
+                    subfolder, self.backend_plot[i], self.titles[3 + i] + ".png"
                 )
 
         if hasattr(self, "featuremaps_plot"):
@@ -874,15 +928,15 @@ class SvmsComparison:
                     subfolder, self.featuremaps_plot[i], self.titles[3 + i] + ".png"
                 )
 
-        if hasattr(self, "bloch_sphere_list"):
-            subfolder = self.path / Path("Bloch Spheres")
-            subfolder.mkdir(exist_ok=True)
-            for i in range(len(self.bloch_sphere_list)):
-                save_object(
-                    subfolder,
-                    self.bloch_sphere_list[i],
-                    "Bloch_Spheres" + self.titles[3 + i] + ".png",
-                )
+        # if hasattr(self, "bloch_sphere_list"):
+        #     subfolder = self.path / Path("Bloch Spheres")
+        #     subfolder.mkdir(exist_ok=True)
+        #     for i in range(len(self.bloch_sphere_list)):
+        #         save_object(
+        #             subfolder,
+        #             self.bloch_sphere_list[i],
+        #             "Bloch_Spheres" + self.titles[3 + i] + ".png",
+        #         )
 
     def load_files(self, path: Path):
         """Loading results contained in a folder into class fields.
@@ -1040,7 +1094,6 @@ class SvmsComparison:
         self.make_folder()
         subfolder = self.path / Path("Decision Boundaries")
         subfolder.mkdir(exist_ok=True)
-        self.contourlist = []
         x_min, x_max = np.min(self.train[-1][0][0][:, 0]), np.max(
             self.train[-1][0][0][:, 0]
         )
@@ -1130,34 +1183,70 @@ class SvmsComparison:
                 plt.close(contour)
 
     def plot_bloch_spheres(
-        self, dataset: list([np.ndarray]), labels: list([np.ndarray])
+        self,
+        dataset: list[np.ndarray],
+        labels: list[np.ndarray],
+        with_prediction: bool = False,
     ):
         """Plotting the Bloch spheres for every circuit.
 
         Parameters:
         -----------
-        dataset: list([np.ndarray])
+        dataset: list[np.ndarray]
             The dataset containing feature distribution to encode
-        labels: list([np.ndarray])
+        labels: list[np.ndarray]
             The truth labels
+        with_prediction: bool
+            If True, colormap corresponds to classifier prediction. If False, to label.
         """
-        print("Plotting Bloch spheres")
-        train_dataset, train_labels = get_subsample(dataset[0], labels[0], 100, 42)
         self.do_kernel_alignment(dataset[1], labels[1])
-        self.bloch_sphere_list = []
-        for i, qker in enumerate(self.quantum_kernels):
-            self.bloch_sphere_list.append(
-                plot_bloch(self.x, qker, train_dataset, train_labels)
-            )
+        self.make_folder()
 
-    def train_svms_cv(self, dataset: list([np.ndarray]), labels: list([np.ndarray])):
+        if not hasattr(self, "train"):
+            print("Plotting distributions on Bloch spheres")
+            save_path = self.path / Path("Bloch Speres Distributions")
+            save_path.mkdir(exist_ok=True)
+            train_dataset, color = get_subsample(dataset[0], labels[0], 500, 42)
+            for i, qker in enumerate(self.quantum_kernels):
+                plot_bloch(
+                    self.x, qker, train_dataset, color, save_path, self.titles[3 + i]
+                )
+        elif with_prediction:
+            print("Plotting predictions on Bloch spheres")
+            save_path = self.path / Path("Bloch Speres Predictions")
+            save_path.mkdir(exist_ok=True)
+            train_dataset = self.train[-1][0][0]
+            if train_dataset.shape[0] > 500:
+                train_dataset = train_dataset[:500]
+            for i, qker in enumerate(self.quantum_kernels):
+                color = self.train_preds[-1][0][i + 3]
+                if color.shape[0] > 500:
+                    color = color[:500]
+                plot_bloch(
+                    self.x, qker, train_dataset, color, save_path, self.titles[3 + i]
+                )
+        else:
+            print("Plotting distributions on Bloch spheres")
+            save_path = self.path / Path("Bloch Speres Distributions")
+            save_path.mkdir(exist_ok=True)
+            train_dataset = self.train[-1][0][0]
+            color = self.train[-1][0][1]
+            if color.shape[0] > 500:
+                train_dataset = train_dataset[:500]
+                color = color[:500]
+            for i, qker in enumerate(self.quantum_kernels):
+                plot_bloch(
+                    self.x, qker, train_dataset, color, save_path, self.titles[3 + i]
+                )
+
+    def train_svms_cv(self, dataset: list[np.ndarray], labels: list[np.ndarray]):
         """Training classical and quantum svms on a fixed subsample for every training size with cross-validation.
 
         Parameters
         ----------
-        dataset: list([np.ndarray])
+        dataset: list[np.ndarray]
             The dataset containing the training subsets.
-        labels: list([np.ndarray])
+        labels: list[np.ndarray]
             The truth labels.
         """
         print("Doing cross validated trainings")
@@ -1225,16 +1314,14 @@ class SvmsComparison:
             plt.title(f"{self.titles[3+i]} featuremap", y=0.9, fontsize=15)
             self.featuremaps_plot.append(fig)
 
-    def do_kernel_alignment(
-        self, dataset: list([np.ndarray]), labels: list([np.ndarray])
-    ):
+    def do_kernel_alignment(self, dataset: list[np.ndarray], labels: list[np.ndarray]):
         """Checking if the input kernels need alignment. If so, perform kernel alignment.
 
         Parameters
         ----------
-        dataset: list([np.ndarray])
+        dataset: list[np.ndarray]
             Alignment dataset.
-        labels: list([np.ndarray])
+        labels: list[np.ndarray]
             The truth labels.
         """
         if self.alignment:
@@ -1249,181 +1336,89 @@ class SvmsComparison:
 
     def compare_backend(
         self,
-        dataset: list([np.ndarray]),
-        labels: list([np.ndarray]),
+        dataset: list[np.ndarray],
+        labels: list[np.ndarray],
         new_instance: Union[Aer.get_backend, QuantumInstance],
     ):
         """Training the models with an alternative backend.
 
         Parameters
         ----------
-        dataset: list([np.ndarray])
-            The featurespace for SVM.
-        labels: list([np.ndarray])
+        dataset: list[np.ndarray]
+            The dataset containing the training subsets.
+        labels: list[np.ndarray]
             The truth labels.
         new_instance: Union[Aer.get_backend, QuantumInstance])
             The new backend for comparison.
         """
+        train_dataset, train_labels = dataset[0], labels[0]
+        self.do_kernel_alignment(dataset[1], labels[1])
+
         new_kernels = make_kernels(self.quantum_featuremaps, new_instance)
-        print(f"Comparing trainings with different backends")
-        nkernels = len(self.quantum_kernels)
 
-        self.do_kernel_alignment(dataset[0], labels[0])
-
-        accuracy_train = np.zeros((len(self.training_size), nkernels, 2, self.folds))
-        accuracy_val = np.zeros((len(self.training_size), nkernels, 2, self.folds))
-        accuracy_test = np.zeros((len(self.training_size), nkernels, 2, self.folds))
-
-        for j, trs in enumerate(self.training_size):
-            for fld in range(self.folds):
-                print(f"Training fold {fld} with {trs} samples")
-
-                subset_train_data, subset_train_labels = get_subsample(
-                    dataset[0], labels[0], trs, fld
-                )
-                subset_val_data, subset_val_labels = get_subsample(
-                    dataset[1],
-                    labels[1],
-                    self.val_size,
-                    fld,
-                )
-
-                subset_test_data, subset_test_labels = get_subsample(
-                    dataset[2],
-                    labels[2],
-                    self.test_size,
-                    fld,
-                )
-
-                _, tr_preds_svec, val_preds_svec, te_preds_svec, _ = train_quantum(
-                    subset_train_data,
-                    subset_train_labels,
-                    subset_val_data,
-                    subset_test_data,
-                    self.quantum_kernels,
-                    self.cs,
-                )
-                _, tr_preds_qasm, val_preds_qasm, te_preds_qasm, _ = train_quantum(
-                    subset_train_data,
-                    subset_train_labels,
-                    subset_val_data,
-                    subset_test_data,
-                    new_kernels,
-                    self.cs,
-                )
-
-                for q in range(nkernels):
-                    accuracy_train[j, q, 0, fld] = accuracy(
-                        subset_train_labels, tr_preds_svec[q]
-                    )
-                    accuracy_val[j, q, 0, fld] = accuracy(
-                        subset_val_labels, val_preds_svec[q]
-                    )
-                    accuracy_test[j, q, 0, fld] = accuracy(
-                        subset_test_labels, te_preds_svec[q]
-                    )
-                    accuracy_train[j, q, 1, fld] = accuracy(
-                        subset_train_labels, tr_preds_qasm[q]
-                    )
-                    accuracy_val[j, q, 1, fld] = accuracy(
-                        subset_val_labels, val_preds_qasm[q]
-                    )
-                    accuracy_test[j, q, 1, fld] = accuracy(
-                        subset_test_labels, te_preds_qasm[q]
-                    )
-
-                    print(f"ideal: {accuracy_train[j, q, 0, fld]}")
-                    print(f"noise: {accuracy_train[j, q, 1, fld]}")
-
-                    print(f"ideal: {accuracy_val[j, q, 0, fld]}")
-                    print(f"noise: {accuracy_val[j, q, 1, fld]}")
-
-        legend_plot = [type(self.backend).__name__, type(new_instance).__name__]
-        self.plot_compare_backend(
-            nkernels, accuracy_train, accuracy_val, accuracy_test, legend_plot
+        folds = 5  # *np.ones_like(self.training_size) #np.rint(np.sqrt(self.training_size)/2).astype(np.int32)
+        scores_1, mean_1, std_1 = self.cv_scores(
+            train_dataset, train_labels, folds, self.quantum_kernels
         )
+        scores_2, mean_2, std_2 = self.cv_scores(
+            train_dataset, train_labels, folds, new_kernels
+        )
+        self.backend_compare_scores = [[mean_1, std_1], [mean_2, std_2]]
+        self.backend_compare_scores_all = [scores_1, scores_2]
 
-    def plot_compare_backend(
+        self.backend_plot = []
+
+        for k in range(len(self.quantum_kernels)):
+            fig = plt.figure(constrained_layout=True)
+            fig.set_figheight(5)
+            fig.set_figwidth(5)
+            plt.errorbar(x=self.training_size, y=mean_1[:, k], yerr=std_1[:, k])
+            plt.errorbar(x=self.training_size, y=mean_2[:, k], yerr=std_2[:, k])
+            plt.ylim([0, 1])
+            plt.xlabel("Sample size")
+            plt.ylabel("Accuracy")
+            plt.legend([type(self.backend).__name__, type(new_instance).__name__])
+            self.backend_plot.append(fig)
+
+    def cv_scores(
         self,
-        nkernels: int,
-        accuracy_train: np.ndarray,
-        accuracy_val: np.ndarray,
-        accuracy_test: np.ndarray,
-        legend_plot: list([str]),
-    ):
-        """Plot learning curves of each kernel for two different backends.
+        train_dataset: np.ndarray,
+        train_labels: np.ndarray,
+        folds: int,
+        kernels: list[QuantumCircuit],
+    ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """Evaluating quantum classifier scores with cross-validation.
 
         Parameters
         ----------
-        nkernels: int
-            Number of quantum kernels to show.
-        accuracy_train: np.ndarray
-            Prediction score of both backends on the training set.
-        accuracy_val: np.ndarray
-            Prediction score of both backends on the validation set.
-        accuracy_test: np.ndarray
-            Prediction score of both backends on the test set.
-        legend_plot: list([str])
-            backends name.
+        train_dataset: np.ndarray
+            The training featurespace.
+        train_labels: np.ndarray
+            The training truth values.
+        folds: int
+            Number of folds for running the cross-validation.
+        kernels: list[QuantumCircuit]
+            The quantum kernels.
+
+        Returns:
+        --------
+        score: np.ndarray
+            Classifier scores for different training subsets and fold.
+        mean: np.ndarray
+            The mean of the cross-validation reults scores.
+        std: np.ndarray
+            The mean standard deviation of the cross-validation scores.
         """
-        self.new_acc = [accuracy_train, accuracy_val, accuracy_test]
-        self.new_comparison = []
-
-        avg_acc_train = np.mean(self.new_acc[0], axis=3)
-        avg_acc_val = np.mean(self.new_acc[1], axis=3)
-        avg_acc_test = np.mean(self.new_acc[2], axis=3)
-        std_acc_train = np.std(self.new_acc[0], axis=3)
-        std_acc_val = np.std(self.new_acc[1], axis=3)
-        std_acc_test = np.std(self.new_acc[2], axis=3)
-
-        avg_acc = [avg_acc_train, avg_acc_val, avg_acc_test]
-        std_acc = [std_acc_train, std_acc_val, std_acc_test] / np.sqrt(self.folds)
-
-        rows = 2
-
-        ax_titles = [
-            "Accuracy on training set",
-            "Accuracy on validation set",
-            "Accuracy on testing set",
-        ]
-
-        if self.folds != 1:
-            for q in range(nkernels):
-                fig = plt.figure(constrained_layout=True)
-                fig.set_figheight(10)
-                fig.set_figwidth(15)
-
-                for i in range(3):
-                    ax = fig.add_subplot(rows, 2, i + 1)
-                    ax.errorbar(
-                        x=self.training_size,
-                        y=avg_acc[i][:, q, 0],
-                        yerr=std_acc[i][:, q, 0],
-                    )
-                    ax.errorbar(
-                        x=self.training_size,
-                        y=avg_acc[i][:, q, 1],
-                        yerr=std_acc[i][:, q, 1],
-                    )
-                    ax.set_title(f"{ax_titles[i]}")
-                    ax.set_ylim([0, 1])
-                    ax.set_xlabel("Sample size")
-                    ax.set_ylabel("Accuracy")
-                    ax.legend(legend_plot)
-                self.new_comparison.append(fig)
-        else:
-            for q in range(nkernels):
-                fig = plt.figure(constrained_layout=True)
-                fig.set_figheight(10)
-                fig.set_figwidth(15)
-
-                for i in range(3):
-                    ax = fig.add_subplot(rows, 2, i + 1)
-                    ax.scatter(x=self.training_size, y=avg_acc[i][:, q, 0])
-                    ax.scatter(x=self.training_size, y=avg_acc[i][:, q, 1])
-                    ax.set_title(f"{ax_titles[i]}")
-                    ax.set_ylim([0, 1])
-                    ax.set_xlabel("Sample size")
-                    ax.set_ylabel("Accuracy")
-                    ax.legend(legend_plot)
-                self.new_comparison.append(fig)
+        mean = np.zeros((len(self.training_size), len(kernels)))
+        std = np.zeros((len(self.training_size), len(kernels)))
+        score = np.zeros((len(self.training_size), len(kernels), folds))
+        for q, encoding in enumerate(kernels):
+            for i, trs in enumerate(self.training_size):
+                subset, labels = get_subsample(train_dataset, train_labels, trs, 2)
+                ker = encoding
+                ker_matrix = ker.evaluate(x_vec=subset)
+                clf = SVC(kernel="precomputed", C=self.cs[q])
+                score[i, q] = cross_val_score(clf, ker_matrix, labels, cv=folds)
+                save_object(self.path, score, "score_TEMP.pkl")
+        mean, std = np.mean(score, axis=2), np.std(score, axis=2) / np.sqrt(folds)
+        return score, mean, std

@@ -48,11 +48,10 @@ def svm_hyperparameter_training(
     feature_size = dataset[0].shape[1]
     if should_add_extra_feats:
         logger.info(
-            f"Using {feature_size} features extracted from CNN "
-            "+ Total event energy + Nhits"
+            f"Using {feature_size} deep features " "+ Total event energy + Nhits"
         )
     else:
-        logger.info(f"Using {feature_size} features extracted from CNN")
+        logger.info(f"Using {feature_size} deep features")
 
     linear_grid = {
         "C": [0.01, 0.1, 1, 10, 100],
@@ -85,7 +84,9 @@ def svm_hyperparameter_training(
 
     for k, kernel in enumerate(kernels):
         logger.info(f"Fitting SVC with {kernel} kernel")
-        grid = GridSearchCV(SVC(), grids[k], refit=True, verbose=0, cv=validation_idx)
+        grid = GridSearchCV(
+            SVC(probability=True), grids[k], refit=True, verbose=0, cv=validation_idx
+        )
         grid.fit(set_train_val, labels_train_val)
         print(grid.best_params_)
         classical_svc = SVC(probability=True, **grid.best_params_)
@@ -199,13 +200,13 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     split_ratio = setup["model"]["svm"]["split_ratio"]
     train_features, train_labels = extract_feats(
-        train_generator, network, should_add_extra_feats
+        train_generator, network, should_add_extra_feats, should_remove_outliers=True
     )
     val_features, val_labels = extract_feats(
-        val_generator, network, should_add_extra_feats
+        val_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
     test_features, test_labels = extract_feats(
-        test_generator, network, should_add_extra_feats
+        test_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
 
     # training and saving the SVMs
@@ -219,6 +220,9 @@ def svm_train(data_folder: Path, train_folder: Path, setup: dict):
     dataset[0], labels[0] = train_test_split(
         dataset[0], labels[0], train_size=split_ratio, random_state=42
     )[::2]
+    # dataset[0], labels[0] = train_test_split(
+    #     dataset[1], labels[1], train_size=1400, random_state=42
+    # )[::2]
 
     # SVM training and hyperparameter optimization
     classical_svms = svm_hyperparameter_training(

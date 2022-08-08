@@ -13,6 +13,11 @@ import random
 import pickle
 import pygad
 
+import time
+
+start = time.time()
+num_qubits = 2
+max_num_gates = 3
 x = ParameterVector("x", 2)
 backend = Aer.get_backend("statevector_simulator")
 
@@ -78,7 +83,7 @@ def match_gate(
     binary_block: np.ndarray
         Bitstring containing information on the encoding and the quantum gate.
     q: int
-        Quantum registry index (on which qubit-line append the gate).
+        Quantum registry index (on which qubit-line to append the gate).
     x: ParameterVector
         Free parameters of the quantum circuits.
 
@@ -109,26 +114,25 @@ def match_gate(
 
     if np.array_equal(binary_gate, [0, 0, 0]):
         return fmap
-    if np.array_equal(binary_gate, [0, 0, 1]):
+    elif np.array_equal(binary_gate, [0, 0, 1]):
         fmap.h(q)
-        return fmap
-    if np.array_equal(binary_gate, [0, 1, 0]):
-        fmap.cx(0, 1)
-        return fmap
-    if np.array_equal(binary_gate, [0, 1, 1]):
+    elif np.array_equal(binary_gate, [0, 1, 0]):
+        if q == num_qubits - 1:
+            fmap.cx(q, q - 1)
+        else:
+            fmap.cx(q, q + 1)
+    elif np.array_equal(binary_gate, [0, 1, 1]):
         fmap.rz(func, q)
-        return fmap
-    if np.array_equal(binary_gate, [1, 0, 0]):
+    elif np.array_equal(binary_gate, [1, 0, 0]):
         fmap.rx(func, q)
-        return fmap
-    if np.array_equal(binary_gate, [1, 0, 1]):
+    elif np.array_equal(binary_gate, [1, 0, 1]):
         fmap.ry(func, q)
-        return fmap
-    if np.array_equal(binary_gate, [1, 1, 0]):
+    elif np.array_equal(binary_gate, [1, 1, 0]):
         fmap.p(func, q)
-        return fmap
-    if np.array_equal(binary_gate, [1, 1, 1]):
-        return fmap
+    # elif np.array_equal(binary_gate, [1, 1, 1]):
+    #     return fmap
+
+    return fmap
 
 
 def initial_population(n_fmap: int) -> list(list([int])):
@@ -146,7 +150,9 @@ def initial_population(n_fmap: int) -> list(list([int])):
     """
     initial_pop = []
     for j in range(n_fmap):
-        initial_pop.append([random.randrange(0, 2) for i in range(36)])
+        initial_pop.append(
+            [random.randrange(0, 2) for i in range(6 * max_num_gates * num_qubits)]
+        )
 
     return initial_pop
 
@@ -164,12 +170,21 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
     fmap: QuantumCircuit
         Quantum featuremap.
     """
-    bits_q0 = chunks(bitlist[:18])
-    bits_q1 = chunks(bitlist[18:])
-    fmap = QuantumCircuit(2)
-    for gate_q0, gate_q1 in zip(bits_q0, bits_q1):
-        fmap = match_gate(fmap, gate_q0, 0, x)
-        fmap = match_gate(fmap, gate_q1, 1, x)
+
+    bits = []
+    for i in range(num_qubits):
+        bits.append(
+            chunks(bitlist[i * 6 * max_num_gates : (i + 1) * 6 * max_num_gates])
+        )
+
+    fmap = QuantumCircuit(num_qubits)
+    for j in range(max_num_gates):
+
+        for i in range(num_qubits):
+            fmap = match_gate(fmap, bits[i][j], i, x)
+    # for q, q_line in enumerate(bits):
+    #     for gate in q_line:
+    #         fmap = match_gate(fmap, gate, q, x)
     return fmap
 
 
@@ -231,7 +246,10 @@ def save_results(fittest_fmap: QuantumCircuit, ga_instance: pygad.GA, foldername
         pickle.dump(ga_instance, f)
 
     fitness_plot = ga_instance.plot_fitness()
+    new_solution_plot = ga_instance.plot_new_solution_rate(plot_type="bar")
+
     fitness_plot.savefig(foldername / Path("fitness_plot.png"))
+    new_solution_plot.savefig(foldername / Path("new_solution_plot.png"))
 
 
 def genetic_instance(
@@ -285,11 +303,18 @@ def genetic_instance(
             qker_matrix_train = qker.evaluate(x_vec=data_train)
             qker_matrix_val = qker.evaluate(y_vec=data_train, x_vec=data_val)
             clf = SVC(kernel="precomputed", C=100).fit(qker_matrix_train, lab_train)
-            accuracy = clf.score(qker_matrix_val, lab_val)
+            accuracy = clf.score(
+                qker_matrix_val, lab_val
+            )  # (2*clf.score(qker_matrix_val, lab_val) + clf.score(qker_matrix_train, lab_train))/3
+            gate_dict = dict(fmap.count_ops())
+            num_gates = 0
+            for gate in gate_dict:
+                num_gates += gate_dict[gate]
+            fitness_value = accuracy - num_gates * 0.0001
         else:
-            accuracy = 0.0
-        print(f"Fitness value: {accuracy}")
-        return accuracy
+            fitness_value = 0.0
+        print(f"Fitness value: {fitness_value}")
+        return fitness_value
 
     ga_instance = pygad.GA(
         fitness_func=fitness_func,
@@ -298,6 +323,23 @@ def genetic_instance(
         random_mutation_min_val=0,
         random_mutation_max_val=2,
         gene_type=int,
+        on_generation=callback_generation,
+        suppress_warnings=True,
         **opts,
     )
     return ga_instance
+
+
+def callback_generation(ga_instance: pygad.pygad.GA):
+    """Callback function that prints the generation number.
+
+    Parameters
+    ----------
+    ga_instance: pygad.pygad.GA
+        Gnetic instance class
+    """
+    end = time.time()
+    print(f"----------------------------------")
+    print(f"Generations completed: {ga_instance.generations_completed}")
+    print(f"Elapsed time: {end - start :.2f} s")
+    print(f"----------------------------------")

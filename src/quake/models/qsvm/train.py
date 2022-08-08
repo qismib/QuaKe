@@ -57,7 +57,7 @@ def qsvm_hyperparameter_training(
     models: list[SVC]
         The trained support vector classifiers. One for each classical kernel.
     """
-    logger.info("Training, validating, testing SVMs with linear, poly, rbf kernels ...")
+    logger.info("Training, validating, testing QSVMs ...")
     feature_size = dataset[0].shape[1]
     if should_add_extra_feats:
         logger.info(
@@ -70,22 +70,23 @@ def qsvm_hyperparameter_training(
     quantum_grid = {"C": [0.01, 0.1, 1, 10, 100, 1000, 10000]}
 
     train_size = labels[0].shape[0]
-    val_size = labels[1].shape[0]
+    # val_size = labels[1].shape[0]
+    val_size = 100  # for saving computing time
     partitions = np.append(
         -np.ones(train_size, dtype=int),
-        np.zeros(100, dtype=int),
+        np.zeros(val_size, dtype=int),
     )
     validation_idx = PredefinedSplit(partitions)
 
-    set_train_val = np.concatenate((dataset[0], dataset[1][:100]), axis=0)
-    labels_train_val = np.concatenate((labels[0], labels[1][:100]), axis=0)
+    set_train_val = np.concatenate((dataset[0], dataset[1][:val_size]), axis=0)
+    labels_train_val = np.concatenate((labels[0], labels[1][:val_size]), axis=0)
 
     models = []
 
     for k, kernel in enumerate(qt_kernels):
         logger.info(f"Fitting QSVC with {kernel_titles[k]} kernel")
         grid = GridSearchCV(
-            SVC(kernel="precomputed"),
+            SVC(kernel="precomputed", probability=True),
             quantum_grid,
             refit=True,
             verbose=3,
@@ -132,7 +133,7 @@ def evaluate_svm(
         array has shape=(nb events,).
     qt_kernels: QuantumCircuit
         Quantum kernels.
-    kernel_titles: list([str])
+    kernel_titles: list[str]
         Quantum kernel names.
     """
 
@@ -232,13 +233,13 @@ def qsvm_train(data_folder: Path, train_folder: Path, setup: dict):
     should_add_extra_feats = setup["model"]["qsvm"]["should_add_extra_feats"]
     split_ratio = setup["model"]["qsvm"]["split_ratio"]
     train_features, train_labels = extract_feats(
-        train_generator, network, should_add_extra_feats
+        train_generator, network, should_add_extra_feats, should_remove_outliers=True
     )
     val_features, val_labels = extract_feats(
-        val_generator, network, should_add_extra_feats
+        val_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
     test_features, test_labels = extract_feats(
-        test_generator, network, should_add_extra_feats
+        test_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
 
     dataset = rearrange_scale(

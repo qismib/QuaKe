@@ -1,36 +1,41 @@
 """ This model executes an automatized quantum featuremap optimization via genetic algorithm"""
 
 from pathlib import Path
+
 from quake.utils.utils import load_runcard
 from quake.models.qsvm.qsvm_tester import get_features
 from quake.models.qsvm import genetic
 
 input_folder = Path("../../output/tmp/")
-setup = load_runcard("../../output/tmp/cards/runcard.yaml")
-output_folder = Path("../../Genetic_prova2")
-
+input_folder = Path("../../output/")
+setup = load_runcard("../../output/cards/runcard.yaml")
+output_folder = Path("../../genetic_featuremap")
 dataset, labels = get_features(input_folder, "cnn", setup)
 
-data_train, lab_train = genetic.get_subsample(dataset[0], labels[0], 10)
-data_val, lab_val = genetic.get_subsample(dataset[1], labels[1], 5)
+
+data_train, lab_train = genetic.get_subsample(dataset[0], labels[0], 500)
+data_val, lab_val = genetic.get_subsample(dataset[1], labels[1], 1000)
 
 # Initializing a random generation 0
 function_inputs = genetic.initial_population(10)
 
 # Defining inputs for the genetic instance
 options = {
-    "num_generations": 5,
+    "num_generations": 500,
     "num_parents_mating": 2,
     "initial_population": function_inputs,
     "parent_selection_type": "rank",
     "mutation_by_replacement": True,
     "stop_criteria": "saturate_50",
+    "mutation_type": "adaptive",
+    "mutation_probability": [0.5, 0.15],
 }
 
 # Running the instance and retrieving data
 ga_instance = genetic.genetic_instance(
     options, data_train, lab_train, data_val, lab_val
 )
+
 ga_instance.run()
 best_sol = ga_instance.best_solution()
 fittest_kernel = genetic.to_quantum(best_sol[0])

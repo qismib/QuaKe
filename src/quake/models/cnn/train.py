@@ -1,6 +1,7 @@
 """ This module provides functions for CNN network training and loading."""
 import logging
 import math
+import numpy as np
 from typing import Tuple
 from time import time as tm
 from pathlib import Path
@@ -189,11 +190,19 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
     geo = Geometry(setup["detector"])
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.summary()
-
+    tf.keras.utils.plot_model(
+        network.model(),
+        to_file=train_folder / "cnn_network.png",
+        expand_nested=True,
+        show_shapes=True,
+    )
+    # exit()
     # training
-    train_network(msetup, train_folder, network, (train_generator, val_generator))
 
+    train_network(msetup, train_folder, network, (train_generator, val_generator))
     # inference
+    msetup.update({"ckpt": train_folder.parent / f"cnn/cnn.h5"})
+    network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.evaluate(test_generator)
 
     # make_inference_plots(train_folder, network, test_generator)

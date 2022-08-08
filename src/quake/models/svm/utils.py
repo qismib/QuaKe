@@ -66,12 +66,24 @@ def remove_outliers(features: np.ndarray, labels: np.ndarray) -> np.ndarray:
     bulk_events: np.ndarray
         The outlier filtered events.
     """
-    mus = features.mean(axis=0, keepdims=True)
-    sigmas = sigmas.mean(axis=0, keepdims=True)
-    good_examples = (features - mus) / sigmas < 3.5
-    # TODO: maybe change the rule for selecting an outlier
-    # compute euclidean distance from all the feature means and put it < 3.5
-    good_examples = np.all(good_examples, axis=1)
+    mus_sig = features[labels == 1].mean(axis=0, keepdims=True)
+    mus_bkg = features[labels == 0].mean(axis=0, keepdims=True)
+    sigmas_sig = features[labels == 1].std(axis=0, keepdims=True)
+    sigmas_bkg = features[labels == 0].std(axis=0, keepdims=True)
+
+    good_examples = np.zeros(labels.shape[0], dtype=bool)
+
+    good_examples[labels == 1] = (
+        np.linalg.norm(features[labels == 1] - mus_sig, axis=1)
+        / np.linalg.norm(sigmas_sig)
+        < 3.5
+    )
+    good_examples[labels == 0] = (
+        np.linalg.norm(features[labels == 0] - mus_bkg, axis=1)
+        / np.linalg.norm(sigmas_bkg)
+        < 3.5
+    )
+
     return features[good_examples], labels[good_examples]
 
 

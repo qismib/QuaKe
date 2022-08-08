@@ -42,20 +42,14 @@ class Geometry:
         self.nb_ybins = math.ceil((self.ymax - self.ymin) / self.ybin_w)
         self.nb_zbins = math.ceil((self.zmax - self.zmin) / self.zbin_w)
 
-        if detector["should_crop_planes"]:
-            # reduced number of bins
-            xmin_reduced, xmax_reduced = detector["xlim_reduced"]
-            ymin_reduced, ymax_reduced = detector["ylim_reduced"]
-            zmin_reduced, zmax_reduced = detector["zlim_reduced"]
-            self.nb_xbins_reduced = math.ceil(
-                (xmax_reduced - xmin_reduced) / self.xbin_w
-            )
-            self.nb_ybins_reduced = math.ceil(
-                (ymax_reduced - ymin_reduced) / self.ybin_w
-            )
-            self.nb_zbins_reduced = math.ceil(
-                (zmax_reduced - zmin_reduced) / self.zbin_w
-            )
+        # if detector["should_crop_planes"]:
+        # reduced number of bins
+        xmin_reduced, xmax_reduced = detector["xlim_reduced"]
+        ymin_reduced, ymax_reduced = detector["ylim_reduced"]
+        zmin_reduced, zmax_reduced = detector["zlim_reduced"]
+        self.nb_xbins_reduced = math.ceil((xmax_reduced - xmin_reduced) / self.xbin_w)
+        self.nb_ybins_reduced = math.ceil((ymax_reduced - ymin_reduced) / self.ybin_w)
+        self.nb_zbins_reduced = math.ceil((zmax_reduced - zmin_reduced) / self.zbin_w)
 
         # bin edeges
         self.xbins = np.linspace(self.xmin, self.xmax, self.nb_xbins + 1)

@@ -20,26 +20,24 @@ def path_constructor(loader, node):
 
 def load_runcard(runcard_file: Path) -> dict:
     """Load runcard from yaml file.
-
     Parameters
     ----------
     runcard_file: Path
         The yaml to dump the dictionary.
-
     Returns
     -------
     runcard: dict
         The loaded settings dictionary.
-
     Note
     ----
     The pathlib.Path objects are automatically loaded if they are encoded
     with the following syntax:
-
     ```
     path: !Path 'path/to/file'
     ```
     """
+    if not isinstance(runcard_file, Path):
+        runcard_file = Path(runcard_file)
     yaml.add_constructor("!Path", path_constructor)
     with open(runcard_file, "r") as stream:
         runcard = yaml.load(stream, Loader=yaml.FullLoader)
@@ -53,14 +51,12 @@ def path_representer(dumper, data):
 
 def save_runcard(fname: Path, setup: dict):
     """Save runcard to yaml file.
-
     Parameters
     ----------
     fname: Path
         The yaml output file.
     setup: Path
         The settings dictionary to be dumped.
-
     Note
     ----
     pathlib.PosixPath objects are automatically loaded.
@@ -72,11 +68,9 @@ def save_runcard(fname: Path, setup: dict):
 
 def check_in_folder(folder: Path, should_force: bool):
     """Creates the query folder.
-
     The `should_force` parameters controls the function behavior in case
     `folder` exists. If true, it overwrites the existent directory, otherwise
     exit.
-
     Parameters
     ----------
     folder: Path
@@ -99,7 +93,6 @@ def check_in_folder(folder: Path, should_force: bool):
 
 def initialize_output_folder(output: Path, should_force: bool):
     """Creates the output directory structure.
-
     Parameters
     ----------
     output: Path
@@ -115,7 +108,6 @@ def initialize_output_folder(output: Path, should_force: bool):
 
 def set_manual_seed(seed: int):
     """Set random and numpy libraries random seed for reproducibility.
-
     Parameters
     ----------
     seed: int

@@ -194,6 +194,7 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     setup: dict
         Settings dictionary.
     """
+
     # data loading
     train_generator, val_generator, test_generator = read_data(
         data_folder, train_folder, setup
@@ -204,11 +205,19 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     msetup = setup["model"]["attention"]
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
     network.summary()
-
+    tf.keras.utils.plot_model(
+        network.model(),
+        to_file=train_folder / "attention_network.png",
+        expand_nested=True,
+        show_shapes=True,
+    )
+    # exit()
     # training
     train_network(msetup, train_folder, network, (train_generator, val_generator))
 
     # inference
+    msetup.update({"ckpt": train_folder.parent / f"attention/attention.h5"})
+    network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
     network.evaluate(test_generator)
 
-    make_inference_plots(train_folder, network, test_generator)
+    # make_inference_plots(train_folder, network, test_generator)

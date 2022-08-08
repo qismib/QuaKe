@@ -315,6 +315,7 @@ def read_data(
         data_folder,
         setup["detector"],
     )
+
     if split_from_maps:
         logger.info(f"Loading splitting maps from folder: {train_folder}")
         train_map, val_map, test_map = load_splitting_maps(train_folder)

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Usage: ./cnn_svm_pipeline.sh <outdir>
+# Usage: ./examples/cnn_svm_pipeline.sh <outdir>
 # Note: the `--force` flag always overwrites the output directory
 # Note: edit the runcard before launching the script !
 

@@ -11,29 +11,30 @@ already exists and can be created by `mkdir`.
 - CNN + SVM training
 
     ```bash
-    examples/cnn_svm_pipeline.sh ../output/tmp
+    source examples/cnn_svm_pipeline.sh ../output/tmp
     ```
 
 - Transformer + SVM training
 
     ```bash
-    examples/attention_svm_pipeline.sh ../output/tmp
+    source examples/attention_svm_pipeline.sh ../output/tmp
     ```
 - CNN + QSVM training
 
     ```bash
-    examples/cnn_qsvm_pipeline.sh ../output/tmp
+    source examples/cnn_qsvm_pipeline.sh ../output/tmp
     ```
 
 - Transformer + QSVM training
 
     ```bash
-    examples/attention_qsvm_pipeline.sh ../output/tmp
+    source examples/attention_qsvm_pipeline.sh ../output/tmp
     ```
 ## Comparing SVM and QSVM
 
 The following command launches a training session for SVM and QSVM and produces customizable graphical outputs inside an external folder.
-Default folder: `../Training_results`.
+Default folder name : `../Training_results`.
+From the QuaKe directory:
 
     ```bash
     python examples/svm_vs_qsvm.py
@@ -42,7 +43,8 @@ Default folder: `../Training_results`.
 ## Genetic generative featuremaps
 
 The following command launches a quantum featuremap optimization through a genetic optimization, and save results on an external folder.
-Default folder: `../genetic_featuremap`.
+Default folder name: `../genetic_featuremap`.
+From the QuaKe directory:
 
     ```bash
     python examples/genetic_featuremap.py

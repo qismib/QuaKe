@@ -1,7 +1,6 @@
 """
     This module implements a class for comparing classical and quantum Support Vector Machines (SVMs) by realizing training runs, returning the classification scores and several visualizations.
 """
-
 from pathlib import Path
 import pickle
 import numpy as np

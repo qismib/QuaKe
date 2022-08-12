@@ -10,4 +10,4 @@ runcard=cards/runcard.yaml
 # mkdir $outdir
 quake datagen $runcard -o $outdir --force
 quake train -o $outdir -m cnn --force
-quake train -o $outdir -m svm --force
+quake train -o $outdir -m qsvm --force

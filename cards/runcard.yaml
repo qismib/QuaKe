@@ -1,0 +1,79 @@
+gpu: [0]
+
+# directories
+dataset_dir: !Path '../data_10.06.p01' # folder containing root files
+
+# geometry
+detector:
+  xlim: [-20, 20] # x boundaries in mm
+  ylim: [-20, 20] # y boundaries in mm
+  zlim: [-20, 20] # z boundaries in mm
+  should_crop_planes: True
+  xlim_reduced: [-10, 10]
+  ylim_reduced: [-10, 10]
+  zlim_reduced: [-10, 10]
+  resolution: [5, 5, 1] # [x, y, z] resolution in mm
+  min_energy: 0.1 # energy sensitivity in MeV
+
+model:
+  attention:
+    ckpt: null # checkpoint, must be !Path object too
+    optimizer: Adam
+    lr: 1e-3 # learning rate
+    epochs: 50
+    # hist_freq: 10
+    min_lr: 1e-6 # minimum lr
+    reducelr_patience: 20 # reduce lr on plateau patience
+    es_patience: 100 # early stopping patience
+    test_split_ratio: 0.15 # validation and test sets have the same size
+    net_dict:
+      f_dims: 4
+      spatial_dims: 3
+      nb_mha_heads: 4
+      mha_filters: [8, 64, 128]
+      nb_fc_heads: 1
+      fc_filters: [64, 16, 2]
+      batch_size: 32
+      activation: relu
+      alpha: 0.2
+      dropout_rate: 0.02
+      use_bias: true
+      name: AttentionNetwork
+  cnn:
+    ckpt: null # checkpoint, must be !Path object too
+    optimizer: Adam
+    lr: 0.001 # learning rate
+    epochs: 30
+    # hist_freq: 10
+    min_lr: 0.001 # minimum lr
+    reducelr_patience: 20 # reduce lr on plateau patience
+    es_patience: 100 # early stopping patience
+    test_split_ratio: 0.15 # validation and test sets have the same size
+    net_dict:
+      nb_features: 2
+      nb_hidden_layers: 2
+      hidden_units: 25
+      kernel_size: [3,3]
+      strides: [1,1]
+      batch_size: 120
+      activation: relu
+      alpha: 0.05
+      dropout_rate: 0.25
+      use_bias: true
+      name: CNN
+
+    #feature_number: 4 # Intermediate dense layer size (the features for SVM)
+  svm:
+    feature_extractor: attention # the feature extraction network, available options cnn | attention
+    should_add_extra_feats: false # add nb active pixels and total energy to extracted features
+    kernels: [linear, poly, rbf]
+    should_do_scaling: true
+    split_ratio: 0.1
+    name: SVM
+  qsvm:
+    feature_extractor: attention
+    should_add_extra_feats: false
+    should_do_scaling: true
+    split_ratio: 0.01
+    name: QSVM
+    

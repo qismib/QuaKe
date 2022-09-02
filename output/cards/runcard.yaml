@@ -1,0 +1,99 @@
+dataset_dir: !Path '../data_10.06.p01'
+detector:
+    min_energy: 0.1
+    resolution:
+    - 5
+    - 5
+    - 1
+    should_crop_planes: true
+    xlim:
+    - -20
+    - 20
+    xlim_reduced:
+    - -10
+    - 10
+    ylim:
+    - -20
+    - 20
+    ylim_reduced:
+    - -10
+    - 10
+    zlim:
+    - -20
+    - 20
+    zlim_reduced:
+    - -10
+    - 10
+gpu:
+- 0
+model:
+    attention:
+        ckpt: null
+        epochs: 50
+        es_patience: 100
+        lr: 1e-3
+        min_lr: 1e-6
+        net_dict:
+            activation: relu
+            alpha: 0.2
+            batch_size: 32
+            dropout_rate: 0.02
+            f_dims: 4
+            fc_filters:
+            - 64
+            - 16
+            - 2
+            mha_filters:
+            - 8
+            - 64
+            - 128
+            name: AttentionNetwork
+            nb_fc_heads: 1
+            nb_mha_heads: 4
+            spatial_dims: 3
+            use_bias: true
+        optimizer: Adam
+        reducelr_patience: 20
+        test_split_ratio: 0.15
+    cnn:
+        ckpt: null
+        epochs: 30
+        es_patience: 100
+        lr: 0.001
+        min_lr: 0.001
+        net_dict:
+            activation: relu
+            alpha: 0.05
+            batch_size: 120
+            dropout_rate: 0.25
+            hidden_units: 25
+            kernel_size:
+            - 3
+            - 3
+            name: CNN
+            nb_features: 2
+            nb_hidden_layers: 2
+            strides:
+            - 1
+            - 1
+            use_bias: true
+        optimizer: Adam
+        reducelr_patience: 20
+        test_split_ratio: 0.15
+    qsvm:
+        feature_extractor: attention
+        name: QSVM
+        should_add_extra_feats: false
+        should_do_scaling: true
+        split_ratio: 0.01
+    svm:
+        feature_extractor: attention
+        kernels:
+        - linear
+        - poly
+        - rbf
+        name: SVM
+        should_add_extra_feats: false
+        should_do_scaling: true
+        split_ratio: 0.1
+output: !Path 'output'

@@ -16,8 +16,8 @@ import pygad
 import time
 
 start = time.time()
-num_qubits = 2
-max_num_gates = 3
+NUM_QUBITS = 2
+MAX_NUM_GATES = 3
 x = ParameterVector("x", 2)
 backend = Aer.get_backend("statevector_simulator")
 
@@ -75,6 +75,9 @@ def match_gate(
     fmap: QuantumCircuit, binary_block: np.ndarray, q: int, x: ParameterVector
 ) -> QuantumCircuit:
     """Appends a new gate to a quantum featuremap by decoding the bitstring.
+    Each circuit gate is defined by 3 bits encoding the gate type and 3 bits encoding
+    the rotation angle. The 6-bit segment position in the bitstring-encoded featuremap
+    determines the order and the qubit line.
 
     Parameters
     ----------
@@ -117,7 +120,7 @@ def match_gate(
     elif np.array_equal(binary_gate, [0, 0, 1]):
         fmap.h(q)
     elif np.array_equal(binary_gate, [0, 1, 0]):
-        if q == num_qubits - 1:
+        if q == NUM_QUBITS - 1:
             fmap.cx(q, q - 1)
         else:
             fmap.cx(q, q + 1)
@@ -151,7 +154,7 @@ def initial_population(n_fmap: int) -> list(list([int])):
     initial_pop = []
     for j in range(n_fmap):
         initial_pop.append(
-            [random.randrange(0, 2) for i in range(6 * max_num_gates * num_qubits)]
+            [random.randrange(0, 2) for i in range(6 * MAX_NUM_GATES * NUM_QUBITS)]
         )
 
     return initial_pop
@@ -172,15 +175,15 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
     """
 
     bits = []
-    for i in range(num_qubits):
+    for i in range(NUM_QUBITS):
         bits.append(
-            chunks(bitlist[i * 6 * max_num_gates : (i + 1) * 6 * max_num_gates])
+            chunks(bitlist[i * 6 * MAX_NUM_GATES : (i + 1) * 6 * MAX_NUM_GATES])
         )
 
-    fmap = QuantumCircuit(num_qubits)
-    for j in range(max_num_gates):
+    fmap = QuantumCircuit(NUM_QUBITS)
+    for j in range(MAX_NUM_GATES):
 
-        for i in range(num_qubits):
+        for i in range(NUM_QUBITS):
             fmap = match_gate(fmap, bits[i][j], i, x)
     # for q, q_line in enumerate(bits):
     #     for gate in q_line:

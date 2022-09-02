@@ -122,7 +122,7 @@ def get_features(
     network = load_net_fn(esetup, setup["run_tf_eagerly"], geo=geo)
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     train_features, train_labels = extract_feats(
-        train_generator, network, should_add_extra_feats, should_remove_outliers=False
+        train_generator, network, should_add_extra_feats, should_remove_outliers=True
     )
     val_features, val_labels = extract_feats(
         val_generator, network, should_add_extra_feats, should_remove_outliers=False
@@ -1117,14 +1117,15 @@ class SvmsComparison:
                     contour.set_figwidth(12)
                     titlesize = 30
                 if k < 3:
-                    h = 0.01
+                    h = 0.05
                 else:
-                    h = 0.2
+                    h = 0.05
                 xx, yy = np.meshgrid(
                     np.arange(x_min, x_max, h), np.arange(y_min, y_max, h)
                 )
 
                 for fld in range(np.min([self.folds, 6])):
+                    print(i, fld, k)
                     ax = contour.add_subplot(rows, cols, fld + 1)
                     clf = self.svms[i][fld][k]
                     if not cheap_version and ndims == 2:

@@ -207,7 +207,7 @@ def qsvm_train(data_folder: Path, train_folder: Path, setup: dict):
     NotImplementedError
         If extractor type not one of `svm` or `attention`
     """
-    extractor_type = setup["model"]["svm"]["feature_extractor"].lower()
+    extractor_type = setup["model"]["qsvm"]["feature_extractor"].lower()
     load_map_folder = train_folder.parent / extractor_type
 
     if extractor_type == "cnn":

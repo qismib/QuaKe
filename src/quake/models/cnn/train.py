@@ -204,5 +204,3 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
     msetup.update({"ckpt": train_folder.parent / f"cnn/cnn.h5"})
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.evaluate(test_generator)
-
-    # make_inference_plots(train_folder, network, test_generator)

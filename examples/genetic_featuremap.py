@@ -29,6 +29,7 @@ options = {
     "stop_criteria": "saturate_50",
     "mutation_type": "adaptive",
     "mutation_probability": [0.5, 0.15],
+    "crossover_probability": 0.2,
 }
 
 # Running the instance and retrieving data

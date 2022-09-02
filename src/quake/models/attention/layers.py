@@ -27,7 +27,6 @@ class LBA(Layer):
         self.units = units
         self.act = act
         self.alpha = alpha
-
         self.linear = Dense(
             self.units,
             name="linear",  # kernel_regularizer="l2", bias_regularizer="l2",
@@ -235,7 +234,6 @@ class Head(Layer):
         self.dropout_rate = dropout_rate
         self.activation = activation
         self.alpha = alpha
-
         ff_layer = LBAD if self.dropout_rate else LBA
         ff_kwargs = {"rate": self.dropout_rate} if self.dropout_rate else {}
 

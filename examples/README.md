@@ -33,7 +33,9 @@ already exists and can be created by `mkdir`.
 ## Comparing SVM and QSVM
 
 The following command launches a training session for SVM and QSVM and produces customizable graphical outputs inside an external folder.
+
 Default folder name : `../Training_results`.
+
 From the QuaKe directory:
 
     ```bash
@@ -43,7 +45,9 @@ From the QuaKe directory:
 ## Genetic generative featuremaps
 
 The following command launches a quantum featuremap optimization through a genetic optimization, and save results on an external folder.
+
 Default folder name: `../genetic_featuremap`.
+
 From the QuaKe directory:
 
     ```bash

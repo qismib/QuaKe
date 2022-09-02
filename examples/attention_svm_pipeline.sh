@@ -4,7 +4,7 @@
 # Note: edit the runcard before launching the script !
 
 outdir=$1
-runcard=cards/runard.yaml
+runcard=cards/runcard.yaml
 
 quake datagen $runcard -o $outdir --force
 quake train -o $outdir -m attention --force

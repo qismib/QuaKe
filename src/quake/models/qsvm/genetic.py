@@ -1,4 +1,5 @@
 """ This module contains the functions for generating a genetic-optimized quantum featuremap. """
+import logging
 
 from qiskit.circuit import QuantumCircuit
 import numpy as np
@@ -14,6 +15,10 @@ import pickle
 import pygad
 
 import time
+
+from quake import PACKAGE
+
+logger = logging.getLogger(PACKAGE + ".qsvm")
 
 start = time.time()
 NUM_QUBITS = 2
@@ -199,7 +204,9 @@ def quick_comparison(
     data_compare: np.ndarray,
     lab_compare: np.ndarray,
 ):
-    """Trains SVM and QSVM with the fittest kernel, printing the scores of each on a validation dataset.
+    """Trains SVM and QSVM with the fittest kernel.
+    
+    Prints the scores of each on a validation dataset.
 
     Parameters
     ----------
@@ -221,12 +228,12 @@ def quick_comparison(
     qker_matrix_compare = qker.evaluate(y_vec=data_train, x_vec=data_compare)
     clf = SVC(kernel="precomputed").fit(qker_matrix_train, lab_train)
     qt_accuracy = clf.score(qker_matrix_compare, lab_compare)
-    print(f"Quantum kernel accuracy is: {qt_accuracy}")
+    logger.info(f"Quantum kernel accuracy is: {qt_accuracy}")
 
     for ker in classic_kernels:
         clf = SVC(kernel=ker).fit(data_train, lab_train)
         accuracy = clf.score(data_compare, lab_compare)
-        print(f"{ker} accuracy is: {accuracy}")
+        logger.info(f"{ker} accuracy is: {accuracy}")
 
 
 def save_results(fittest_fmap: QuantumCircuit, ga_instance: pygad.GA, foldername: Path):
@@ -299,7 +306,7 @@ def genetic_instance(
             The fitness value, corresponding to the classification score on a validation dataset.
         """
         fmap = to_quantum(solution)
-        print(fmap)
+        logger.info(fmap)
         if fmap.num_parameters == 2:
             fmap.assign_parameters({x: [0, 0]})
             qker = QuantumKernel(feature_map=fmap, quantum_instance=backend)
@@ -316,7 +323,7 @@ def genetic_instance(
             fitness_value = accuracy - num_gates * 0.0001
         else:
             fitness_value = 0.0
-        print(f"Fitness value: {fitness_value}")
+        logger.info(f"Fitness value: {fitness_value}")
         return fitness_value
 
     ga_instance = pygad.GA(
@@ -342,7 +349,9 @@ def callback_generation(ga_instance: pygad.pygad.GA):
         Gnetic instance class
     """
     end = time.time()
-    print(f"----------------------------------")
-    print(f"Generations completed: {ga_instance.generations_completed}")
-    print(f"Elapsed time: {end - start :.2f} s")
-    print(f"----------------------------------")
+    logger.info(
+        f"\n----------------------------------\n"
+        f"Generations completed: {ga_instance.generations_completed}\n"
+        f"Elapsed time: {end - start :.2f} s\n"
+        f"----------------------------------\n"
+        )

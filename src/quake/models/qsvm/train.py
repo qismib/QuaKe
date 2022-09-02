@@ -94,7 +94,7 @@ def qsvm_hyperparameter_training(
         )
         ker_matrix_cv = kernel.evaluate(x_vec=set_train_val)
         grid.fit(ker_matrix_cv, labels_train_val)
-        print(grid.best_params_)
+        logger.info(grid.best_params_)
         quantum_svc = SVC(probability=True, **grid.best_params_)
         ker_matrix_train = ker_matrix_cv[:train_size, :train_size]
         quantum_svc.fit(ker_matrix_train, labels[0])

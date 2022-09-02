@@ -196,7 +196,6 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
         expand_nested=True,
         show_shapes=True,
     )
-    # exit()
     # training
 
     train_network(msetup, train_folder, network, (train_generator, val_generator))

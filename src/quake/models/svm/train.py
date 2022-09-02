@@ -88,7 +88,7 @@ def svm_hyperparameter_training(
             SVC(probability=True), grids[k], refit=True, verbose=0, cv=validation_idx
         )
         grid.fit(set_train_val, labels_train_val)
-        print(grid.best_params_)
+        logger.info(grid.best_params_)
         classical_svc = SVC(probability=True, **grid.best_params_)
         classical_svc.fit(dataset[0], labels[0])
         pickle.dump(

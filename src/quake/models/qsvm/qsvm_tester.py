@@ -1,6 +1,7 @@
 """
     This module implements a class for comparing classical and quantum Support Vector Machines (SVMs) by realizing training runs, returning the classification scores and several visualizations.
 """
+import logging
 from pathlib import Path
 import pickle
 import numpy as np
@@ -31,7 +32,9 @@ from qiskit.utils import QuantumInstance
 from qiskit import Aer
 from qiskit_machine_learning.utils.loss_functions import SVCLoss
 from typing import Tuple
+from quake import PACKAGE
 
+logger = logging.getLogger(PACKAGE + ".qsvm")
 
 class QKTCallback:
     """Callback wrapper class."""
@@ -245,9 +248,9 @@ def align_kernel(
         initial_point=initial_point,
     )
     qka_results = qkt.fit(dataset, labels)
-    print(qka_results)
+    logger.info(qka_results)
     aligned_kernel = qka_results.quantum_kernel
-    print(cb_qkt.get_callback_data()[2])
+    logger.info(cb_qkt.get_callback_data()[2])
     opt_data = [qka_results, cb_qkt]
     return aligned_kernel, opt_data
 
@@ -405,7 +408,7 @@ def save_object(directory: Path, var: dict, name: str, dpi: int = 500):
     elif name.endswith(".png"):
         var.savefig(directory / Path(name), bbox_inches="tight", dpi=dpi)
     else:
-        print(f'{"Could not save "} {name} {", can only save .pkl and .png"}')
+        logger.info(f'{"Could not save "} {name} {", can only save .pkl and .png"}')
 
 
 def plot_data_2d(dataset: list[np.ndarray], labels: list[np.ndarray]) -> plt.figure:
@@ -742,7 +745,7 @@ class SvmsComparison:
         labels: list[np.ndarray]
             The truth labels.
         """
-        print(f"Plotting the dataset")
+        logger.info(f"Plotting the dataset")
         nfeatures = dataset[0].shape[1]
         if nfeatures == 2:
             self.feature_distributions = plot_data_2d(dataset, labels)
@@ -761,7 +764,7 @@ class SvmsComparison:
         labels: list[np.ndarray]
             The truth labels.
         """
-        print(f"Starting the training session")
+        logger.info(f"Starting the training session")
         svms_batch = []  # [trsize, folds, number of kernels]
         train_batch = []  # [trsize, folds, 0]; [trsize, folds, 1]
         validation_batch = []
@@ -784,7 +787,7 @@ class SvmsComparison:
             validation_preds = []
             test_preds = []
             for i in range(0, self.folds):
-                print(f"Training subset {i} with {trs} samples.")
+                logger.info(f"Training subset {i} with {trs} samples.")
                 subset_train_data, subset_train_labels = get_subsample(
                     dataset[0], labels[0], trs, seed[i]
                 )
@@ -865,7 +868,7 @@ class SvmsComparison:
         setting: dict
             Training session specifications.
         """
-        print(f"Saving data in {self.path}")
+        logger.info(f"Saving data in {self.path}")
         self.make_folder()
         save_object(self.path, setting, "setup.pkl")
         if hasattr(self, "svms"):
@@ -942,7 +945,7 @@ class SvmsComparison:
         path: Path
             Output folder name.
         """
-        print(f"Loading data from {self.path}")
+        logger.info(f"Loading data from {self.path}")
         with open(path / Path("SVMS.pkl"), "rb") as f:
             self.svms = pickle.load(f)
         with open(path / Path("TRAIN.pkl"), "rb") as f:
@@ -965,7 +968,7 @@ class SvmsComparison:
 
     def learning_curves(self):
         """Plotting learning curves for the different kernels."""
-        print("Plotting the learning curves")
+        logger.info("Plotting the learning curves")
         fig = plt.figure(figsize=(50, 100))
         fig, axs = plt.subplots(2, 2)
         fig.set_figheight(10)
@@ -1033,7 +1036,7 @@ class SvmsComparison:
         """Plotting the kernel matrices and returning the sum of all the elements as an indicator of data sparsity."""
         if not hasattr(self, "kernels"):
             return
-        print("Plotting kernel matrices")
+        logger.info("Plotting kernel matrices")
         nkernels = len(self.quantum_kernels)
         fig = plt.figure(constrained_layout=True)
         rows = (nkernels - 1) // 2 + 1
@@ -1087,7 +1090,7 @@ class SvmsComparison:
         cheap_version: bool
             If true, creates only the datapoints colored according to the svms predictions.
         """
-        print("Creating decision boundaries")
+        logger.info("Creating decision boundaries")
         self.make_folder()
         subfolder = self.path / Path("Decision Boundaries")
         subfolder.mkdir(exist_ok=True)
@@ -1201,7 +1204,7 @@ class SvmsComparison:
         self.make_folder()
 
         if not hasattr(self, "train"):
-            print("Plotting distributions on Bloch spheres")
+            logger.info("Plotting distributions on Bloch spheres")
             save_path = self.path / Path("Bloch Speres Distributions")
             save_path.mkdir(exist_ok=True)
             train_dataset, color = get_subsample(dataset[0], labels[0], 500, 42)
@@ -1210,7 +1213,7 @@ class SvmsComparison:
                     self.x, qker, train_dataset, color, save_path, self.titles[3 + i]
                 )
         elif with_prediction:
-            print("Plotting predictions on Bloch spheres")
+            logger.info("Plotting predictions on Bloch spheres")
             save_path = self.path / Path("Bloch Speres Predictions")
             save_path.mkdir(exist_ok=True)
             train_dataset = self.train[-1][0][0]
@@ -1224,7 +1227,7 @@ class SvmsComparison:
                     self.x, qker, train_dataset, color, save_path, self.titles[3 + i]
                 )
         else:
-            print("Plotting distributions on Bloch spheres")
+            logger.info("Plotting distributions on Bloch spheres")
             save_path = self.path / Path("Bloch Speres Distributions")
             save_path.mkdir(exist_ok=True)
             train_dataset = self.train[-1][0][0]
@@ -1247,7 +1250,7 @@ class SvmsComparison:
         labels: list[np.ndarray]
             The truth labels.
         """
-        print("Doing cross validated trainings")
+        logger.info("Doing cross validated trainings")
         linear = {"kernel": "linear", "C": 1, "gamma": 10}
         poly = {"kernel": "poly", "C": 0.1, "degree": 3}
         rbf = {"kernel": "rbf", "C": 1, "gamma": 10}
@@ -1292,7 +1295,7 @@ class SvmsComparison:
 
     def plot_featuremaps(self):
         """Plotting the quantum featuremaps in the circuit representation."""
-        print("Drawing the featuremaps")
+        logger.info("Drawing the featuremaps")
         self.featuremaps_plot = []
         large_font = {
             "fontsize": 10,
@@ -1326,7 +1329,7 @@ class SvmsComparison:
             kernels = self.quantum_kernels
             for i, kers in enumerate(kernels):
                 if kers.user_parameters:
-                    print(f"Doing kernel alignment of {self.titles[3+i]}  kernel")
+                    logger.info(f"Doing kernel alignment of {self.titles[3+i]}  kernel")
                     self.quantum_kernels[i], self.opt_data = align_kernel(
                         kers, dataset, labels, self.cs[i]
                     )

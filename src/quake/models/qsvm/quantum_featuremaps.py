@@ -236,8 +236,8 @@ def genetic_featuremap_2(
         genetic_featuremap.rx(theta[1], 1)
     for _ in range(repeats):
         genetic_featuremap.ry(2 * x[0], 0)
-        genetic_featuremap.rx(np.arccos(4 / np.pi / np.pi * x[1] * x[1]), 1)
-        genetic_featuremap.rz(np.arccos(4 / np.pi / np.pi * x[0] * x[0]), 0)
+        genetic_featuremap.rx(np.arccos(0.4  * x[1] * x[1]), 1)
+        genetic_featuremap.rz(np.arccos(0.4  * x[0] * x[0]), 0)
         genetic_featuremap.h(1)
         # genetic_featuremap.h(0)
         genetic_featuremap.rz(2 * x[1], 1)
@@ -272,7 +272,7 @@ def genetic_featuremap_highres(
         genetic_featuremap.rx(theta[0], 0)
         genetic_featuremap.rx(theta[1], 1)
     for _ in range(repeats):
-        genetic_featuremap.rx(4 / np.pi / np.pi * x[1] * x[1], 0)
+        genetic_featuremap.rx(0.4 * x[1] * x[1], 0)
         genetic_featuremap.ry(2 * x[0], 1)
         genetic_featuremap.rz(2 * x[0], 1)
         genetic_featuremap.cx(0, 1)
@@ -311,7 +311,7 @@ def genetic_featuremap_highres_2(
     for _ in range(repeats):
         genetic_featuremap.h(0)
         genetic_featuremap.rx(np.arcsin(2 / np.pi * x[1]), 1)
-        genetic_featuremap.rz(np.arccos(4 / np.pi / np.pi * x[1] * x[1]), 0)
+        genetic_featuremap.rz(np.arccos(0.4* x[1] * x[1]), 0)
         genetic_featuremap.rz(2 * x[0], 1)
         genetic_featuremap.p(np.arcsin(2 / np.pi * x[0]), 0)
     return genetic_featuremap
@@ -345,7 +345,6 @@ def genetic_attention(
         genetic_featuremap.rx(theta[0], 0)
         genetic_featuremap.rx(theta[1], 1)
     for _ in range(repeats):
-        # genetic_featuremap.rx(np.arccos(4 / np.pi / np.pi * x[0] * x[0]), 0)
         genetic_featuremap.rx(np.arccos(0.4 * x[0] * x[0]), 0)
 
         genetic_featuremap.rx(np.arccos(2 / np.pi * x[0]), 1)

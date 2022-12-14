@@ -37,31 +37,41 @@ def histogram_activations_image(y_pred: arrayLike, y_true: arrayLike) -> plt.Fig
     tot = len(y_pred)
     accuracy = (tp + fp) / tot
 
-    bins = np.linspace(0, 1, 101)
+    bins = np.linspace(0, 1, 50)
     h_true, _ = np.histogram(scores_true, bins=bins)
     h_false, _ = np.histogram(scores_false, bins=bins)
-    figure = plt.figure()
+    figure = plt.figure(figsize = (8,4))
     ax = figure.add_subplot()
     ax.title.set_text(f"Network classification. Accuracy: {accuracy*100:.3f}%")
     ax.hist(
         bins[:-1],
         bins,
         weights=h_true,
-        histtype="step",
+        histtype="bar",
+        alpha = 0.6,
         lw=0.5,
-        color="green",
+        color="#ff7f0e",
         label=r"$0\nu\beta\beta$",
-    )
+        density=True, 
+        linewidth=1., 
+        edgecolor='black'
+    ) 
     ax.hist(
         bins[:-1],
         bins,
         weights=h_false,
-        histtype="step",
+        histtype="bar",
+        alpha = 0.6,
         lw=0.5,
-        color="red",
+        color="#1f77b4",
         label=r"$e^-$",
+        density=True, 
+        linewidth=1., 
+        edgecolor='black'
     )
     ax.set_xlabel("Network score")
+    bw = bins[-1] - bins[-2]
+    ax.set_ylabel(f"Event ratio [%] per {bw:.2f} score interval")
     ax.legend()
     return figure
 

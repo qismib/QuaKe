@@ -1,5 +1,5 @@
-""" This module contains the functions for generating a genetic-optimized quantum featuremap. """
-import logging
+""" This module contains the functions for generating a genetic-optimized quantum featuremap. 
+It offers more costumizable options than genetic.py"""
 
 from qiskit.circuit import QuantumCircuit
 import numpy as np
@@ -16,15 +16,12 @@ import pygad
 
 import time
 
-from quake import PACKAGE
-
-logger = logging.getLogger(PACKAGE + ".qsvm")
-
 start = time.time()
-NUM_QUBITS = 2
-MAX_NUM_GATES = 3
-x = ParameterVector("x", 2)
+num_qubits = 6
+max_num_gates = 6
+num_features = 2
 backend = Aer.get_backend("statevector_simulator")
+x = ParameterVector("x", length=num_features)
 
 
 def get_subsample(
@@ -70,19 +67,16 @@ def chunks(bits: np.ndarray) -> list([np.ndarray]):
         Sliced array.
     """
     bits_chunks = []
-    n = 6
+    n = 8
     for i in range(0, len(bits), n):
         bits_chunks.append(bits[i : i + n])
     return bits_chunks
 
 
 def match_gate(
-    fmap: QuantumCircuit, binary_block: np.ndarray, q: int, x: ParameterVector
+    fmap: QuantumCircuit, binary_block: np.ndarray, q: int
 ) -> QuantumCircuit:
     """Appends a new gate to a quantum featuremap by decoding the bitstring.
-    Each circuit gate is defined by 3 bits encoding the gate type and 3 bits encoding
-    the rotation angle. The 6-bit segment position in the bitstring-encoded featuremap
-    determines the order and the qubit line.
 
     Parameters
     ----------
@@ -92,8 +86,6 @@ def match_gate(
         Bitstring containing information on the encoding and the quantum gate.
     q: int
         Quantum registry index (on which qubit-line to append the gate).
-    x: ParameterVector
-        Free parameters of the quantum circuits.
 
     Returns
     -------
@@ -101,34 +93,35 @@ def match_gate(
         Output quantum featuremap.
     """
     binary_gate = binary_block[:3]
-    binary_feature = binary_block[3:]
+    binary_feature = binary_block[3:6]
 
+    param_index = binary_block[6]# + binary_block[7]*2
     if np.array_equal(binary_feature, [0, 0, 0]):
-        func = 2 * x[0]
+        func = 2 * x[param_index]
     if np.array_equal(binary_feature, [0, 0, 1]):
-        func = 2 * x[1]
+        func = 2 * x[param_index]
     if np.array_equal(binary_feature, [0, 1, 0]):
-        func = np.arcsin(2 / np.pi * x[0])
+        func = np.arcsin(2 / np.pi * x[param_index])
     if np.array_equal(binary_feature, [0, 1, 1]):
-        func = np.arccos(4 / np.pi / np.pi * x[0] * x[0])
+        func = np.arccos(4 / np.pi / np.pi * x[param_index] * x[param_index])
     if np.array_equal(binary_feature, [1, 0, 0]):
-        func = (np.pi - 2 * x[0]) * (np.pi - 2 * x[1])
+        func = (np.pi - 2 * x[param_index]) * (np.pi - 2 * x[-param_index])
     if np.array_equal(binary_feature, [1, 0, 1]):
-        func = 4 * x[0] * x[1]
+        func = 4 * x[param_index] * x[-param_index]
     if np.array_equal(binary_feature, [1, 1, 0]):
         func = np.arcsin(2 / np.pi * x[1])
     if np.array_equal(binary_feature, [1, 1, 1]):
-        func = np.arccos(4 / np.pi / np.pi * x[1] * x[1])
+        func = np.arccos(4 / np.pi / np.pi * x[param_index] * x[-param_index])
 
     if np.array_equal(binary_gate, [0, 0, 0]):
         return fmap
     elif np.array_equal(binary_gate, [0, 0, 1]):
         fmap.h(q)
     elif np.array_equal(binary_gate, [0, 1, 0]):
-        if q == NUM_QUBITS - 1:
-            fmap.cx(q, q - 1)
+        if q == num_qubits-1:
+            fmap.cx(q, 0)
         else:
-            fmap.cx(q, q + 1)
+            fmap.cx(q, q+1)
     elif np.array_equal(binary_gate, [0, 1, 1]):
         fmap.rz(func, q)
     elif np.array_equal(binary_gate, [1, 0, 0]):
@@ -139,7 +132,7 @@ def match_gate(
         fmap.p(func, q)
     # elif np.array_equal(binary_gate, [1, 1, 1]):
     #     return fmap
-
+    
     return fmap
 
 
@@ -158,9 +151,7 @@ def initial_population(n_fmap: int) -> list(list([int])):
     """
     initial_pop = []
     for j in range(n_fmap):
-        initial_pop.append(
-            [random.randrange(0, 2) for i in range(6 * MAX_NUM_GATES * NUM_QUBITS)]
-        )
+        initial_pop.append([random.randrange(0, 2) for i in range(8*max_num_gates*num_qubits)])
 
     return initial_pop
 
@@ -171,7 +162,7 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
     Parameters
     ----------
     bitlist: np.ndarray
-        Binary encoded featuremap
+        Binary encoded featuremap.
 
     Returns
     -------
@@ -180,16 +171,14 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
     """
 
     bits = []
-    for i in range(NUM_QUBITS):
-        bits.append(
-            chunks(bitlist[i * 6 * MAX_NUM_GATES : (i + 1) * 6 * MAX_NUM_GATES])
-        )
+    for i in range(num_qubits):
+        bits.append(chunks(bitlist[i*8*max_num_gates:(i+1)*8*max_num_gates]))
 
-    fmap = QuantumCircuit(NUM_QUBITS)
-    for j in range(MAX_NUM_GATES):
+    fmap = QuantumCircuit(num_qubits)
+    for j in range(max_num_gates):
 
-        for i in range(NUM_QUBITS):
-            fmap = match_gate(fmap, bits[i][j], i, x)
+        for i in range(num_qubits):
+            fmap = match_gate(fmap, bits[i][j], i)
     # for q, q_line in enumerate(bits):
     #     for gate in q_line:
     #         fmap = match_gate(fmap, gate, q, x)
@@ -204,9 +193,7 @@ def quick_comparison(
     data_compare: np.ndarray,
     lab_compare: np.ndarray,
 ):
-    """Trains SVM and QSVM with the fittest kernel.
-    
-    Prints the scores of each on a validation dataset.
+    """Trains SVM and QSVM with the fittest kernel, printing the scores of each on a validation dataset.
 
     Parameters
     ----------
@@ -228,12 +215,12 @@ def quick_comparison(
     qker_matrix_compare = qker.evaluate(y_vec=data_train, x_vec=data_compare)
     clf = SVC(kernel="precomputed").fit(qker_matrix_train, lab_train)
     qt_accuracy = clf.score(qker_matrix_compare, lab_compare)
-    logger.info(f"Quantum kernel accuracy is: {qt_accuracy}")
+    print(f"Quantum kernel accuracy is: {qt_accuracy}")
 
     for ker in classic_kernels:
         clf = SVC(kernel=ker).fit(data_train, lab_train)
         accuracy = clf.score(data_compare, lab_compare)
-        logger.info(f"{ker} accuracy is: {accuracy}")
+        print(f"{ker} accuracy is: {accuracy}")
 
 
 def save_results(fittest_fmap: QuantumCircuit, ga_instance: pygad.GA, foldername: Path):
@@ -255,11 +242,11 @@ def save_results(fittest_fmap: QuantumCircuit, ga_instance: pygad.GA, foldername
         ga_instance.fitness_func = None
         pickle.dump(ga_instance, f)
 
-    fitness_plot = ga_instance.plot_fitness()
-    new_solution_plot = ga_instance.plot_new_solution_rate(plot_type="bar")
+    # fitness_plot = ga_instance.plot_fitness()
+    # new_solution_plot = ga_instance.plot_new_solution_rate(plot_type = "bar")
 
-    fitness_plot.savefig(foldername / Path("fitness_plot.png"))
-    new_solution_plot.savefig(foldername / Path("new_solution_plot.png"))
+    # fitness_plot.savefig(foldername / Path("fitness_plot.png"))
+    # new_solution_plot.savefig(foldername / Path("new_solution_plot.png"))
 
 
 def genetic_instance(
@@ -290,6 +277,9 @@ def genetic_instance(
         The genetic instance.
     """
 
+    num_parameters = data_train.shape[1]
+    x = ParameterVector("x", num_parameters)
+
     def fitness_func(solution: np.ndarray, solution_idx: int) -> np.float64:
         """Converts the binary featuremap into a quantum circuit and return its classification score.
 
@@ -306,24 +296,22 @@ def genetic_instance(
             The fitness value, corresponding to the classification score on a validation dataset.
         """
         fmap = to_quantum(solution)
-        logger.info(f"\n{fmap}")
-        if fmap.num_parameters == 2:
-            fmap.assign_parameters({x: [0, 0]})
+        print(fmap)
+        if fmap.num_parameters == num_parameters:
+            # fmap.assign_parameters({x: [0, 0]})
             qker = QuantumKernel(feature_map=fmap, quantum_instance=backend)
             qker_matrix_train = qker.evaluate(x_vec=data_train)
             qker_matrix_val = qker.evaluate(y_vec=data_train, x_vec=data_val)
             clf = SVC(kernel="precomputed", C=100).fit(qker_matrix_train, lab_train)
-            accuracy = clf.score(
-                qker_matrix_val, lab_val
-            )  # (2*clf.score(qker_matrix_val, lab_val) + clf.score(qker_matrix_train, lab_train))/3
+            accuracy = clf.score(qker_matrix_val, lab_val) #(2*clf.score(qker_matrix_val, lab_val) + clf.score(qker_matrix_train, lab_train))/3
             gate_dict = dict(fmap.count_ops())
             num_gates = 0
             for gate in gate_dict:
                 num_gates += gate_dict[gate]
-            fitness_value = accuracy - num_gates * 0.0001
+            fitness_value = accuracy - num_gates*0.0001
         else:
             fitness_value = 0.0
-        logger.info(f"Fitness value: {fitness_value}")
+        print(f"Fitness value: {fitness_value}")
         return fitness_value
 
     ga_instance = pygad.GA(
@@ -333,13 +321,12 @@ def genetic_instance(
         random_mutation_min_val=0,
         random_mutation_max_val=2,
         gene_type=int,
-        on_generation=callback_generation,
-        suppress_warnings=True,
-        save_solutions=True,
+        on_generation = callback_generation,
+        suppress_warnings = True,
+        save_solutions= True,
         **opts,
-    )
+        )
     return ga_instance
-
 
 def callback_generation(ga_instance: pygad.pygad.GA):
     """Callback function that prints the generation number.
@@ -350,9 +337,7 @@ def callback_generation(ga_instance: pygad.pygad.GA):
         Gnetic instance class
     """
     end = time.time()
-    logger.info(
-        f"\n----------------------------------\n"
-        f"Generations completed: {ga_instance.generations_completed}\n"
-        f"Elapsed time: {end - start :.2f} s\n"
-        f"----------------------------------\n"
-        )
+    print(f"----------------------------------")
+    print(f"Generations completed: {ga_instance.generations_completed}")
+    print(f"Elapsed time: {end - start :.2f} s")
+    print(f"----------------------------------")

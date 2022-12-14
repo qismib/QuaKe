@@ -18,6 +18,7 @@ from .cnn_dataloading import read_data, Dataset
 from .cnn_network import CNN_Network
 from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
+from quake.models.attention.train import make_inference_plots
 
 # from quake.utils.callbacks import DebuggingCallback
 
@@ -203,3 +204,4 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
     msetup.update({"ckpt": train_folder.parent / f"cnn/cnn.h5"})
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.evaluate(test_generator)
+    make_inference_plots(train_folder, network, test_generator)

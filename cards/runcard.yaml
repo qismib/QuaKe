@@ -76,4 +76,6 @@ model:
     should_do_scaling: true
     split_ratio: 0.01
     name: QSVM
+  blob:
+    inference_model: svm #neyman_pearson
     

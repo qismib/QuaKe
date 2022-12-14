@@ -6,7 +6,6 @@ from tensorflow.keras.layers import Dense, Flatten, LeakyReLU, Concatenate, Inpu
 from .layers import CBA, CBAD
 from ..AbstractNet import AbstractNet
 
-
 class CNN_Network(AbstractNet):
     """Class defining Convolutional Network.
 
@@ -127,7 +126,9 @@ class CNN_Network(AbstractNet):
         # self.dense_1 = Dense(self.nb_features, name="fc_1")
         # self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="features")
         self.dense_1 = Dense(self.nb_features, name="features")
+        self.cat = Concatenate(axis = -1, name = "cat2")
         self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="lrelu_1")
+
         # self.dense_2 = Dense(2, name = "dense_2") # ultimi cambi: 10, 15, 20, 25...
         # self.lrelu_2 = LeakyReLU(alpha = self.alpha)
         self.final = Dense(1, name="final")
@@ -219,7 +220,7 @@ class CNN_Network(AbstractNet):
     def train_step(self, data: list[tf.Tensor]) -> dict:
         """Overloading of the train_step method, called during model.fit.
 
-        This function is mainly ysed for debugging purposes. Saves the gradients
+        This function is mainly used for debugging purposes. Saves the gradients
         at each step.
 
         Parameters

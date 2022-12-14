@@ -230,7 +230,7 @@ def load_projections_and_labels(
     data_bkg_x, data_bkg_y, data_bkg_z = [], [], []
 
     for file in data_folder.iterdir():
-        logger.info("Loading" + str(file))
+        logger.info(f"Loading {file}")
         is_signal = file.name[0] == "b"
         if file.suffix == ".npz":
             YZ_plane, XZ_plane, XY_plane = get_data(file, geo)

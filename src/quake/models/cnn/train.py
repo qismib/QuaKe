@@ -198,10 +198,15 @@ def cnn_train(data_folder: Path, train_folder: Path, setup: dict):
         show_shapes=True,
     )
     # training
-
     train_network(msetup, train_folder, network, (train_generator, val_generator))
     # inference
     msetup.update({"ckpt": train_folder.parent / f"cnn/cnn.h5"})
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"], geo=geo)
     network.evaluate(test_generator)
     make_inference_plots(train_folder, network, test_generator)
+
+    p = Path("../output_perf_cnn/test") #/accuracy.txt/")
+    p.mkdir(parents=True, exist_ok=True)
+    import numpy as np
+    with open(p / Path("accuracy.txt"), "a+") as f:
+        f.write(str(np.array(network.evaluate(test_generator)))+ "\n")

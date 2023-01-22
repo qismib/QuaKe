@@ -142,8 +142,8 @@ class Dataset(tf.keras.utils.Sequence):
         return extra_features
 
 
-def get_data(file: Path, geo: Geometry) -> np.ndarray:
-    """Returns 3D voxelized histograms.
+def get_data(file: Path, geo: Geometry, dsetup: dict) -> np.ndarray:
+    """Returns 2D projected histograms.
 
     Parameters
     ----------
@@ -151,11 +151,12 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
         Filename containing sparse data in '.npz' format.
     geo: Geometry
         Object describing detector geometry.
-
+    dsetup: dict
+        Detector settings dictionary.
     Returns
     -------
     np.ndarray
-        3D voxelized histogram, of shape=(nb events, nb_xbins, nb_ybins, nb_zbins, 1)
+        2D projections.
     """
     matrix = scipy.sparse.load_npz(file)
     # shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins, 1)
@@ -167,9 +168,26 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     YZ_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=1), 3)
     XZ_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=2), 3)
     XY_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=3), 3)
+
+    if dsetup["should_crop_planes"]:
+        YZ_plane = roll_crop(np.copy(YZ_plane), geo.nb_ybins_reduced, geo.nb_zbins_reduced)
+        XZ_plane = roll_crop(np.copy(XZ_plane), geo.nb_xbins_reduced, geo.nb_zbins_reduced)
+        XY_plane = roll_crop(np.copy(XY_plane), geo.nb_xbins_reduced, geo.nb_ybins_reduced)
     # hist3d = matrix.toarray().reshape(shape)
     return [YZ_plane, XZ_plane, XY_plane]
 
+def get_n_evts(data_folder: Path, geo: Geometry) -> int:
+    n_evts_sig = 0
+    n_evts_bkg = 0
+    for file in data_folder.iterdir():
+        n_evts_file = scipy.sparse.load_npz(file).shape[0]
+        is_signal = file.name[0] == "b"
+        if file.suffix == ".npz":
+            if is_signal:
+                n_evts_sig = n_evts_sig + n_evts_file
+            else:
+                n_evts_bkg = n_evts_bkg + n_evts_file
+    return n_evts_sig, n_evts_bkg
 
 def roll_crop(
     plane: np.ndarray, first_crop_edge: int, second_crop_edge: int
@@ -179,7 +197,7 @@ def roll_crop(
     Parameters
     ----------
     plane: nb.ndarray
-        2D projection plane, of shape().
+        2D projection plane.
     first_crop_edge: int
         Numbers of bins to keep on the first axis.
     second_crop_edge: int
@@ -226,30 +244,27 @@ def load_projections_and_labels(
     logger.debug("Loading data ...")
     geo = Geometry(dsetup)
 
-    data_sig_x, data_sig_y, data_sig_z = [], [], []
-    data_bkg_x, data_bkg_y, data_bkg_z = [], [], []
+    n_evts_sig, n_evts_bkg = get_n_evts(data_folder, geo)
+    data_sig_x, data_sig_y, data_sig_z = np.zeros((n_evts_sig, geo.nb_ybins_reduced, geo.nb_zbins_reduced, 1)), np.zeros((n_evts_sig, geo.nb_xbins_reduced, geo.nb_zbins_reduced, 1)), np.zeros((n_evts_sig, geo.nb_xbins_reduced, geo.nb_ybins_reduced, 1))
+    data_bkg_x, data_bkg_y, data_bkg_z = np.zeros((n_evts_bkg, geo.nb_ybins_reduced, geo.nb_zbins_reduced, 1)), np.zeros((n_evts_bkg, geo.nb_xbins_reduced, geo.nb_zbins_reduced, 1)), np.zeros((n_evts_bkg, geo.nb_xbins_reduced, geo.nb_ybins_reduced, 1))
 
+    counter_sig = 0
+    counter_bkg = 0
     for file in data_folder.iterdir():
         logger.info(f"Loading {file}")
         is_signal = file.name[0] == "b"
         if file.suffix == ".npz":
-            YZ_plane, XZ_plane, XY_plane = get_data(file, geo)
+            YZ_plane, XZ_plane, XY_plane = get_data(file, geo, dsetup)
             if is_signal:
-                data_sig_x.append(YZ_plane)
-                data_sig_y.append(XZ_plane)
-                data_sig_z.append(XY_plane)
+                data_sig_x[counter_sig:counter_sig+YZ_plane.shape[0]] = YZ_plane
+                data_sig_y[counter_sig:counter_sig+XZ_plane.shape[0]] = XZ_plane
+                data_sig_z[counter_sig:counter_sig+XY_plane.shape[0]] = XY_plane
+                counter_sig = counter_sig + YZ_plane.shape[0]
             else:
-                data_bkg_x.append(YZ_plane)
-                data_bkg_y.append(XZ_plane)
-                data_bkg_z.append(XY_plane)
-
-    data_sig_x = np.concatenate(data_sig_x, axis=0)
-    data_sig_y = np.concatenate(data_sig_y, axis=0)
-    data_sig_z = np.concatenate(data_sig_z, axis=0)
-
-    data_bkg_x = np.concatenate(data_bkg_x, axis=0)
-    data_bkg_y = np.concatenate(data_bkg_y, axis=0)
-    data_bkg_z = np.concatenate(data_bkg_z, axis=0)
+                data_bkg_x[counter_bkg:counter_bkg+YZ_plane.shape[0]] = YZ_plane
+                data_bkg_y[counter_bkg:counter_bkg+XZ_plane.shape[0]] = XZ_plane
+                data_bkg_z[counter_bkg:counter_bkg+XY_plane.shape[0]] = XY_plane
+                counter_bkg = counter_bkg + YZ_plane.shape[0]
 
     projections = [
         np.concatenate([data_sig_x, data_bkg_x]),
@@ -259,25 +274,6 @@ def load_projections_and_labels(
     labels = np.concatenate(
         [np.ones(data_sig_x.shape[0]), np.zeros(data_bkg_x.shape[0])]
     )
-
-    if dsetup["should_crop_planes"]:
-        # returning the projections cropped around the centre
-        # lim_x = (geo.nb_xbins - geo.nb_xbins_reduced)//2
-        # lim_y = (geo.nb_ybins - geo.nb_ybins_reduced)//2
-        # lim_z = (geo.nb_zbins - geo.nb_zbins_reduced)//2
-        # projections[0] = projections[0][:, lim_y:-lim_y, lim_z:-lim_z, :]
-        # projections[1] = projections[1][:, lim_x:-lim_x, lim_z:-lim_z, :]
-        # projections[2] = projections[2][:, lim_x:-lim_x, lim_y:-lim_y, :]
-
-        projections[0] = roll_crop(
-            projections[0], geo.nb_ybins_reduced, geo.nb_zbins_reduced
-        )
-        projections[1] = roll_crop(
-            projections[1], geo.nb_xbins_reduced, geo.nb_zbins_reduced
-        )
-        projections[2] = roll_crop(
-            projections[2], geo.nb_xbins_reduced, geo.nb_ybins_reduced
-        )
 
     return projections, labels
 

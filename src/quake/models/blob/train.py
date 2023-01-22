@@ -58,13 +58,17 @@ def blob_train(data_folder: Path, train_folder: Path, setup: dict):
 
     inference_model = setup["model"]["blob"]["inference_model"]
 
-    model = train_blobs(train_features, train_labels, inference_model)
 
+    model = train_blobs(train_features, train_labels, inference_model)
     logger.info(f"Accuracy on trainig set is: {model.score(train_features, train_labels)}")
     logger.info(f"Accuracy on validation set is: {model.score(val_features, val_labels)}")
     logger.info(f"Accuracy on test set is: {model.score(test_features, test_labels)}")
 
     # make_inference_plots(train_folder, test_features, test_labels)
-    with open("../output_perf_blob/test/accuracy.txt", "a+") as f:
+
+    p = Path("../output_perf_blob/test") #/accuracy.txt/")
+    p.mkdir(parents=True, exist_ok=True)
+    with open(p / Path("accuracy.txt"), "a+") as f:
         f.write(str(model.score(test_features, test_labels))+ "\n")
+    
 

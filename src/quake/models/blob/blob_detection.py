@@ -115,12 +115,14 @@ class NPModel:
         labels: np.ndarray
             Truth values.
         """
-        self.bins = (70, 70)
+        self.bins = (75, 75)
         self.range = [[0, 2.5],[0, 2.5]]
         hist1 = np.histogram2d(features[labels == 0, 0], features[labels == 0, 1], bins = self.bins, range = self.range)
         hist2 = np.histogram2d(features[labels == 1, 0], features[labels == 1, 1], bins = self.bins, range = self.range)
         self.pdf1 = hist1[0]/hist1[0].sum() + 1e-13
         self.pdf2 = hist2[0]/hist2[0].sum() + 1e-13
+        # np.save("features.npy", features)
+        # np.save("labels.npy", labels)
 
     def q_evaluate(self, features: np.ndarray) -> np.ndarray:
         """Assigning bins to input features and returning a normalized q-distribution.

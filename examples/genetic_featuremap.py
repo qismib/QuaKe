@@ -30,7 +30,7 @@ options = {
     "mutation_type": "adaptive",
     "mutation_probability": [0.4, 0.15],
     "crossover_probability": 0.2,
-    "crossover_type": "two_points"
+    "crossover_type": "two_points",
 }
 
 # Running the instance and retrieving data

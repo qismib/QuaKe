@@ -36,6 +36,7 @@ from quake import PACKAGE
 
 logger = logging.getLogger(PACKAGE + ".qsvm")
 
+
 class QKTCallback:
     """Callback wrapper class."""
 
@@ -212,7 +213,7 @@ def get_subsample(
 
 def align_kernel(
     kernel: QuantumKernel, dataset: np.ndarray, labels: np.ndarray, c: float
-)->Tuple[QuantumKernel, list[QuantumKernelTrainer]]:
+) -> Tuple[QuantumKernel, list[QuantumKernelTrainer]]:
     """Performing kernel alignment with Statevector backend. It maximizes the accuracy on a validation set.
 
     Parameters
@@ -488,7 +489,7 @@ def plot_data_2d(dataset: list[np.ndarray], labels: list[np.ndarray]) -> plt.fig
             bbox=props,
         )
 
-        axs[1, i].legend(["Single beta", "Double beta"], markerscale = 4)
+        axs[1, i].legend(["Single beta", "Double beta"], markerscale=4)
 
     return fig
 
@@ -651,11 +652,13 @@ def train_quantum(
     pred_val = []
     pred_test = []
     for q, encoding in enumerate(quantum_kernels):
-        data = np.concatenate([training_dataset, training_labels.reshape([-1,1])], axis = 1)
+        data = np.concatenate(
+            [training_dataset, training_labels.reshape([-1, 1])], axis=1
+        )
         data_sort = data[np.argsort(data[:, -1])]
         # import pdb; pdb.set_trace()
-        training_dataset = data_sort[:,:-1]
-        training_labels = data_sort[:,-1]
+        training_dataset = data_sort[:, :-1]
+        training_labels = data_sort[:, -1]
         ker_matrix_train = encoding.evaluate(x_vec=training_dataset)
         ker_matrix_val = encoding.evaluate(x_vec=val_dataset, y_vec=training_dataset)
         ker_matrix_test = encoding.evaluate(x_vec=test_dataset, y_vec=training_dataset)
@@ -1052,7 +1055,6 @@ class SvmsComparison:
 
         if nkernels != 1:
             for j in range(nkernels):
-
                 try:
                     ker = self.kernels[-1][0][j]
                 except:

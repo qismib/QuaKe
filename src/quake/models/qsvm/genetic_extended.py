@@ -95,7 +95,7 @@ def match_gate(
     binary_gate = binary_block[:3]
     binary_feature = binary_block[3:6]
 
-    param_index = binary_block[6]# + binary_block[7]*2
+    param_index = binary_block[6]  # + binary_block[7]*2
     if np.array_equal(binary_feature, [0, 0, 0]):
         func = 2 * x[param_index]
     if np.array_equal(binary_feature, [0, 0, 1]):
@@ -118,10 +118,10 @@ def match_gate(
     elif np.array_equal(binary_gate, [0, 0, 1]):
         fmap.h(q)
     elif np.array_equal(binary_gate, [0, 1, 0]):
-        if q == num_qubits-1:
+        if q == num_qubits - 1:
             fmap.cx(q, 0)
         else:
-            fmap.cx(q, q+1)
+            fmap.cx(q, q + 1)
     elif np.array_equal(binary_gate, [0, 1, 1]):
         fmap.rz(func, q)
     elif np.array_equal(binary_gate, [1, 0, 0]):
@@ -132,7 +132,7 @@ def match_gate(
         fmap.p(func, q)
     # elif np.array_equal(binary_gate, [1, 1, 1]):
     #     return fmap
-    
+
     return fmap
 
 
@@ -151,7 +151,9 @@ def initial_population(n_fmap: int) -> list(list([int])):
     """
     initial_pop = []
     for j in range(n_fmap):
-        initial_pop.append([random.randrange(0, 2) for i in range(8*max_num_gates*num_qubits)])
+        initial_pop.append(
+            [random.randrange(0, 2) for i in range(8 * max_num_gates * num_qubits)]
+        )
 
     return initial_pop
 
@@ -172,11 +174,12 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
 
     bits = []
     for i in range(num_qubits):
-        bits.append(chunks(bitlist[i*8*max_num_gates:(i+1)*8*max_num_gates]))
+        bits.append(
+            chunks(bitlist[i * 8 * max_num_gates : (i + 1) * 8 * max_num_gates])
+        )
 
     fmap = QuantumCircuit(num_qubits)
     for j in range(max_num_gates):
-
         for i in range(num_qubits):
             fmap = match_gate(fmap, bits[i][j], i)
     # for q, q_line in enumerate(bits):
@@ -303,12 +306,14 @@ def genetic_instance(
             qker_matrix_train = qker.evaluate(x_vec=data_train)
             qker_matrix_val = qker.evaluate(y_vec=data_train, x_vec=data_val)
             clf = SVC(kernel="precomputed", C=100).fit(qker_matrix_train, lab_train)
-            accuracy = clf.score(qker_matrix_val, lab_val) #(2*clf.score(qker_matrix_val, lab_val) + clf.score(qker_matrix_train, lab_train))/3
+            accuracy = clf.score(
+                qker_matrix_val, lab_val
+            )  # (2*clf.score(qker_matrix_val, lab_val) + clf.score(qker_matrix_train, lab_train))/3
             gate_dict = dict(fmap.count_ops())
             num_gates = 0
             for gate in gate_dict:
                 num_gates += gate_dict[gate]
-            fitness_value = accuracy - num_gates*0.0001
+            fitness_value = accuracy - num_gates * 0.0001
         else:
             fitness_value = 0.0
         print(f"Fitness value: {fitness_value}")
@@ -321,12 +326,13 @@ def genetic_instance(
         random_mutation_min_val=0,
         random_mutation_max_val=2,
         gene_type=int,
-        on_generation = callback_generation,
-        suppress_warnings = True,
-        save_solutions= True,
+        on_generation=callback_generation,
+        suppress_warnings=True,
+        save_solutions=True,
         **opts,
-        )
+    )
     return ga_instance
+
 
 def callback_generation(ga_instance: pygad.pygad.GA):
     """Callback function that prints the generation number.

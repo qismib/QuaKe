@@ -60,9 +60,7 @@ def qsvm_hyperparameter_training(
     logger.info("Training, validating, testing QSVMs ...")
     feature_size = dataset[0].shape[1]
     if should_add_extra_feats:
-        logger.info(
-            f"Using {feature_size} features, including Nhits and total energy."
-        )
+        logger.info(f"Using {feature_size} features, including Nhits and total energy.")
     else:
         logger.info(f"Using {feature_size} features")
 

@@ -187,7 +187,6 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
 
     fmap = QuantumCircuit(NUM_QUBITS)
     for j in range(MAX_NUM_GATES):
-
         for i in range(NUM_QUBITS):
             fmap = match_gate(fmap, bits[i][j], i, x)
     # for q, q_line in enumerate(bits):
@@ -205,7 +204,7 @@ def quick_comparison(
     lab_compare: np.ndarray,
 ):
     """Trains SVM and QSVM with the fittest kernel.
-    
+
     Prints the scores of each on a validation dataset.
 
     Parameters
@@ -355,4 +354,4 @@ def callback_generation(ga_instance: pygad.pygad.GA):
         f"Generations completed: {ga_instance.generations_completed}\n"
         f"Elapsed time: {end - start :.2f} s\n"
         f"----------------------------------\n"
-        )
+    )

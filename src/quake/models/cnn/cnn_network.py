@@ -6,6 +6,7 @@ from tensorflow.keras.layers import Dense, Flatten, LeakyReLU, Concatenate, Inpu
 from .layers import CBA, CBAD
 from ..AbstractNet import AbstractNet
 
+
 class CNN_Network(AbstractNet):
     """Class defining Convolutional Network.
 
@@ -126,7 +127,7 @@ class CNN_Network(AbstractNet):
         # self.dense_1 = Dense(self.nb_features, name="fc_1")
         # self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="features")
         self.dense_1 = Dense(self.nb_features, name="features")
-        self.cat = Concatenate(axis = -1, name = "cat2")
+        self.cat = Concatenate(axis=-1, name="cat2")
         self.lrelu_1 = LeakyReLU(alpha=self.alpha, name="lrelu_1")
 
         # self.dense_2 = Dense(2, name = "dense_2") # ultimi cambi: 10, 15, 20, 25...

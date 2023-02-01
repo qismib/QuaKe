@@ -49,7 +49,7 @@ genatt = quantum_featuremaps.genetic_attention(x, 1, align=False)
 
 # Creating the kernel list
 quantum_kernels = make_kernels([zf, zzf, c1, c2], backend)
- 
+
 # Defining hyperparameters for classical SVMs
 linear = {"kernel": "linear", "C": 100, "gamma": 0.01}
 poly = {"kernel": "poly", "C": 10, "degree": 2}
@@ -89,4 +89,3 @@ comparer.save(settings)
 # copy_comparer = SvmsComparison(**settings)
 # copy_comparer.load_files(comparer.path)
 # copy_comparer.save(settings)
-

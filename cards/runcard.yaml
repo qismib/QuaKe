@@ -55,10 +55,10 @@ model:
       hidden_units: 25
       kernel_size: [3,3]
       strides: [1,1]
-      batch_size: 1200
+      batch_size: 320 #1200
       activation: relu
       alpha: 0.05
-      dropout_rate: 0.25
+      dropout_rate: 0.15 #25
       use_bias: true
       name: CNN
 

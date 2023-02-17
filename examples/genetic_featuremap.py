@@ -4,7 +4,7 @@ from pathlib import Path
 
 from quake.utils.utils import load_runcard
 from quake.models.qsvm.qsvm_tester import get_features
-from quake.models.qsvm import genetic
+from quake.models.qsvm import genetic_extended as genetic
 
 input_folder = Path("../../output/tmp/")
 input_folder = Path("../../output/")
@@ -13,8 +13,8 @@ output_folder = Path("../../genetic_featuremap")
 dataset, labels = get_features(input_folder, "cnn", setup)
 
 
-data_train, lab_train = genetic.get_subsample(dataset[0], labels[0], 500)
-data_val, lab_val = genetic.get_subsample(dataset[1], labels[1], 1000)
+data_train, lab_train = genetic.get_subsample(dataset[0], labels[0], 700)
+data_val, lab_val = genetic.get_subsample(dataset[1], labels[1], 700)
 
 # Initializing a random generation 0
 function_inputs = genetic.initial_population(10)
@@ -22,14 +22,15 @@ function_inputs = genetic.initial_population(10)
 # Defining inputs for the genetic instance
 options = {
     "num_generations": 500,
-    "num_parents_mating": 2,
+    "num_parents_mating": 5,
     "initial_population": function_inputs,
     "parent_selection_type": "rank",
     "mutation_by_replacement": True,
     "stop_criteria": "saturate_50",
     "mutation_type": "adaptive",
-    "mutation_probability": [0.5, 0.15],
+    "mutation_probability": [0.4, 0.15],
     "crossover_probability": 0.2,
+    "crossover_type": "two_points",
 }
 
 # Running the instance and retrieving data

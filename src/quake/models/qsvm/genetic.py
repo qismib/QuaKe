@@ -187,7 +187,6 @@ def to_quantum(bitlist: np.ndarray) -> QuantumCircuit:
 
     fmap = QuantumCircuit(NUM_QUBITS)
     for j in range(MAX_NUM_GATES):
-
         for i in range(NUM_QUBITS):
             fmap = match_gate(fmap, bits[i][j], i, x)
     # for q, q_line in enumerate(bits):
@@ -205,7 +204,7 @@ def quick_comparison(
     lab_compare: np.ndarray,
 ):
     """Trains SVM and QSVM with the fittest kernel.
-    
+
     Prints the scores of each on a validation dataset.
 
     Parameters
@@ -306,7 +305,7 @@ def genetic_instance(
             The fitness value, corresponding to the classification score on a validation dataset.
         """
         fmap = to_quantum(solution)
-        logger.info(fmap)
+        logger.info(f"\n{fmap}")
         if fmap.num_parameters == 2:
             fmap.assign_parameters({x: [0, 0]})
             qker = QuantumKernel(feature_map=fmap, quantum_instance=backend)
@@ -335,6 +334,7 @@ def genetic_instance(
         gene_type=int,
         on_generation=callback_generation,
         suppress_warnings=True,
+        save_solutions=True,
         **opts,
     )
     return ga_instance
@@ -354,4 +354,4 @@ def callback_generation(ga_instance: pygad.pygad.GA):
         f"Generations completed: {ga_instance.generations_completed}\n"
         f"Elapsed time: {end - start :.2f} s\n"
         f"----------------------------------\n"
-        )
+    )

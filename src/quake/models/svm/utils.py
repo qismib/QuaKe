@@ -119,9 +119,9 @@ def rearrange_scale(
         # quantile_transformer = preprocessing.QuantileTransformer(random_state=0)
         # quantile_transformer = preprocessing.PowerTransformer(standardize = True)
         # scaler = quantile_transformer.fit(np.concatenate(full_dataset))
-        scaler = preprocessing.MinMaxScaler(feature_range=(-np.pi / 2+1e-5, np.pi / 2 - 1e-5)).fit(
-            np.concatenate(full_dataset)
-        )
+        scaler = preprocessing.MinMaxScaler(
+            feature_range=(-np.pi / 2 + 1e-5, np.pi / 2 - 1e-5)
+        ).fit(np.concatenate(full_dataset))
         for i in range(3):
             full_dataset[i] = scaler.transform(full_dataset[i])
     return full_dataset

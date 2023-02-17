@@ -60,18 +60,15 @@ def qsvm_hyperparameter_training(
     logger.info("Training, validating, testing QSVMs ...")
     feature_size = dataset[0].shape[1]
     if should_add_extra_feats:
-        logger.info(
-            f"Using {feature_size} features extracted from CNN "
-            "+ Total event energy + Nhits"
-        )
+        logger.info(f"Using {feature_size} features, including Nhits and total energy.")
     else:
-        logger.info(f"Using {feature_size} features extracted from CNN")
+        logger.info(f"Using {feature_size} features")
 
     quantum_grid = {"C": [0.01, 0.1, 1, 10, 100, 1000, 10000]}
 
     train_size = labels[0].shape[0]
     # val_size = labels[1].shape[0]
-    val_size = 100  # for saving computing time
+    val_size = 300  # for saving computing time
     partitions = np.append(
         -np.ones(train_size, dtype=int),
         np.zeros(val_size, dtype=int),

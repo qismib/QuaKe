@@ -175,10 +175,10 @@ def make_inference_plots(
         y_pred, features = fr.predict(test_generator, verbose=1)
     y_true = test_generator.targets
 
-    fname = train_folder / "histogram_scores.png"
+    fname = train_folder / "scatterplot_features.svg"
     save_scatterplot_features_image(fname, features, y_true)
 
-    fname = train_folder / "scatterplot_features.png"
+    fname = train_folder / "histogram_scores.svg"
     save_histogram_activations_image(fname, y_pred, y_true)
 
 
@@ -220,4 +220,4 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
     network.evaluate(test_generator)
 
-    # make_inference_plots(train_folder, network, test_generator)
+    make_inference_plots(train_folder, network, test_generator)

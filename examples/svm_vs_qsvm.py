@@ -13,7 +13,8 @@ from qiskit import IBMQ
 # Loading the dataset
 input_folder = Path("../../output")
 setup = load_runcard("../../output/cards/runcard.yaml")
-output_folder = Path("CNN_results/Statevector_1rep_Bal_ds_10feats")
+output_folder = Path("Output_QSVM")
+
 dataset, labels = get_features(input_folder, "cnn", setup)
 
 # Defining the quantum circuits
@@ -45,6 +46,7 @@ c2 = quantum_featuremaps.custom2_featuremap(x, qubits, 1, align=False)
 gen1 = quantum_featuremaps.genetic_featuremap(x, 1, align=False)
 gen2 = quantum_featuremaps.genetic_featuremap_2(x, 1, align=False)
 genatt = quantum_featuremaps.genetic_attention(x, 1, align=False)
+
 # Creating the kernel list
 quantum_kernels = make_kernels([zf, zzf, c1, c2], backend)
 
@@ -59,7 +61,7 @@ settings = {
     "x": x,
     "quantum_featuremaps": [zf, zzf, c1, c2],
     "quantum_kernels": quantum_kernels,
-    "kernel_names": ["Z", "ZZ", "c1", "c2"],
+    "kernel_names": ["Z", "ZZ", "Custom1", "Custom2"],
     "cs": [100, 100, 100, 100],
     "training_size": [10, 20, 50, 100, 200, 500, 1000, 2000],
     "val_size": 300,
@@ -83,6 +85,7 @@ comparer.plot_kernels()
 comparer.plot_featuremaps()
 comparer.save(settings)
 
-# Loading data from previously trained sessions
+# # # Loading data from previously trained sessions
 # copy_comparer = SvmsComparison(**settings)
 # copy_comparer.load_files(comparer.path)
+# copy_comparer.save(settings)

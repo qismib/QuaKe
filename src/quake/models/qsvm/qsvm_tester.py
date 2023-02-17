@@ -36,6 +36,7 @@ from quake import PACKAGE
 
 logger = logging.getLogger(PACKAGE + ".qsvm")
 
+
 class QKTCallback:
     """Callback wrapper class."""
 
@@ -212,7 +213,7 @@ def get_subsample(
 
 def align_kernel(
     kernel: QuantumKernel, dataset: np.ndarray, labels: np.ndarray, c: float
-):
+) -> Tuple[QuantumKernel, list[QuantumKernelTrainer]]:
     """Performing kernel alignment with Statevector backend. It maximizes the accuracy on a validation set.
 
     Parameters
@@ -230,6 +231,8 @@ def align_kernel(
     -------
     aligned_kernel: QuantumKernel
         The aligned parametric circuit for encoding
+    opt_data: QuantumKernelTrainer
+        Results of the SPSA optimization
     """
 
     if labels.shape[0] > 500:
@@ -405,7 +408,7 @@ def save_object(directory: Path, var: dict, name: str, dpi: int = 500):
     if name.endswith(".pkl"):
         with open(directory / Path(name), "wb") as f:
             pickle.dump(var, f)
-    elif name.endswith(".png"):
+    elif name.endswith(".png") or name.endswith(".svg"):
         var.savefig(directory / Path(name), bbox_inches="tight", dpi=dpi)
     else:
         logger.info(f'{"Could not save "} {name} {", can only save .pkl and .png"}')
@@ -429,8 +432,8 @@ def plot_data_2d(dataset: list[np.ndarray], labels: list[np.ndarray]) -> plt.fig
 
     fig = plt.figure(figsize=(50, 100))
     fig, axs = plt.subplots(2, 2)
-    fig.set_figheight(10)
-    fig.set_figwidth(15)
+    fig.set_figheight(6)
+    fig.set_figwidth(9)
     props = dict(boxstyle="round", facecolor="wheat", alpha=0.5)
     x1_min, x1_max = np.min(dataset[0][:, 0]), np.max(dataset[0][:, 0])
     x2_min, x2_max = np.min(dataset[0][:, 1]), np.max(dataset[0][:, 1])
@@ -450,14 +453,14 @@ def plot_data_2d(dataset: list[np.ndarray], labels: list[np.ndarray]) -> plt.fig
         axs[1, i].scatter(
             dataset[i][labels[i] == 0, 0],
             dataset[i][labels[i] == 0, 1],
-            s=1,
-            alpha=0.3,
+            s=0.4,
+            alpha=0.4,
         )
         axs[1, i].scatter(
             dataset[i][labels[i] == 1, 0],
             dataset[i][labels[i] == 1, 1],
-            s=1,
-            alpha=0.3,
+            s=0.4,
+            alpha=0.4,
         )
         axs[1, i].set_xlim([x1_min, x1_max])
         axs[1, i].set_ylim([x2_min, x2_max])
@@ -480,13 +483,13 @@ def plot_data_2d(dataset: list[np.ndarray], labels: list[np.ndarray]) -> plt.fig
         # )
 
         axs[1, i].text(
-            (x1_max - x1_min) * 0.7 + x1_min,
-            (x2_max - x2_min) * 0.75 + x2_min,
+            (x1_max - x1_min) * 0.5 + x1_min,
+            (x2_max - x2_min) * 0.07 + x2_min,
             f"L. correlation = {correlation_coefficients[i]:.2}",
             bbox=props,
         )
 
-        axs[1, i].legend(["Single beta", "Double beta"])
+        axs[1, i].legend(["Single beta", "Double beta"], markerscale=4)
 
     return fig
 
@@ -518,8 +521,8 @@ def plot_data_nd(
     else:
         cols = 2
     fig, axs = plt.subplots(rows, cols)
-    fig.set_figheight(5 * rows)
-    fig.set_figwidth(5 * cols)
+    fig.set_figheight(4 * rows)
+    fig.set_figwidth(4 * cols)
 
     for i in range(nfeatures):
         x_min, x_max = np.min(dataset[0][:, i]), np.max(dataset[0][:, i])
@@ -649,11 +652,18 @@ def train_quantum(
     pred_val = []
     pred_test = []
     for q, encoding in enumerate(quantum_kernels):
+        data = np.concatenate(
+            [training_dataset, training_labels.reshape([-1, 1])], axis=1
+        )
+        data_sort = data[np.argsort(data[:, -1])]
+        # import pdb; pdb.set_trace()
+        training_dataset = data_sort[:, :-1]
+        training_labels = data_sort[:, -1]
         ker_matrix_train = encoding.evaluate(x_vec=training_dataset)
         ker_matrix_val = encoding.evaluate(x_vec=val_dataset, y_vec=training_dataset)
         ker_matrix_test = encoding.evaluate(x_vec=test_dataset, y_vec=training_dataset)
         if training_labels.shape[0] < 201:
-            kers.append(np.real(ker_matrix_train))
+            kers.append(np.real(ker_matrix_val))
         clf = SVC(kernel="precomputed", C=cs[q]).fit(ker_matrix_train, training_labels)
         svcs.append(clf)
         pred_train.append(clf.predict(ker_matrix_train))
@@ -894,7 +904,7 @@ class SvmsComparison:
         if hasattr(self, "correlation_matrix"):
             save_object(self.path, self.correlation_matrix, "correlation_matrix.png")
         if hasattr(self, "learning_curve"):
-            save_object(self.path, self.learning_curve, "learning_curve.png")
+            save_object(self.path, self.learning_curve, "learning_curve.svg")
         if hasattr(self, "learning_curve_cv"):
             save_object(self.path, self.learning_curve_cv, "learning_curve_cv.png")
         if hasattr(self, "kernel_plot"):
@@ -964,7 +974,7 @@ class SvmsComparison:
             self.test_preds = pickle.load(f)
         if (path / Path("Alignment_data.pkl")).is_file():
             with open(path / Path("Alignment_data.pkl"), "rb") as f:
-                self.test_preds = pickle.load(f)
+                self.opt_data = pickle.load(f)
 
     def learning_curves(self):
         """Plotting learning curves for the different kernels."""
@@ -988,6 +998,8 @@ class SvmsComparison:
                 for k, (tr_pred3, val_pred3, te_pred3) in enumerate(
                     zip(tr_pred2, val_pred2, te_pred2)
                 ):
+                    # if i == 7:
+                    #     import pdb; pdb.set_trace()
                     acc_train[k, i, j] = accuracy(
                         np.array(self.train[i][j][1]), tr_pred3
                     )
@@ -1007,7 +1019,7 @@ class SvmsComparison:
             np.std(acc_test, axis=2) / n,
         ]
 
-        ylims = [[0, 1], [0, 1], [0, 1]]
+        ylims = [[0.55, 1], [0.5, 0.85], [0.5, 0.85]]
         subtitle = [
             "Accuracy on training set",
             "Accuracy on validation set",
@@ -1043,7 +1055,6 @@ class SvmsComparison:
 
         if nkernels != 1:
             for j in range(nkernels):
-
                 try:
                     ker = self.kernels[-1][0][j]
                 except:
@@ -1082,14 +1093,19 @@ class SvmsComparison:
 
         self.kernel_plot = fig
 
-    def plot_decision_boundaries(self, cheap_version: bool = True):
+    def plot_decision_boundaries(self, dataset, labels, cheap_version: bool = True):
         """Plotting and saving several decision boundaries for different training size and subsamples.
 
         Parameters
         ----------
         cheap_version: bool
             If true, creates only the datapoints colored according to the svms predictions.
+        dataset: list[np.ndarray]
+            The dataset containing feature distribution to encode.
+        labels: list[np.ndarray]
+            The truth labels.
         """
+        self.do_kernel_alignment(dataset[1], labels[1])
         logger.info("Creating decision boundaries")
         self.make_folder()
         subfolder = self.path / Path("Decision Boundaries")
@@ -1100,9 +1116,16 @@ class SvmsComparison:
         y_min, y_max = np.min(self.train[-1][0][0][:, 1]), np.max(
             self.train[-1][0][0][:, 1]
         )
+        h = 0.02
+        # x_min = -np.pi/2
+        # x_max = np.pi/2
+        # y_min = -np.pi/2
+        # y_max = np.pi/2
         ndims = self.train[0][0][0].shape[1]
 
         for i, trs in enumerate(self.training_size):
+            if trs != 500:
+                continue
             for k, kern_titles in enumerate(self.titles):
                 contour = plt.figure(constrained_layout=True)
                 contour.set_figheight(8)
@@ -1120,14 +1143,15 @@ class SvmsComparison:
                     contour.set_figwidth(12)
                     titlesize = 30
                 if k < 3:
-                    h = 0.05
+                    h = 0.02
                 else:
-                    h = 0.05
+                    h = 0.02
                 xx, yy = np.meshgrid(
                     np.arange(x_min, x_max, h), np.arange(y_min, y_max, h)
                 )
 
-                for fld in range(np.min([self.folds, 6])):
+                # for fld in range(np.min([self.folds, 6])):
+                for fld in range(1):
                     print(i, fld, k)
                     ax = contour.add_subplot(rows, cols, fld + 1)
                     clf = self.svms[i][fld][k]

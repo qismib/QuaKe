@@ -189,7 +189,6 @@ class AttentionNetwork(AbstractNet):
         for mha, enc in zip(self.mhas, self.encoding):
             x = mha(x)
             x = enc(x)
-
         # max pooling results in a function symmetric wrt its inputs
         # the bottleneck is the width of the last encoding layer
         x = tf.reduce_max(x, axis=1)
@@ -201,8 +200,8 @@ class AttentionNetwork(AbstractNet):
             #     head.activation = None
             results.append(head(x))
         output = tf.stack(results, axis=-1)
-        output = tf.reduce_mean(output, axis=-1)
 
+        output = tf.reduce_mean(output, axis=-1)
         return output
 
     def train_step(self, data: list[tf.Tensor]) -> dict:

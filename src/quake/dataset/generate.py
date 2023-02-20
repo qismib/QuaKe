@@ -44,6 +44,8 @@ def add_arguments_datagen(parser: ArgumentParser):
     parser.add_argument(
         "--show", action="store_true", help="show a track visual example"
     )
+    parser.add_argument("--energy", type=float)
+    parser.add_argument("--res", type=float)
     parser.set_defaults(func=datagen)
 
 
@@ -60,6 +62,8 @@ def datagen(args: Namespace):
     # load runcard and setup output folder structure
     setup = load_runcard(args.runcard)
     setup.update({"output": args.output})
+    setup["detector"].update({"resolution": [args.res, args.res, 1]})
+    setup["detector"].update({"min_energy": args.energy})
     initialize_output_folder(args.output, args.force)
     save_runcard(args.output / "cards/runcard.yaml", setup)
     # save a default runcard in folder to allow default resoration

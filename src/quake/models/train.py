@@ -61,6 +61,7 @@ def train(args: Namespace):
         ask_edit_card(logger, args.output)
     setup = load_runcard(args.output / "cards/runcard.yaml")
     setup.update({"seed": args.seed, "run_tf_eagerly": args.debug})
+
     check_in_folder(args.output / f"models/{args.model}", args.force)
 
     # launch main datagen function

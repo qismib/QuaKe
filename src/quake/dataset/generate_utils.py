@@ -13,6 +13,10 @@ import matplotlib.pyplot as plt
 from quake import PACKAGE
 
 AVG_IONIZATION_ENERGY = 23.6 * 1e-6
+TRANSVERSE_DIFFUSION_COEFFICIENT =  9.490667293815365 # cm^2 / s
+LONGITUDINAL_DIFFUSION_COEFFICIENT = 6.9108763886718405 # cm^2 / s
+DRIFT_VELOCITY = 221850.03695850747 # cm / s
+MAX_DRIFT_LENGTH = 3500 # mm
 
 logger = logging.getLogger(PACKAGE + ".datagen")
 
@@ -142,7 +146,7 @@ def load_tracks(
     Returns
     -------
     xs: ak.Array
-        x hit position of sh-ape=(tracks, [hits]).
+        x hit position of shape=(tracks, [hits]).
     ys: ak.Array
         y hit position of shape=(tracks, [hits]).
     zs: ak.Array
@@ -180,8 +184,51 @@ def load_tracks(
     xs = normalize(xs, Xs, geo.xbin_w)
     ys = normalize(ys, Ys, geo.ybin_w)
     zs = normalize(zs, Zs, geo.zbin_w)
+
+    xs, ys, zs = diffuse_electrons(xs, ys, zs)
+
     return xs, ys, zs, Es
 
+def diffuse_electrons(xs: ak.Array, ys: ak.Array, zs: ak.Array)-> Tuple[ak.Array, ak.Array, ak.Array]:
+    """Simulates electron diffusion in an electric field 
+    using data from https://lar.bnl.gov/properties/trans.html
+
+    Parameters
+    ----------
+    xs: ak.Array
+        x coordinates pre-diffusion.
+    ys: ak.Array
+        y coordinates pre-diffusion.
+    zs: ak.Array
+        z coordinates pre-diffusion.
+
+    Returns
+    -------
+    xs: ak.Array
+        x coordinates post-diffusion.
+    ys: ak.Array
+        y coordinates post-diffusion.
+    zs: ak.Array
+        z coordinates post-diffusion.
+    """
+    nt = len(xs)
+    readout_distance = np.random.uniform(0, MAX_DRIFT_LENGTH, nt)
+    rdn_orientation = np.random.uniform(0, 2*np.pi, nt)
+
+    flight_time = readout_distance/DRIFT_VELOCITY
+    sigma_l = np.sqrt(2*flight_time*LONGITUDINAL_DIFFUSION_COEFFICIENT)
+    sigma_t = np.sqrt(2*flight_time*TRANSVERSE_DIFFUSION_COEFFICIENT)
+
+    z_shift = np.random.normal(0, sigma_l, nt)
+    transverse_shift = np.random.normal(0, sigma_t, nt)
+    x_shift = transverse_shift*np.cos(rdn_orientation)
+    y_shift = transverse_shift*np.sin(rdn_orientation)
+
+    xs = xs + x_shift
+    ys = ys + y_shift
+    zs = zs + z_shift
+
+    return xs, ys, zs
 
 def tracks2histograms(
     xs: ak.Array,

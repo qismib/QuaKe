@@ -220,4 +220,11 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
     network.evaluate(test_generator)
 
+
     make_inference_plots(train_folder, network, test_generator)
+
+    # Delete this
+    results = network.evaluate(test_generator)
+    with open("../output_perf_attention/test/accuracy.txt", "a") as f:
+        f.write(str(results))
+        f.write("\n")

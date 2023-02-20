@@ -75,3 +75,6 @@ def blob_train(data_folder: Path, train_folder: Path, setup: dict):
     logger.info(f"Accuracy on test set is: {model.score(test_features, test_labels)}")
 
     # make_inference_plots(train_folder, test_features, test_labels)
+    with open("../output_perf_blob/test/accuracy.txt", "a") as f:
+        f.write(str(model.score(test_features, test_labels)))
+        f.write("\n")

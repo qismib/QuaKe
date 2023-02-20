@@ -1,7 +1,7 @@
 gpu: [0]
 
 # directories
-dataset_dir: !Path '/mnt//d//data_10.06.p01' # folder containing root files
+dataset_dir: !Path '/mnt//e//data_10.06.p01' # folder containing root files
 
 # geometry
 detector:
@@ -12,7 +12,7 @@ detector:
   xlim_reduced: [-10, 10]
   ylim_reduced: [-10, 10]
   zlim_reduced: [-10, 10]
-  resolution: [5, 5, 1] # [x, y, z] resolution in mm
+  resolution: [1, 1, 1] # [x, y, z] resolution in mm
   min_energy: 0.1 # energy sensitivity in MeV
 
 model:

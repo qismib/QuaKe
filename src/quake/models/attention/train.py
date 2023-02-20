@@ -225,6 +225,6 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
 
     # Delete this
     results = network.evaluate(test_generator)
-    with open("../output_perf_attention/test/accuracy.txt", "a") as f:
+    with open("/home/rmoretti/TESI/output_perf_attention/test/accuracy.txt", "a") as f:
         f.write(str(results))
         f.write("\n")

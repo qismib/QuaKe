@@ -225,8 +225,6 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
     xs_idx, mod = divmod(coords, geo.nb_ybins * geo.nb_zbins)
     ys_idx, zs_idx = divmod(mod, geo.nb_zbins)
 
-    import pdb; pdb.set_trace()
-
     xs = geo.xbins[xs_idx] + geo.xbin_w / 2
     ys = geo.ybins[ys_idx] + geo.ybin_w / 2
     zs = geo.zbins[zs_idx] + geo.zbin_w / 2

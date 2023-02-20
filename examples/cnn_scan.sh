@@ -9,7 +9,7 @@ for j in "${!min_en[@]}"; do
     for i in "${!res[@]}"; do
     printf "${min_en[$j]}"
     printf "${res[$i]}"
-        quake datagen ../cards/runcard.yaml -o ../../output --force --res ${res[$i]} --energy ${min_en[$j]}
+        # quake datagen ../cards/runcard.yaml -o ../../output --force --res ${res[$i]} --energy ${min_en[$j]}
         quake train -o ../../output -m blob --force
         quake train -o ../../output -m attention --force
         quake train -o ../../output -m cnn --force

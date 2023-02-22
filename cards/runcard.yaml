@@ -33,7 +33,7 @@ model:
       mha_filters: [8, 64, 128]
       nb_fc_heads: 1
       fc_filters: [64, 16, 2]
-      batch_size: 120
+      batch_size: 120s
       activation: relu
       alpha: 0.2
       dropout_rate: 0.02

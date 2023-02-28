@@ -12,11 +12,17 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from quake import PACKAGE
 
-AVG_IONIZATION_ENERGY = 23.6 * 1e-6
-TRANSVERSE_DIFFUSION_COEFFICIENT =  9.490667293815365 # cm^2 / s
-LONGITUDINAL_DIFFUSION_COEFFICIENT = 6.9108763886718405 # cm^2 / s
-DRIFT_VELOCITY = 221850.03695850747 # cm / s
-MAX_DRIFT_LENGTH = 3500 # mm
+# DUNE-like LArTPC properties
+AVG_IONIZATION_ENERGY = 23.6 * 1e-6  # MeV
+RECOMBINATION_FACTOR = 0.75
+TRANSVERSE_DIFFUSION_COEFFICIENT = 12.346370738748105  # cm^2 / s
+LONGITUDINAL_DIFFUSION_COEFFICIENT = 6.601275345391748  # cm^2 / s
+DRIFT_VELOCITY = 158254.38543213354  # cm / s
+MAX_DRIFT_LENGTH = 3500  # mm
+E_LIFETIME = 30e-3 # s (a conservative hypothesis on electron lifetime in decontaminated LAr)
+
+# 136-Xe double beta decay Q value
+Q_VALUE = 2.45783  # MeV
 
 logger = logging.getLogger(PACKAGE + ".datagen")
 
@@ -125,11 +131,11 @@ def load_tracks(
 
     Features are:
 
-        - TrackPostX: float, x hit position
-        - TrackPostY: float, y hit position
-        - TrackPostZ: float, z hit position
-        - TrackEnergy: float, hit energy
-        - NTrack: int, number of hits in track
+        - TrackPostX: float, x Geant4 step position
+        - TrackPostY: float, y Geant4 step position
+        - TrackPostZ: float, z Geant4 step position
+        - TrackEnergy: float, Geant4 step energy
+        - NTrack: int, number of Geant4 step in track
         - DepositedEnergy: float, energy integrated over track
 
     Parameters
@@ -146,13 +152,13 @@ def load_tracks(
     Returns
     -------
     xs: ak.Array
-        x hit position of shape=(tracks, [hits]).
+        x Geant4 step position of shape=(tracks, [steps]).
     ys: ak.Array
-        y hit position of shape=(tracks, [hits]).
+        y Geant4 step position of shape=(tracks, [steps]).
     zs: ak.Array
-        z hit position of shape=(tracks, [hits]).
+        z Geant4 step position of shape=(tracks, [steps]).
     Es: ak.Array
-        hit energy of shape=(tracks, [hits]).
+        Geant4 step energy of shape=(tracks, [steps]).
     """
     rng = np.random.default_rng(seed=seed)
     with uproot.open(name) as sig_root:
@@ -185,13 +191,16 @@ def load_tracks(
     ys = normalize(ys, Ys, geo.ybin_w)
     zs = normalize(zs, Zs, geo.zbin_w)
 
-    xs, ys, zs = diffuse_electrons(xs, ys, zs)
+    xs, ys, zs, Es = diffuse_electrons(xs, ys, zs, Es)
 
     return xs, ys, zs, Es
 
-def diffuse_electrons(xs: ak.Array, ys: ak.Array, zs: ak.Array)-> Tuple[ak.Array, ak.Array, ak.Array]:
-    """Simulates electron diffusion in an electric field 
-    using data from https://lar.bnl.gov/properties/trans.html
+
+def diffuse_electrons(
+    xs: ak.Array, ys: ak.Array, zs: ak.Array, Es:ak.Array,
+) -> Tuple[ak.Array, ak.Array, ak.Array]:
+    """Simulates electron diffusion in an electric field
+    using data from https://lar.bnl.gov/properties/trans.html and electron lifetime in purified LAr.
 
     Parameters
     ----------
@@ -201,6 +210,8 @@ def diffuse_electrons(xs: ak.Array, ys: ak.Array, zs: ak.Array)-> Tuple[ak.Array
         y coordinates pre-diffusion.
     zs: ak.Array
         z coordinates pre-diffusion.
+    Es: ak.Array
+        energy depositions pre-diffusion.
 
     Returns
     -------
@@ -210,25 +221,43 @@ def diffuse_electrons(xs: ak.Array, ys: ak.Array, zs: ak.Array)-> Tuple[ak.Array
         y coordinates post-diffusion.
     zs: ak.Array
         z coordinates post-diffusion.
+    Es: ak.Array
+        energy depositions post-diffusion.
     """
     nt = len(xs)
     readout_distance = np.random.uniform(0, MAX_DRIFT_LENGTH, nt)
-    rdn_orientation = np.random.uniform(0, 2*np.pi, nt)
 
-    flight_time = readout_distance/DRIFT_VELOCITY
-    sigma_l = np.sqrt(2*flight_time*LONGITUDINAL_DIFFUSION_COEFFICIENT)
-    sigma_t = np.sqrt(2*flight_time*TRANSVERSE_DIFFUSION_COEFFICIENT)
+    drift_times = 0.1*readout_distance/DRIFT_VELOCITY
+    survival_rates = np.exp(-drift_times/E_LIFETIME)
+    survival_hitmiss = np.random.uniform(0, 1, nt)
+    survival_mask = survival_hitmiss < survival_rates
+
+    xs = xs[survival_mask]
+    ys = ys[survival_mask]
+    zs = zs[survival_mask]
+    Es = Es[survival_mask]
+
+    readout_distance = readout_distance[survival_mask]
+
+    nt = len(xs)
+
+    rdn_orientation = np.random.uniform(0, 2 * np.pi, nt)
+
+    flight_time = readout_distance / DRIFT_VELOCITY
+    sigma_l = np.sqrt(2 * flight_time * LONGITUDINAL_DIFFUSION_COEFFICIENT)
+    sigma_t = np.sqrt(2 * flight_time * TRANSVERSE_DIFFUSION_COEFFICIENT)
 
     z_shift = np.random.normal(0, sigma_l, nt)
     transverse_shift = np.random.normal(0, sigma_t, nt)
-    x_shift = transverse_shift*np.cos(rdn_orientation)
-    y_shift = transverse_shift*np.sin(rdn_orientation)
+    x_shift = transverse_shift * np.cos(rdn_orientation)
+    y_shift = transverse_shift * np.sin(rdn_orientation)
 
     xs = xs + x_shift
     ys = ys + y_shift
     zs = zs + z_shift
 
-    return xs, ys, zs
+    return xs, ys, zs, Es
+
 
 def tracks2histograms(
     xs: ak.Array,
@@ -292,14 +321,19 @@ def tracks2histograms(
         # applying charge pairs fluctuations and thresholding
         rows, cols = hist.nonzero()
         values = np.array(hist[rows, cols])[0]
+
         values = np.array(
             AVG_IONIZATION_ENERGY
-            * poisson.rvs(mu=values / AVG_IONIZATION_ENERGY, random_state=seed)
+            / RECOMBINATION_FACTOR
+            * poisson.rvs(
+                mu=values / AVG_IONIZATION_ENERGY * RECOMBINATION_FACTOR,
+                random_state=seed,
+            )
         )
 
         underflow = values < geo.min_energy
 
-        # remove empty histograms
+        # removing empty histograms
         if not np.count_nonzero(~underflow):
             continue
 
@@ -307,6 +341,9 @@ def tracks2histograms(
         if np.count_nonzero(underflow):
             values[underflow] = 0
             hist = sparse.csr_matrix((values, (rows, cols)), shape=shape)
+
+        # Normalizinge energy
+        hist = hist / hist.sum() * Q_VALUE
         hists.append(hist.reshape(1, -1))
 
     hists = sparse.vstack(hists)

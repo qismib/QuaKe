@@ -33,7 +33,7 @@ model:
       mha_filters: [8, 64, 128]
       nb_fc_heads: 1
       fc_filters: [64, 16, 2]
-      batch_size: 120s
+      batch_size: 320 #120
       activation: relu
       alpha: 0.2
       dropout_rate: 0.02
@@ -43,7 +43,7 @@ model:
     ckpt: null # checkpoint, must be !Path object too
     optimizer: Adam
     lr: 0.001 # learning rate
-    epochs: 30
+    epochs: 40
     # hist_freq: 10
     min_lr: 0.001 # minimum lr
     reducelr_patience: 20 # reduce lr on plateau patience
@@ -55,7 +55,7 @@ model:
       hidden_units: 25
       kernel_size: [3,3]
       strides: [1,1]
-      batch_size: 320 #1200
+      batch_size: 1200
       activation: relu
       alpha: 0.05
       dropout_rate: 0.15 #25

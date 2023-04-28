@@ -61,6 +61,21 @@ model:
       dropout_rate: 0.25 #0.15 #25
       use_bias: true
       name: CNN
+
+    #feature_number: 4 # Intermediate dense layer size (the features for SVM)
+  svm:
+    feature_extractor: attention # the feature extraction network, available options cnn | attention
+    should_add_extra_feats: false # add nb active pixels and total energy to extracted features
+    kernels: [linear, poly, rbf]
+    should_do_scaling: true
+    split_ratio: 0.1
+    name: SVM
+  qsvm:
+    feature_extractor: attention
+    should_add_extra_feats: false
+    should_do_scaling: true
+    split_ratio: 0.01
+    name: QSVM
   blob:
     inference_model: neyman_pearson
     

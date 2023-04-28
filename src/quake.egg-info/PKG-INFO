@@ -1,3 +1,22 @@
+Metadata-Version: 2.1
+Name: quake
+Version: 1.0.0
+Summary: Quantum kernel classifier for neutrino physics applications
+Home-page: https://github.com/qismib/QuaKe.git
+Author: A. Giachero, M. Grossi, R. Moretti, M. Rossi
+Author-email: andrea.giachero@mib.infn.it, michele.grossi@cern.ch, r.moretti9@campus.unimib.it, marco.rossi@cern.ch
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: Unix
+Classifier: Topic :: Scientific/Engineering :: Physics
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Provides-Extra: tf
+Provides-Extra: tf-gpu
+Provides-Extra: tf-cpu
+Provides-Extra: tf-amd
+License-File: LICENSE
+
 # QuaKe
 
 QuaKe: quantum kernel classifier for neutrino physics applications

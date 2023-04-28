@@ -1,23 +1,23 @@
-# QuaKe
+# DeepLAr
 
-QuaKe: quantum kernel classifier for neutrino physics applications
+DeepLAr: Deep Learning classifier for low-energy events in Liquid Argon TPC
 
 ## Installation
 
 The package can be installed with Python's `pip` package manager.
 
 ```bash
-git clone https://github.com/qismib/QuaKe.git
-cd QuaKe
+git clone https://github.com/CERN-IT-INNOVATION/DeepLAr.git
+cd DeepLAr
 pip install .[MODE]
 ```
 
-The last command allows to install the `quake` program into the environment
+The last command allows to install the `deeplar` program into the environment
 python path.  
 
 :warning: **Note: install the appropriate TensorFlow distribution**
 
-`quake` assumes that the user has already installed the most optimized version
+`deeplar` assumes that the user has already installed the most optimized version
 of TensorFlow for his platform. As such, by default, `pip` will not check it as
 a requirement.
 
@@ -34,16 +34,16 @@ However, the user can also install it specifying a `MODE` option in the
 In order to launch the code
 
 ```bash
-quake <subcommand> [options]
+deeplar <subcommand> [options]
 ```
 
 Valid subcommands are: `datagen` | `train`.  
-Use `quake <subcommand> --help` to print the correspondent help message.  
+Use `deeplar <subcommand> --help` to print the correspondent help message.  
 For example, the help message for `datagen` subcommand is:
 
 ```bash
-$ quake datagen --help
-usage: quake datagen [-h] [--output OUTPUT] [--force] [--show] runcard
+$ deeplar datagen --help
+usage: deeplar datagen [-h] [--output OUTPUT] [--force] [--show] runcard
 
 generate voxelized dataset from root files
 
@@ -73,7 +73,7 @@ subcommand with the entire pipeline can also be implemented.
 Extracts histograms from 3D simulated energy depositions.
 
 ```bash
-quake datagen <runcard.yaml> --output <output folder> [--force]
+deeplar datagen <runcard.yaml> --output <output folder> [--force]
 ```
 
 The `.yaml` runcard should store the path to dataset folder containing `.root`
@@ -87,7 +87,7 @@ to subsequent steps of the pipeline.
 Train a model on data extracted in folder.
 
 ```bash
-quake train <folder> --model <modeltype>
+deeplar train <folder> --model <modeltype>
 ```
 
 

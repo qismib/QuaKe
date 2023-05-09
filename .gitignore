@@ -127,5 +127,3 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-examples/blob_distribution.pdf
-examples/blob_distribution.svg

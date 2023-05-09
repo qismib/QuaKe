@@ -66,7 +66,6 @@ def load_and_compile_network(
         metrics=metrics,
         run_eagerly=run_tf_eagerly,
     )
-
     checkpoint_filepath = msetup["ckpt"]
     if checkpoint_filepath:
         logger.info(f"Loading weights at {checkpoint_filepath}")

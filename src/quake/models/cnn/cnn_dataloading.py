@@ -159,9 +159,10 @@ def get_data(file: Path, geo: Geometry, dsetup: dict) -> np.ndarray:
         2D projections.
     """
     matrix = scipy.sparse.load_npz(file)
-    # shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins, 1)
-    shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins)
-    # matrix = matrix.tocoo()
+    if dsetup["should_crop_planes"]:
+        shape = (-1, geo.nb_xbins_no_crop, geo.nb_ybins_no_crop, geo.nb_zbins_no_crop)
+    else:
+        shape = (-1, geo.nb_xbins, geo.nb_ybins, geo.nb_zbins)
     indices = np.mat([matrix.row, matrix.col]).transpose()
     matrix = tf.SparseTensor(indices, matrix.data, matrix.shape)
     matrix = tf.sparse.reshape(matrix, (shape))
@@ -171,19 +172,31 @@ def get_data(file: Path, geo: Geometry, dsetup: dict) -> np.ndarray:
 
     if dsetup["should_crop_planes"]:
         YZ_plane = roll_crop(
-            np.copy(YZ_plane), geo.nb_ybins_reduced, geo.nb_zbins_reduced
+            np.copy(YZ_plane), geo.nb_ybins, geo.nb_zbins
         )
         XZ_plane = roll_crop(
-            np.copy(XZ_plane), geo.nb_xbins_reduced, geo.nb_zbins_reduced
+            np.copy(XZ_plane), geo.nb_xbins, geo.nb_zbins
         )
         XY_plane = roll_crop(
-            np.copy(XY_plane), geo.nb_xbins_reduced, geo.nb_ybins_reduced
+            np.copy(XY_plane), geo.nb_xbins, geo.nb_ybins
         )
-    # hist3d = matrix.toarray().reshape(shape)
+
     return [YZ_plane, XZ_plane, XY_plane]
 
 
-def get_n_evts(data_folder: Path, geo: Geometry) -> int:
+def get_n_evts(data_folder: Path, geo: Geometry) -> Tuple[int]:
+    """Calculates the total number of events in all the files.
+
+    Parameters:
+    -----------
+    data_folder: Path
+        Directory name where '.npz' files are stored.
+    
+    Returns:
+    --------
+    Tuple[int]
+        The number of signal and background events.
+    """
     n_evts_sig = 0
     n_evts_bkg = 0
     for file in data_folder.iterdir():
@@ -253,17 +266,17 @@ def load_projections_and_labels(
     geo = Geometry(dsetup)
 
     n_evts_sig, n_evts_bkg = get_n_evts(data_folder, geo)
+
     data_sig_x, data_sig_y, data_sig_z = (
-        np.zeros((n_evts_sig, geo.nb_ybins_reduced, geo.nb_zbins_reduced, 1)),
-        np.zeros((n_evts_sig, geo.nb_xbins_reduced, geo.nb_zbins_reduced, 1)),
-        np.zeros((n_evts_sig, geo.nb_xbins_reduced, geo.nb_ybins_reduced, 1)),
+        np.zeros((n_evts_sig, geo.nb_ybins, geo.nb_zbins, 1)),
+        np.zeros((n_evts_sig, geo.nb_xbins, geo.nb_zbins, 1)),
+        np.zeros((n_evts_sig, geo.nb_xbins, geo.nb_ybins, 1)),
     )
     data_bkg_x, data_bkg_y, data_bkg_z = (
-        np.zeros((n_evts_bkg, geo.nb_ybins_reduced, geo.nb_zbins_reduced, 1)),
-        np.zeros((n_evts_bkg, geo.nb_xbins_reduced, geo.nb_zbins_reduced, 1)),
-        np.zeros((n_evts_bkg, geo.nb_xbins_reduced, geo.nb_ybins_reduced, 1)),
+        np.zeros((n_evts_bkg, geo.nb_ybins, geo.nb_zbins, 1)),
+        np.zeros((n_evts_bkg, geo.nb_xbins, geo.nb_zbins, 1)),
+        np.zeros((n_evts_bkg, geo.nb_xbins, geo.nb_ybins, 1)),
     )
-
     counter_sig = 0
     counter_bkg = 0
     for file in data_folder.iterdir():
@@ -271,7 +284,7 @@ def load_projections_and_labels(
         is_signal = file.name[0] == "b"
         if file.suffix == ".npz":
             YZ_plane, XZ_plane, XY_plane = get_data(file, geo, dsetup)
-            if is_signal:
+            if is_signal: 
                 data_sig_x[counter_sig : counter_sig + YZ_plane.shape[0]] = YZ_plane
                 data_sig_y[counter_sig : counter_sig + XZ_plane.shape[0]] = XZ_plane
                 data_sig_z[counter_sig : counter_sig + XY_plane.shape[0]] = XY_plane

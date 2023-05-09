@@ -12,8 +12,8 @@ detector:
   xlim_reduced: [-10, 10]
   ylim_reduced: [-10, 10]
   zlim_reduced: [-10, 10]
-  resolution: [1, 1, 1] # [x, y, z] resolution in mm
-  min_energy: 0.1 # energy sensitivity in MeV
+  resolution: [5, 5, 1] # [x, y, z] resolution in mm
+  min_energy: 0.2 # energy sensitivity in MeV
 
 model:
   attention:

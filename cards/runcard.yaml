@@ -78,4 +78,25 @@ model:
     name: QSVM
   blob:
     inference_model: neyman_pearson
-    
+  autoencoder:
+    ckpt: null # checkpoint, must be !Path object too
+    optimizer: Adam
+    lr: 1e-3 # learning rate
+    epochs: 50
+    # hist_freq: 10
+    min_lr: 1e-6 # minimum lr
+    reducelr_patience: 20 # reduce lr on plateau patience
+    es_patience: 100 # early stopping patience
+    test_split_ratio: 0.15 # validation and test sets have the same size
+    net_dict:
+      f_dims: 4
+      spatial_dims: 3
+      nb_fc_heads: 1
+      enc_filters: [64, 16, 2]
+      dec_filters: [16, 32]
+      batch_size: 38  #120 #120
+      activation: relu
+      alpha: 0.2
+      dropout_rate: 0.02
+      use_bias: true
+      name: Autoencoder

@@ -1,6 +1,5 @@
 """
-    This module implements function for data loading for AttentionNetwork.
-    Dynamic batching is employed.
+    This module implements function for data loading for Autoencoder Network.
 """
 import logging
 from typing import Tuple
@@ -11,7 +10,7 @@ import scipy
 import tensorflow as tf
 from ..utils import (
     dataset_split_util,
-    get_dataset_balance_message,
+    get_dataset_balance_message_autoencoder,
     load_splitting_maps,
     save_splitting_maps,
 )
@@ -19,7 +18,7 @@ from quake import PACKAGE
 from quake.dataset.generate_utils import Geometry
 from quake.utils.configflow import float_me
 
-logger = logging.getLogger(PACKAGE + ".attention")
+logger = logging.getLogger(PACKAGE + ".autoencoder")
 to_np = lambda x: np.array(x, dtype=object)
 
 
@@ -44,7 +43,7 @@ def restore_order(array: np.ndarray, ordering: np.ndarray) -> np.ndarray:
 
 
 def fix_sequence_lengths(inputs: np.ndarray, max_length: int = None):
-    """Repeats sequences last items to match the `max_legth` parameter.
+    """Adds zero-padding to sequences to match the `max_legth` parameter.
 
     This function is used to get a rectangular array from a jagged one.
 
@@ -66,7 +65,10 @@ def fix_sequence_lengths(inputs: np.ndarray, max_length: int = None):
         max_length = np.max(seq_lengths)
 
     fixed_length = np.stack(
-        [np.pad(seq, ((0, max_length - len(seq)), (0, 0)), "edge") for seq in inputs]
+        [
+            np.pad(seq, ((0, max_length - len(seq)), (0, 0)), "constant")
+            for seq in inputs
+        ]  # "constant"
     )
     return fixed_length
 
@@ -105,6 +107,8 @@ class Dataset(tf.keras.utils.Sequence):
         should_standardize: bool = True,
         mus: tf.Tensor = None,
         sigmas: tf.Tensor = None,
+        use_spatial_dims=True,
+        spatial_dims=3,
         seed: int = 12345,
     ):
         """
@@ -120,18 +124,22 @@ class Dataset(tf.keras.utils.Sequence):
             Wether to standardize the inputs or not.
         mus: tf.Tensor
             The features means of shape=(nb features).
-        stds: tf.Tensor
+        sigmas: tf.Tensor
             The features standard deviations of shape=(nb features).
+        use_spatial_dims = bool
+            Wether to include hit positions in addition to hit energies.
         seed: int
             Random generator seed for reproducibility.
         """
         self.inputs = to_np(inputs)
-        self.targets = targets
+        self.classes = targets
         self.batch_size = batch_size
         self.should_standardize = should_standardize
         self.mus = mus
         self.sigmas = sigmas
+        self.use_spatial_dims = use_spatial_dims
         self.seed = seed
+        self.spatial_dims = spatial_dims
 
         self.nb_hits_array = np.array([ev.shape[0] for ev in self.inputs])
         self.max_hit_length = np.max(self.nb_hits_array)
@@ -148,6 +156,15 @@ class Dataset(tf.keras.utils.Sequence):
             self.inputs, self.max_hit_length
         )
 
+        if self.use_spatial_dims:
+            self.fixed_length_inputs = self.fixed_length_inputs.reshape(
+                self.fixed_length_inputs.shape[0], -1
+            )
+        else:
+            self.fixed_length_inputs = self.fixed_length_inputs[:, :, -1]
+
+        self.inputs = self.fixed_length_inputs
+        self.targets = self.fixed_length_inputs
         self.data_len = len(self.targets)
         self.indices = np.arange(self.data_len)
         self.rng = np.random.default_rng(self.seed)
@@ -239,7 +256,7 @@ def get_data(file: Path, geo: Geometry) -> np.ndarray:
 def read_data(
     data_folder: Path, train_folder: Path, setup: dict, split_from_maps: bool = False
 ) -> Tuple[Dataset, Dataset, Dataset]:
-    """Loads data for attention network.
+    """Loads data for Autoencoder network.
 
     Parameters
     ----------
@@ -299,7 +316,7 @@ def read_data(
         targets_val = targets[val_map]
         targets_test = targets[test_map]
     else:
-        split_ratio = setup["model"]["attention"]["test_split_ratio"]
+        split_ratio = setup["model"]["autoencoder"]["test_split_ratio"]
         train_wrap, val_wrap, test_wrap = dataset_split_util(
             data,
             targets,
@@ -314,13 +331,25 @@ def read_data(
         save_splitting_maps(train_folder, train_map, val_map, test_map)
         logger.info(f"Saving splitting maps in folder {train_folder}")
 
-    batch_size = setup["model"]["attention"]["net_dict"]["batch_size"]
+    batch_size = setup["model"]["autoencoder"]["net_dict"]["batch_size"]
+    spatial_dims = setup["model"]["autoencoder"]["net_dict"]["spatial_dims"]
+    if not (spatial_dims == 2 or spatial_dims == 3):
+        logger.error(f"spatial_dims in net_dict should be either 2 or 3")
+
+    if spatial_dims == 2:
+        for i, pt_cloud in enumerate(inputs_train):
+            inputs_train[i] = merge_rows(pt_cloud[:, [0, 1, 3]])
+        for i, pt_cloud in enumerate(inputs_val):
+            inputs_val[i] = merge_rows(pt_cloud[:, [0, 1, 3]])
+        for i, pt_cloud in enumerate(inputs_test):
+            inputs_test[i] = merge_rows(pt_cloud[:, [0, 1, 3]])
 
     train_generator = Dataset(
         inputs_train,
         targets_train,
         batch_size,
         should_standardize=True,
+        use_spatial_dims=setup["model"]["autoencoder"]["net_dict"]["use_spatial_dims"],
         seed=setup["seed"],
     )
 
@@ -332,6 +361,7 @@ def read_data(
         targets_val,
         batch_size,
         should_standardize=True,
+        use_spatial_dims=setup["model"]["autoencoder"]["net_dict"]["use_spatial_dims"],
         mus=mus,
         sigmas=sigmas,
     )
@@ -340,12 +370,149 @@ def read_data(
         targets_test,
         batch_size,
         should_standardize=True,
+        use_spatial_dims=setup["model"]["autoencoder"]["net_dict"]["use_spatial_dims"],
         mus=mus,
         sigmas=sigmas,
     )
 
-    logger.info(get_dataset_balance_message(train_generator, "Train"))
-    logger.info(get_dataset_balance_message(val_generator, "Validation"))
-    logger.info(get_dataset_balance_message(test_generator, "Test"))
+    logger.info(get_dataset_balance_message_autoencoder(train_generator, "Train"))
+    logger.info(get_dataset_balance_message_autoencoder(val_generator, "Validation"))
+    logger.info(get_dataset_balance_message_autoencoder(test_generator, "Test"))
 
+    train_max_hits = train_generator.inputs.shape[1]
+    val_max_hits = val_generator.inputs.shape[1]
+    test_max_hits = test_generator.inputs.shape[1]
+    max_input_nb = np.max([train_max_hits, val_max_hits, test_max_hits])
+
+    nhits_pad = (-train_max_hits, -val_max_hits, -test_max_hits) + max_input_nb
+    for i in range(nhits_pad[0]):
+        train_generator.inputs = np.hstack(
+            [train_generator.inputs, np.zeros((train_generator.inputs.shape[0], 1))]
+        )  # , train_generator.inputs.shape[2])])
+    for i in range(nhits_pad[1]):
+        val_generator.inputs = np.hstack(
+            [val_generator.inputs, np.zeros((val_generator.inputs.shape[0], 1))]
+        )  # , val_generator.inputs.shape[2])])
+    for i in range(nhits_pad[2]):
+        test_generator.inputs = np.hstack(
+            [test_generator.inputs, np.zeros((test_generator.inputs.shape[0], 1))]
+        )  # , 1, test_generator.inputs.shape[2])])
+
+    means = train_generator.mus.numpy()
+    stds = train_generator.sigmas.numpy()
+
+    train_generator = normalize_dataset(train_generator, means, stds)
+    val_generator = normalize_dataset(val_generator, means, stds)
+    test_generator = normalize_dataset(test_generator, means, stds)
+
+    # train_generator.inputs = np.hstack([train_generator.nb_hits_array.reshape(-1, 1), train_generator.inputs])
+    # val_generator.inputs = np.hstack([val_generator.nb_hits_array.reshape(-1, 1), val_generator.inputs])
+    # test_generator.inputs = np.hstack([test_generator.nb_hits_array.reshape(-1, 1), test_generator.inputs])
+
+    train_generator.targets = train_generator.inputs
+    val_generator.targets = val_generator.inputs
+    test_generator.targets = test_generator.inputs
+
+    val_generator.fixed_length_inputs = val_generator.inputs
+    test_generator.fixed_length_inputs = test_generator.inputs
+    val_generator.max_hit_length = train_generator.max_hit_length
+    test_generator.max_hit_length = train_generator.max_hit_length
     return train_generator, val_generator, test_generator
+
+
+def normalize_dataset(dataset: Dataset, means: list[np.double], stds: list[np.double]):
+    """
+    Normalizes x, y, z, e in order to have unitary standard deviation and zero mean.
+
+    Parameters:
+    -----------
+    dataset: Dataset
+        The Dataset object
+    means: list(np.double):
+        Mean list of training distribution [x_mean, y_mean, z_mean, e_mean]
+    stds: list(np.double):
+        Std list of training distribution [x_std, y_std, z_std, e_std]
+
+    Returns:
+    --------
+    dataset: Dataset
+        The normalized Dataset object
+    """
+
+    dataset.inputs[:, ::4] = (dataset.inputs[:, ::4] - 1.*means[0]) / stds[0]
+    dataset.inputs[:, 1::4] = (dataset.inputs[:, 1::4] - 1.*means[1]) / stds[1]
+    dataset.inputs[:, 2::4] = (dataset.inputs[:, 2::4] - 1.*means[2]) / stds[2]
+    dataset.inputs[:, 3::4] = (dataset.inputs[:, 3::4] - 1.*means[3]) / stds[3]
+
+    # nb_features = len(means)
+    # for i in range(dataset.inputs.shape[0]):
+    #     nonpadded_idx = np.arange(dataset.nb_hits_array[i] * nb_features)
+    #     for j in range(dataset.nb_features):
+    #         max_entry, min_entry = (
+    #             dataset.inputs[i, nonpadded_idx[j::nb_features]].max(),
+    #             dataset.inputs[i, nonpadded_idx[j::nb_features]].min(),
+    #         )
+
+    #         if max_entry - min_entry != 0:
+    #             dataset.inputs[i, nonpadded_idx[j::nb_features]] = (
+    #                 dataset.inputs[i, nonpadded_idx[j::nb_features]] - min_entry
+    #             ) / (max_entry - min_entry)
+    # import pdb; pdb.set_trace()
+    # dataset.inputs[:, nb_features - 1 :: nb_features] = (
+    #     dataset.inputs[:, nb_features - 1 :: nb_features]
+    #     / dataset.inputs[:, nb_features - 1 :: nb_features].max(axis=1)[:, None]
+    # )
+    return dataset
+
+
+def merge_rows(matrix: np.ndarray) -> np.ndarray:
+    """
+    Merge rows in a matrix based on the first and second column values.
+
+    If the first and second column values are equal in two or more consecutive rows, they are merged into one row
+    where the first and second column values remain the same, and the third column value is the sum of the
+    entries of the previous rows.
+
+    Parameters:
+    matrix: numpy.ndarray
+        The input matrix to be processed.
+
+    Returns:
+    numpy.ndarray
+        The merged matrix after combining rows with equal first and second column values.
+    """
+    merged_matrix = []
+    current_row = matrix[0].copy()
+    for row in matrix[1:]:
+        if (row[0] == current_row[0]) and (row[1] == current_row[1]):
+            current_row[2] += row[2]
+        else:
+            merged_matrix.append(current_row)
+            current_row = row.copy()
+    merged_matrix.append(current_row)
+    return np.array(merged_matrix)
+
+
+def merge_all_matrices(arr: np.array) -> np.ndarray:
+    """
+    Merge rows in all matrices within the input ndarray based on the first and second column values.
+
+    This function processes each matrix in the input ndarray separately using the `merge_rows` function
+    to merge rows with equal first and second column values.
+
+    Parameters:
+    -----------
+    arr: numpy.ndarray
+        The input ndarray containing nb_hitsx3 matrices.
+
+    Returns:
+    ---------
+    numpy.ndarray
+        The ndarray containing the merged matrices after combining rows with equal first and
+        second column values.
+    """
+    merged_matrices = []
+    for matrix in arr:
+        merged_matrix = merge_rows(matrix)
+        merged_matrices.append(merged_matrix)
+    return np.array(merged_matrices)

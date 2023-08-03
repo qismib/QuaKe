@@ -82,6 +82,32 @@ def get_dataset_balance_message(dataset: tf.keras.utils.Sequence, name: str):
     return msg
 
 
+def get_dataset_balance_message_autoencoder(
+    dataset: tf.keras.utils.Sequence, name: str
+):
+    """
+    Logs the dataset balancing between classes
+    Parameters
+    ----------
+    dataset: tf.keras.utils.Sequence
+        The dataset to log.
+    name: str
+        The dataset name to be logged.
+
+    Returns
+    -------
+    msg: str
+        The balance message to be printed.
+    """
+    nb_examples = dataset.data_len
+    positives = np.count_nonzero(dataset.classes)
+    msg = (
+        f"{name} dataset balancing: {nb_examples} training points, "
+        f"of which {positives/nb_examples*100:.2f}% positives"
+    )
+    return msg
+
+
 def save_splitting_maps(
     train_folder: Path, train_map: np.ndarray, val_map: np.ndarray, test_map: np.ndarray
 ):

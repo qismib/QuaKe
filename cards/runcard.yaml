@@ -91,10 +91,12 @@ model:
     net_dict:
       f_dims: 4
       spatial_dims: 3
-      nb_fc_heads: 1
-      enc_filters: [64, 16, 2]
-      dec_filters: [16, 32]
-      batch_size: 38  #120 #120
+      use_spatial_dims: true # whether to use energy and position information or only energy
+      attention_nodes: 1 # number of multi-head attention layers
+      nb_heads: 1 # number of heads for every attention layer
+      enc_filters: [64, 16, 2] # encoding unit numbers. The last value is the bottleneck size
+      dec_filters: [16, 32] # decoding unit number
+      batch_size: 2000
       activation: relu
       alpha: 0.2
       dropout_rate: 0.02

@@ -1,13 +1,20 @@
 import logging
+import numpy as np
 from typing import Tuple
 import tensorflow as tf
 from tensorflow.keras import Input
-from tensorflow.keras.layers import Dense
+from tensorflow.keras.layers import (
+    Dense,
+    MultiHeadAttention,
+    Attention,
+    Concatenate,
+    LeakyReLU,
+    BatchNormalization,
+)
 from tensorflow.keras.activations import sigmoid
 from quake import PACKAGE
 from ..AbstractNet import AbstractNet
 from .layers import (
-    TransformerEncoder,
     Head,
     LBA,
     LBAD,
@@ -15,25 +22,27 @@ from .layers import (
     apply_random_rotation_3d,
 )
 
-logger = logging.getLogger(PACKAGE + ".attention")
+logger = logging.getLogger(PACKAGE + ".autoencoder")
 
 
 class Autoencoder(AbstractNet):
-    """Class defining Attention Network.
+    """Class defining Autoencoder Network.
 
-    In this approach the network is trained as a binary classifier. Inpiut is a
+    In this approach the network is trained as an autoencoder. Input is a
     point cloud with features accompaining each node: features describe 3D hit
     position and hit energy.
 
-    Note: the number of hits may vary, hence each batch is padded according to
-    the maximum example length in the batch.
+    Note: the number of hits may vary, the input and output tensors are padded
+    with the last hit value.
     """
 
     def __init__(
         self,
         f_dims: int = 4,
         spatial_dims: int = 3,
-        nb_fc_heads: int = 3,
+        use_spatial_dims: bool = False,
+        attention_nodes: int = 1,
+        nb_heads: int = 1,
         enc_filters: list = [16, 8, 4],
         dec_filters: list = [8, 16],
         batch_size: int = 8,
@@ -42,8 +51,9 @@ class Autoencoder(AbstractNet):
         dropout_rate: float = 0.0,
         use_bias: bool = True,
         verbose: bool = False,
-        max_length: int = 100,
+        max_input_nb: int = None,
         name: str = "Autoencoder",
+        spatial_rec_accuracy: list = None,
         **kwargs,
     ):
         """
@@ -53,10 +63,14 @@ class Autoencoder(AbstractNet):
             Number of point cloud feature dimensions.
         spatial_dims: int
             Number of point cloud spatial feature dimensions.
-        nb_fc_heads: int
-            The number of `Head` layers to be concatenated.
-        fc_filters: list
-            The output units for each `Head` in the stack.
+        use_spatial_dims: bool
+            Wether to use hit positions together with hit energies.
+        attention_nodes: int
+            Attention heads.
+        enc_filders: list
+            Encoding feed forward head list.
+        dec_filters: list
+            Deconding feed forward head list.
         batch_size: int
             The effective batch size for gradient descent.
         activation: str
@@ -69,6 +83,8 @@ class Autoencoder(AbstractNet):
             Wether to use bias or not.
         verbose: bool
             Wether to print extra training information.
+        max_input_nb: int
+            Max hit number in the dataset.
         name: str
             The name of the neural network instance.
         """
@@ -77,7 +93,7 @@ class Autoencoder(AbstractNet):
         # store args
         self.f_dims = f_dims
         self.spatial_dims = spatial_dims
-        self.nb_fc_heads = nb_fc_heads
+        self.attention_nodes = attention_nodes
         self.enc_filters = enc_filters
         self.dec_filters = dec_filters
         self.batch_size = int(batch_size)
@@ -86,7 +102,10 @@ class Autoencoder(AbstractNet):
         self.dropout_rate = dropout_rate
         self.use_bias = use_bias
         self.verbose = verbose
-        self.max_length = max_length
+        self.max_length = max_input_nb
+        self.spatial_rec_accuracy = spatial_rec_accuracy
+        self.use_spatial_dims = use_spatial_dims
+        self.nb_heads = nb_heads
 
         self.apply_random_rotation = (
             apply_random_rotation_2d
@@ -98,6 +117,11 @@ class Autoencoder(AbstractNet):
         ff_kwargs = {"rate": self.dropout_rate} if self.dropout_rate else {}
         self.encoding = []
 
+        # self-attention feature extraction
+        self.attention = []
+        for i in range(self.attention_nodes):
+            self.attention.append(MultiHeadAttention(self.nb_heads, np.concatenate([enc_filters, dec_filters])[i], name = f"MHA{i}"))
+            # self.attention.append(Attention(name = f"MHA{i}"))
         # encoding layers
         self.encoding = [
             ff_layer(
@@ -106,10 +130,9 @@ class Autoencoder(AbstractNet):
                 self.alpha,
                 name=f"Enc{i}",
                 **ff_kwargs,
-                )
-        for i, units in enumerate(enc_filters)
+            )
+            for i, units in enumerate(enc_filters)
         ]
-
         # decoding layers
         self.decoding = [
             ff_layer(
@@ -118,16 +141,31 @@ class Autoencoder(AbstractNet):
                 self.alpha,
                 name=f"Dec{i}",
                 **ff_kwargs,
-                )
-        for i, units in enumerate(dec_filters)
+            )
+            for i, units in enumerate(dec_filters[:-1])
         ]
+        self.decoding.append(
+            ff_layer(
+                dec_filters[-1], None, None, name=f"Dec{len(dec_filters)}", **ff_kwargs
+            )
+        )
 
 
-        # explicitly build network weights
-        build_with_shape = (None, self.max_length)
+        enc_length = len(self.encoding)
+        att_length = len(self.attention)
+        if att_length > enc_length:
+            self.attention_encoding = self.attention[:enc_length]
+            self.attention_decoding = self.attention[enc_length:]
+        else:
+            self.attention_encoding = self.attention
+            self.attention_decoding = []
+
+
+        build_with_shape = (self.max_length,)
+        self.final = [Dense(self.max_length, name="Final")]  # , LeakyReLU(alpha=alpha)]
+
         names = "pc"
         self.inputs_layer = Input(shape=build_with_shape, name=names)
-        self.final = Dense(self.max_length, name="Final")
 
         batched_shape = (self.batch_size,) + build_with_shape
         super(Autoencoder, self).build(batched_shape)
@@ -152,11 +190,32 @@ class Autoencoder(AbstractNet):
             Merging probability of shape=(batch,).
         """
         features = self.feature_extraction(inputs, training=training)
-        x = tf.identity(features)
-        for dec_step in self.decoding:
-            x = dec_step(x)
-        output = self.final(x)
+        x = features
 
+        dec_length = len(self.decoding)
+        att_length = len(self.attention_decoding)
+        
+
+        if self.attention_decoding:
+            for i in range(max(att_length, dec_length)):
+                if i < dec_length:
+                    x = self.decoding[i](x)
+                if i < att_length:
+                    x = tf.expand_dims(x, axis = -1)
+                    x = tf.squeeze(self.attention_decoding[i](x,x), -1)
+
+                    # x = self.attention[i]([x,x])
+        else:
+            for dec_step in self.decoding:
+                x = dec_step(x)
+
+        # for dec_step in self.decoding:
+        #     x = dec_step(x)
+
+        for fin_step in self.final:
+            x = fin_step(x)
+        # output = self.reshape(self.final(x))
+        output = x
         if self.return_features:
             return output, features
         return output
@@ -189,9 +248,31 @@ class Autoencoder(AbstractNet):
         #     x = enc(x)
         # max pooling results in a function symmetric wrt its inputs
         # the bottleneck is the width of the last encoding layer
-        x = tf.reduce_max(x, axis=1)
-        for enc_step in self.encoding:
-            x = enc_step(x)
+        # x = tf.reduce_max(x, axis=1)
+        
+        enc_length = len(self.encoding)
+        att_length = len(self.attention_encoding)
+        
+
+        if self.attention_encoding:
+            for i in range(max(att_length,enc_length)):
+                if i < enc_length:
+                    x = self.encoding[i](x)
+                if i < att_length:
+                    x = tf.expand_dims(x, axis = -1)
+                    x = tf.squeeze(self.attention_encoding[i](x,x), -1)
+
+                    # x = self.attention[i]([x,x])
+        else:
+            for enc_step in self.encoding:
+                x = enc_step(x)
+
+        # for att_step in self.attention:
+        #     x = tf.expand_dims(x, axis = -1)
+        #     x = tf.squeeze(att_step(x, x), -1)
+
+        # for enc_step in self.encoding:
+        #     x = enc_step(x)
         return x
 
     def train_step(self, data: list[tf.Tensor]) -> dict:
@@ -214,7 +295,6 @@ class Autoencoder(AbstractNet):
         # Unpack the data. Its structure depends on your model and
         # on what you pass to `fit()`.
         x, y = data
-
         with tf.GradientTape() as tape:
             y_pred = self(x, training=True)  # Forward pass
             # Compute the loss value (configured in compile method)

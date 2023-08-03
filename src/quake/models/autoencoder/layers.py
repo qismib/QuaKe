@@ -1,13 +1,14 @@
-""" This module implements the attention network building blocks. """
+""" This module implements the autoencoder network building blocks. """
 import tensorflow as tf
 from tensorflow.keras.layers import (
     Layer,
     BatchNormalization,
     Dropout,
     Dense,
-    MultiHeadAttention,
 )
 from quake.utils.configflow import TF_PI
+
+initializer = tf.keras.initializers.GlorotNormal(seed=42)
 
 
 class LBA(Layer):
@@ -29,7 +30,8 @@ class LBA(Layer):
         self.alpha = alpha
         self.linear = Dense(
             self.units,
-            name="linear",  # kernel_regularizer="l2", bias_regularizer="l2",
+            name="linear",
+            kernel_initializer=initializer,  # kernel_regularizer="l2", bias_regularizer="l2",
         )
         self.activation = tf.keras.activations.get(self.act)
         # self.batchnorm = BatchNormalization(name="batchnorm")
@@ -92,7 +94,6 @@ class LBAD(LBA):
         self.rate = rate
 
         super().__init__(self.units, self.act, self.alpha, **kwargs)
-
         self.dropout = Dropout(self.rate, name="dropout")
 
     def build(self, input_shape):
@@ -118,89 +119,6 @@ class LBAD(LBA):
         config = super().get_config()
         config.update({"rate": self.rate})
         return config
-
-
-class TransformerEncoder(Layer):
-    """Implementation of ViT Encoder layer.
-
-    This block exploits the fast implementation of the Attention mechanism for
-    better memory management.
-    """
-
-    def __init__(
-        self,
-        units: int,
-        mha_heads: int,
-        **kwargs,
-    ):
-        """
-        Parameters
-        ----------
-        units: int
-            Output feature dimensionality.
-        mha_heads: int
-            Number of heads in MultiHeadAttention layers.
-        """
-        super(TransformerEncoder, self).__init__(**kwargs)
-        self.units = units
-        self.mha_heads = mha_heads
-
-        self.mha = MultiHeadAttention(
-            self.mha_heads,
-            self.units,
-            name="mha",
-            # kernel_regularizer="l2",
-            # bias_regularizer="l2",
-        )
-
-        # self.norm0 = LayerNormalization(axis=-1, name="ln_0")
-        # self.norm0 = BatchNormalization(axis=-1, name="bn_0")
-
-        self.fc0 = Dense(
-            units,
-            activation="relu",
-            name="mlp_0",
-            # kernel_regularizer="l2",
-            # bias_regularizer="l2",
-        )
-        # self.fc1 = Dense(
-        #     units,
-        #     activation="relu",
-        #     name="mlp_1",
-        #     # kernel_regularizer="l2",
-        #     # bias_regularizer="l2",
-        # )
-
-        # self.norm1 = LayerNormalization(axis=-1, name="ln_1")
-        # self.norm1 = BatchNormalization(axis=-1, name="bn_1")
-
-    def build(self, input_shape):
-        super(TransformerEncoder, self).build(input_shape)
-
-    def call(self, x: tf.Tensor, attention_mask: tf.Tensor = None) -> tf.Tensor:
-        """
-        Parameters
-        ----------
-        x: tf.Tensor
-            Input tensor of shape=(B, L, d_in).
-        attention_mask: tf.Tensor
-            Masking tensor of shape=(B, L, L).
-
-        Returns
-        -------
-        tf.Tensor:
-            Output tensor of shape=(B, L, d_in).
-        """
-        # x += self.mha(x, x, attention_mask=attention_mask)
-        x += self.mha(x, x)
-        # x = self.norm0(x)
-        # x += self.fc1(self.fc0(x))
-        x += self.fc0(x)
-        # x = self.norm1(x)
-        return x
-
-    def get_config(self) -> dict:
-        return {"units": self.units, "mha_heads": self.mha_heads}
 
 
 class Head(Layer):

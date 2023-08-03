@@ -19,7 +19,9 @@ TRANSVERSE_DIFFUSION_COEFFICIENT = 12.346370738748105  # cm^2 / s
 LONGITUDINAL_DIFFUSION_COEFFICIENT = 6.601275345391748  # cm^2 / s
 DRIFT_VELOCITY = 158254.38543213354  # cm / s
 MAX_DRIFT_LENGTH = 3500  # mm
-E_LIFETIME = 30e-3 # s (a conservative hypothesis on electron lifetime in decontaminated LAr)
+E_LIFETIME = (
+    30e-3  # s (a conservative hypothesis on electron lifetime in decontaminated LAr)
+)
 
 # 136-Xe double beta decay Q value
 Q_VALUE = 2.45783  # MeV
@@ -57,9 +59,15 @@ class Geometry:
             xmin_reduced, xmax_reduced = detector["xlim_reduced"]
             ymin_reduced, ymax_reduced = detector["ylim_reduced"]
             zmin_reduced, zmax_reduced = detector["zlim_reduced"]
-            self.nb_xbins_reduced = math.ceil((xmax_reduced - xmin_reduced) / self.xbin_w)
-            self.nb_ybins_reduced = math.ceil((ymax_reduced - ymin_reduced) / self.ybin_w)
-            self.nb_zbins_reduced = math.ceil((zmax_reduced - zmin_reduced) / self.zbin_w)
+            self.nb_xbins_reduced = math.ceil(
+                (xmax_reduced - xmin_reduced) / self.xbin_w
+            )
+            self.nb_ybins_reduced = math.ceil(
+                (ymax_reduced - ymin_reduced) / self.ybin_w
+            )
+            self.nb_zbins_reduced = math.ceil(
+                (zmax_reduced - zmin_reduced) / self.zbin_w
+            )
 
         # bin edeges
         self.xbins = np.linspace(self.xmin, self.xmax, self.nb_xbins + 1)
@@ -197,7 +205,10 @@ def load_tracks(
 
 
 def diffuse_electrons(
-    xs: ak.Array, ys: ak.Array, zs: ak.Array, Es:ak.Array,
+    xs: ak.Array,
+    ys: ak.Array,
+    zs: ak.Array,
+    Es: ak.Array,
 ) -> Tuple[ak.Array, ak.Array, ak.Array]:
     """Simulates electron diffusion in an electric field
     using data from https://lar.bnl.gov/properties/trans.html and electron lifetime in purified LAr.
@@ -227,8 +238,8 @@ def diffuse_electrons(
     nt = len(xs)
     readout_distance = np.random.uniform(0, MAX_DRIFT_LENGTH, nt)
 
-    drift_times = 0.1*readout_distance/DRIFT_VELOCITY
-    survival_rates = np.exp(-drift_times/E_LIFETIME)
+    drift_times = 0.1 * readout_distance / DRIFT_VELOCITY
+    survival_rates = np.exp(-drift_times / E_LIFETIME)
     survival_hitmiss = np.random.uniform(0, 1, nt)
     survival_mask = survival_hitmiss < survival_rates
 
@@ -243,8 +254,8 @@ def diffuse_electrons(
 
     rdn_orientation = np.random.uniform(0, 2 * np.pi, nt)
 
-    sigma_l = np.sqrt(2 * drift_times * LONGITUDINAL_DIFFUSION_COEFFICIENT)*10
-    sigma_t = np.sqrt(2 * drift_times * TRANSVERSE_DIFFUSION_COEFFICIENT)*10
+    sigma_l = np.sqrt(2 * drift_times * LONGITUDINAL_DIFFUSION_COEFFICIENT) * 10
+    sigma_t = np.sqrt(2 * drift_times * TRANSVERSE_DIFFUSION_COEFFICIENT) * 10
 
     z_shift = np.random.normal(0, sigma_l, nt)
     transverse_shift = np.random.normal(0, sigma_t, nt)

@@ -105,7 +105,6 @@ class AttentionNetwork(AbstractNet):
         fouts = self.mha_filters
         ff_layer = LBAD if self.dropout_rate else LBA
         ff_kwargs = {"rate": self.dropout_rate} if self.dropout_rate else {}
-
         for i, (fin, fout) in enumerate(zip(fins, fouts)):
             # attention layers
             self.mhas.append(TransformerEncoder(fin, self.nb_mha_heads, name=f"Mha{i}"))
@@ -133,6 +132,7 @@ class AttentionNetwork(AbstractNet):
         names = "pc"
         batched_shape = (self.batch_size,) + build_with_shape
         self.inputs_layer = Input(shape=build_with_shape, name=names)
+
         super().build(batched_shape)
 
     def call(

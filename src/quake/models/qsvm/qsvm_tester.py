@@ -17,7 +17,13 @@ from quake.models.attention.attention_dataloading import (
     read_data as read_data_attention,
 )
 from quake.models.cnn.cnn_dataloading import read_data as read_data_cnn
+from quake.models.autoencoder.autoencoder_dataloading import (
+    read_data as read_data_autoencoder,
+)
 from quake.models.cnn.train import load_and_compile_network as load_cnn_network
+from quake.models.autoencoder.train import (
+    load_and_compile_network as load_autoencoder_network,
+)
 from quake.dataset.generate_utils import Geometry
 import matplotlib.pyplot as plt
 from qiskit.quantum_info import Statevector
@@ -90,7 +96,7 @@ def get_features(
     Raises
     ------
     NotImplementedError
-        If extractor type not one of `cnn` or `attention`.
+        If extractor type not one of `cnn`, `attention` or `autoencoder`.
 
     Returns
     -------
@@ -109,6 +115,9 @@ def get_features(
     elif extractor_type == "attention":
         read_data_fn = read_data_attention
         load_net_fn = load_attention_network
+    elif extractor_type == "autoencoder":
+        read_data_fn = read_data_autoencoder
+        load_net_fn = load_autoencoder_network
     else:
         raise NotImplementedError(
             f"exctractor model not implemented, found: {extractor_type}"
@@ -117,13 +126,26 @@ def get_features(
     train_generator, val_generator, test_generator = read_data_fn(
         data_folder, load_map_folder, setup, split_from_maps=True
     )
+    if extractor_type == "autoencoder":
+        max_input_nb = np.max(
+            [
+                train_generator.fixed_length_inputs.shape[1],
+                val_generator.fixed_length_inputs.shape[1],
+                test_generator.fixed_length_inputs.shape[1],
+            ]
+        )
 
     geo = Geometry(setup["detector"])
 
     # extractor setup
     esetup = setup["model"][extractor_type]
     esetup.update({"ckpt": load_map_folder / f"{extractor_type}.h5"})
-    network = load_net_fn(esetup, setup["run_tf_eagerly"], geo=geo)
+    if extractor_type == "autoencoder":
+        network = load_net_fn(
+            esetup, setup["run_tf_eagerly"], geo=geo, max_input_nb=max_input_nb
+        )
+    else:
+        network = load_net_fn(esetup, setup["run_tf_eagerly"], geo=geo)
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     train_features, train_labels = extract_feats(
         train_generator, network, should_add_extra_feats, should_remove_outliers=True

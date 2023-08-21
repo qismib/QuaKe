@@ -32,5 +32,5 @@ gate_dict = {"single_non_parametric": {"I", "H", "X", "S"},
 
 generation_zero = genetic.initial_population(NB_INIT_INDIVIDUALS, NB_QUBITS, GATES_PER_QUBITS, gate_dict, nb_features)
 
-genetic.to_quantum(generation_zero, gate_dict)
+genetic.to_quantum(generation_zero, gate_dict, nb_features)
 # use gene_space

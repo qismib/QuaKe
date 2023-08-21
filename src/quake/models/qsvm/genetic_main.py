@@ -67,7 +67,7 @@ def interpret_gate(qc, gate_string):
     return getattr(qc, gate_string.lower())
 
 
-def to_quantum(genes, gate_dict):
+def to_quantum(genes, gate_dict, nb_features):
 
     gate_list = []
     for gate_set in gate_dict.values():
@@ -77,18 +77,40 @@ def to_quantum(genes, gate_dict):
     gates_per_qubits = genes[0].shape[0]
     nb_qubits = genes[0].shape[1]
 
+    x = ParameterVector("x", length = nb_features)
+
     for i, chromosome in enumerate(genes):
         fmap = QuantumCircuit(nb_qubits)
         for j in range(gates_per_qubits):
             for k in range(nb_qubits):
                 gate_type_idx = genes[i, j, k, 0]
-                feature_transformation = genes[i, j, k, 1]
+                feature_transformation_type = genes[i, j, k, 1]
                 multi_features = genes[i, j, k, 2]
                 first_feature_idx = genes[i, j, k, 3]
                 second_feature_idx = genes[i, j, k, 4]
                 # If necessary, call also this:
                 # second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
-                gate = interpret_gate(fmap, gate_list[gate_type_idx])
-                # calling gate(x, q1, q2) adds the gate to fmap
+                gate = interpret_gate(fmap, gate_list[gate_type_idx])      
+                              
+                if multi_features:
+                    gate(k)
+                elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
+                    second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
+                    gate(k, second_qubit_idx)
+                else:
+                    if multi_features == 0 and feature_transformation_type == 0:
+                        param_expression = x[first_feature_idx]
+                    if multi_features == 1 and feature_transformation_type == 0:
+                        param_expression = (np.pi - x[first_feature_idx]) * (np.pi - x[second_feature_idx]) 
+                    if multi_features == 0 and feature_transformation_type == 1:
+                        param_expression = x[first_feature_idx] * x[first_feature_idx]
+                    if multi_features == 1 and feature_transformation_type == 1:
+                        param_expression = x[first_feature_idx] * x[second_feature_idx]
 
+                    if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
+                        gate(param_expression, k)
+                    elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
+                        second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
+                        gate(param_expression, k, second_qubit_idx)
+        fmap_list.append(fmap)
     return fmap_list

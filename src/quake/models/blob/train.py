@@ -68,7 +68,7 @@ def blob_train(data_folder: Path, train_folder: Path, setup: dict):
 
     model = train_blobs(train_features, train_labels, inference_model)
 
-    with open(train_folder / Path('blob.pkl'), 'wb') as file:
+    with open(train_folder / Path("blob.pkl"), "wb") as file:
         pickle.dump(model, file)
 
     logger.info(

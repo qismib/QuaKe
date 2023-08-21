@@ -115,7 +115,7 @@ def train_network(
             factor=0.5,
             mode="min",
             verbose=2,
-            min_delta = 0.00005,
+            min_delta=0.00005,
             patience=msetup["reducelr_patience"],
             min_lr=float(
                 msetup["min_lr"],

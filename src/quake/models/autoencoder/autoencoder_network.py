@@ -120,7 +120,13 @@ class Autoencoder(AbstractNet):
         # self-attention feature extraction
         self.attention = []
         for i in range(self.attention_nodes):
-            self.attention.append(MultiHeadAttention(self.nb_heads, np.concatenate([enc_filters, dec_filters])[i], name = f"MHA{i}"))
+            self.attention.append(
+                MultiHeadAttention(
+                    self.nb_heads,
+                    np.concatenate([enc_filters, dec_filters])[i],
+                    name=f"MHA{i}",
+                )
+            )
             # self.attention.append(Attention(name = f"MHA{i}"))
         # encoding layers
         self.encoding = [
@@ -150,7 +156,6 @@ class Autoencoder(AbstractNet):
             )
         )
 
-
         enc_length = len(self.encoding)
         att_length = len(self.attention)
         if att_length > enc_length:
@@ -159,7 +164,6 @@ class Autoencoder(AbstractNet):
         else:
             self.attention_encoding = self.attention
             self.attention_decoding = []
-
 
         build_with_shape = (self.max_length,)
         self.final = [Dense(self.max_length, name="Final")]  # , LeakyReLU(alpha=alpha)]
@@ -194,15 +198,14 @@ class Autoencoder(AbstractNet):
 
         dec_length = len(self.decoding)
         att_length = len(self.attention_decoding)
-        
 
         if self.attention_decoding:
             for i in range(max(att_length, dec_length)):
                 if i < dec_length:
                     x = self.decoding[i](x)
                 if i < att_length:
-                    x = tf.expand_dims(x, axis = -1)
-                    x = tf.squeeze(self.attention_decoding[i](x,x), -1)
+                    x = tf.expand_dims(x, axis=-1)
+                    x = tf.squeeze(self.attention_decoding[i](x, x), -1)
 
                     # x = self.attention[i]([x,x])
         else:
@@ -249,18 +252,17 @@ class Autoencoder(AbstractNet):
         # max pooling results in a function symmetric wrt its inputs
         # the bottleneck is the width of the last encoding layer
         # x = tf.reduce_max(x, axis=1)
-        
+
         enc_length = len(self.encoding)
         att_length = len(self.attention_encoding)
-        
 
         if self.attention_encoding:
-            for i in range(max(att_length,enc_length)):
+            for i in range(max(att_length, enc_length)):
                 if i < enc_length:
                     x = self.encoding[i](x)
                 if i < att_length:
-                    x = tf.expand_dims(x, axis = -1)
-                    x = tf.squeeze(self.attention_encoding[i](x,x), -1)
+                    x = tf.expand_dims(x, axis=-1)
+                    x = tf.squeeze(self.attention_encoding[i](x, x), -1)
 
                     # x = self.attention[i]([x,x])
         else:

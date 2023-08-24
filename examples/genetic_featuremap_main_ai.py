@@ -32,7 +32,7 @@ def create_random_feature_map(num_qubits, max_gates_per_qubit, gate_dict):
 
 
 def evaluate_feature_map(feature_map, dataset, labels, num_shots=1000):
-    backend = Aer.get_backend('qasm_simulator')
+    backend = Aer.get_backend("qasm_simulator")
     shots = num_shots if num_shots > 1 else 1
     circuit = transpile(feature_map, backend=backend)
     job = execute(circuit, backend=backend, shots=shots)
@@ -60,7 +60,14 @@ def create_feature_map(gene_space_solution):
     return feature_map
 
 
-def genetic_algorithm_search(dataset, labels, gene_space, num_generations=50, num_parents_mating=4, fitness_func=fitness_function):
+def genetic_algorithm_search(
+    dataset,
+    labels,
+    gene_space,
+    num_generations=50,
+    num_parents_mating=4,
+    fitness_func=fitness_function,
+):
     num_genes = len(gene_space)
     sol_per_pop = 10
     num_generations = num_generations
@@ -81,13 +88,15 @@ def genetic_algorithm_search(dataset, labels, gene_space, num_generations=50, nu
         best_outputs.append(ga_instance.best_solution()[1])
         best_solutions.append(ga_instance.best_solution()[0])
 
-    ga_instance = pygad.GA(num_generations=num_generations,
-                           num_parents_mating=num_parents_mating,
-                           fitness_func=fitness_func,
-                           sol_per_pop=sol_per_pop,
-                           num_genes=num_genes,
-                           initial_population=initial_population,
-                           callback_generation=callback_generation)
+    ga_instance = pygad.GA(
+        num_generations=num_generations,
+        num_parents_mating=num_parents_mating,
+        fitness_func=fitness_func,
+        sol_per_pop=sol_per_pop,
+        num_genes=num_genes,
+        initial_population=initial_population,
+        callback_generation=callback_generation,
+    )
 
     ga_instance.run()
 
@@ -95,8 +104,6 @@ def genetic_algorithm_search(dataset, labels, gene_space, num_generations=50, nu
     best_feature_map = create_feature_map(*best_solution)
 
     return best_feature_map, best_solution
-
-
 
 
 from quake.utils.utils import load_runcard, save_runcard
@@ -133,7 +140,9 @@ if __name__ == "__main__":
         "gate_dict": [GATE_DICT],
     }
 
-    best_feature_map, best_solution = genetic_algorithm_search(dataset, labels, gene_space)
+    best_feature_map, best_solution = genetic_algorithm_search(
+        dataset, labels, gene_space
+    )
 
     print("Best Quantum Feature Map:")
     print(best_feature_map)

@@ -397,7 +397,6 @@ def read_data(
         test_generator.inputs = np.hstack(
             [test_generator.inputs, np.zeros((test_generator.inputs.shape[0], 1))]
         )  # , 1, test_generator.inputs.shape[2])])
-
     means = train_generator.mus.numpy()
     stds = train_generator.sigmas.numpy()
 

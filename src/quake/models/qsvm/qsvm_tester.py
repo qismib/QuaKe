@@ -148,7 +148,7 @@ def get_features(
         network = load_net_fn(esetup, setup["run_tf_eagerly"], geo=geo)
     should_add_extra_feats = setup["model"]["svm"]["should_add_extra_feats"]
     train_features, train_labels = extract_feats(
-        train_generator, network, should_add_extra_feats, should_remove_outliers=True
+        train_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
     val_features, val_labels = extract_feats(
         val_generator, network, should_add_extra_feats, should_remove_outliers=False
@@ -156,7 +156,6 @@ def get_features(
     test_features, test_labels = extract_feats(
         test_generator, network, should_add_extra_feats, should_remove_outliers=False
     )
-
     # training and saving the SVMs
     dataset = rearrange_scale(
         train_features,

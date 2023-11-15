@@ -11,11 +11,27 @@ Classifier: Operating System :: Unix
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: tf
-Provides-Extra: tf-gpu
-Provides-Extra: tf-cpu
-Provides-Extra: tf-amd
 License-File: LICENSE
+Requires-Dist: awkward
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: networkx==2.8.8
+Requires-Dist: pygad
+Requires-Dist: qiskit[machine-learning]
+Requires-Dist: scipy
+Requires-Dist: scikit-learn
+Requires-Dist: pydot
+Requires-Dist: pyyaml
+Requires-Dist: qutip
+Requires-Dist: uproot
+Provides-Extra: tf
+Requires-Dist: tensorflow; extra == "tf"
+Provides-Extra: tf-gpu
+Requires-Dist: tensorflow-gpu; extra == "tf-gpu"
+Provides-Extra: tf-cpu
+Requires-Dist: tensorflow-cpu; extra == "tf-cpu"
+Provides-Extra: tf-amd
+Requires-Dist: tensorflow-rocm; extra == "tf-amd"
 
 # QuaKe
 

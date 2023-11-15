@@ -1,10 +1,11 @@
 awkward
 numpy
 matplotlib
+networkx==2.8.8
 pygad
 qiskit[machine-learning]
 scipy
-sklearn
+scikit-learn
 pydot
 pyyaml
 qutip

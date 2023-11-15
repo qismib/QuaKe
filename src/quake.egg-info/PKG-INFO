@@ -11,11 +11,29 @@ Classifier: Operating System :: Unix
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Provides-Extra: tf
-Provides-Extra: tf-gpu
-Provides-Extra: tf-cpu
-Provides-Extra: tf-amd
 License-File: LICENSE
+Requires-Dist: awkward
+Requires-Dist: numpy
+Requires-Dist: matplotlib
+Requires-Dist: networkx==2.8.8
+Requires-Dist: pygad
+Requires-Dist: qiskit==0.43.3
+Requires-Dist: qiskit_machine_learning==0.6.1
+Requires-Dist: scipy
+Requires-Dist: scikit-learn
+Requires-Dist: pydot
+Requires-Dist: pyyaml
+Requires-Dist: qutip
+Requires-Dist: uproot
+Requires-Dist: qiskit-aer
+Provides-Extra: tf
+Requires-Dist: tensorflow; extra == "tf"
+Provides-Extra: tf-gpu
+Requires-Dist: tensorflow-gpu; extra == "tf-gpu"
+Provides-Extra: tf-cpu
+Requires-Dist: tensorflow-cpu; extra == "tf-cpu"
+Provides-Extra: tf-amd
+Requires-Dist: tensorflow-rocm; extra == "tf-amd"
 
 # QuaKe
 
@@ -81,11 +99,6 @@ optional arguments:
 
 Models' parameter settings are stored in `yaml` files. The [cards](cards) folder
 contains some examples.
-
-## Pipeline (TODO)
-
-Implement a Makefile to run the entire pipeline given a runcard. A default
-subcommand with the entire pipeline can also be implemented.
 
 ### Data generation
 

@@ -74,7 +74,8 @@ def initial_population(
     first_feature_idx = gen_int(0, nb_features, size=size_per_gene)
     second_feature_idx = gen_int(
         0, nb_features, size=size_per_gene, exclude_array=first_feature_idx
-    )
+    )    
+    second_qubit_idx = gen_int(0, nb_qubits, size=size_per_gene, exclude_array=np.tile(np.arange(0, nb_qubits), gates_per_qubits * nb_init_individuals))
     gene_list = np.array(
         [
             gate_idxs,
@@ -82,10 +83,11 @@ def initial_population(
             multi_features,
             first_feature_idx,
             second_feature_idx,
+            second_qubit_idx
         ]
     )
     gene_list = np.reshape(
-        gene_list.T, [nb_init_individuals, gates_per_qubits, nb_qubits, 5]
+        gene_list.T, [nb_init_individuals, gates_per_qubits, nb_qubits, 6]
     )
     gene_list_flat = flatten_gene_list(gene_list)
     return gene_list_flat
@@ -101,7 +103,7 @@ def unflatten_gene_list(
     gene_list_flat, nb_init_individuals, gates_per_qubits, nb_qubits
 ):
     gene_list = np.reshape(
-        gene_list_flat, [nb_init_individuals, gates_per_qubits, nb_qubits, 5]
+        gene_list_flat, [nb_init_individuals, gates_per_qubits, nb_qubits, 6]
     )
     return gene_list
 
@@ -122,6 +124,7 @@ def get_gene_space(gate_dict, nb_features, nb_qubits, gates_per_qubits):
             range(2),
             range(nb_features),
             range(nb_features),
+            range(nb_qubits)
         ]
     return gene_space
 
@@ -149,7 +152,7 @@ def to_quantum(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
     for gate_set in gate_dict.values():
         gate_list = gate_list + list(gate_set)
 
-    genes_unflatted = np.reshape(genes, [gates_per_qubits, nb_qubits, 5])
+    genes_unflatted = np.reshape(genes, [gates_per_qubits, nb_qubits, 6])
     # gates_per_qubits = genes[0].shape[0]
     # nb_qubits = genes[0].shape[1]
     x = ParameterVector("x", length=nb_features)
@@ -162,6 +165,7 @@ def to_quantum(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
             multi_features = genes_unflatted[j, k, 2]
             first_feature_idx = genes_unflatted[j, k, 3]
             second_feature_idx = genes_unflatted[j, k, 4]
+            second_qubit_idx = genes_unflatted[j, k, 5]
 
             # If necessary, call also this:
             # second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
@@ -170,7 +174,7 @@ def to_quantum(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
             if gate_list[gate_type_idx] in gate_dict["single_non_parametric"]:
                 gate(k)
             elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
-                second_qubit_idx = gen_int(0, nb_qubits, size=1, exclude_array=[k])[0]
+                # second_qubit_idx = gen_int(0, nb_qubits, size=1, exclude_array=[k])[0]
                 gate(k, second_qubit_idx)
             else:
                 if first_feature_idx not in x_idxs:
@@ -196,68 +200,68 @@ def to_quantum(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
                 if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
                     gate(param_expression, k)
                 elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
-                    second_qubit_idx = gen_int(0, nb_qubits, size=1, exclude_array=[k])[
-                        0
-                    ]
+                    # second_qubit_idx = gen_int(0, nb_qubits, size=1, exclude_array=[k])[
+                    #     0
+                    # ]
                     gate(param_expression, k, second_qubit_idx)
     return fmap, x_idxs
 
 
-def to_quantum_batch(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
-    gate_list = []
-    for gate_set in gate_dict.values():
-        gate_list = gate_list + list(gate_set)
+# def to_quantum_batch(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
+#     gate_list = []
+#     for gate_set in gate_dict.values():
+#         gate_list = gate_list + list(gate_set)
 
-    fmap_list = []
+#     fmap_list = []
 
-    genes_unflatted = unflatten_gene_list(
-        genes, len(genes), gates_per_qubits, nb_qubits
-    )
-    # gates_per_qubits = genes[0].shape[0]
-    # nb_qubits = genes[0].shape[1]
+#     genes_unflatted = unflatten_gene_list(
+#         genes, len(genes), gates_per_qubits, nb_qubits
+#     )
+#     # gates_per_qubits = genes[0].shape[0]
+#     # nb_qubits = genes[0].shape[1]
 
-    x = ParameterVector("x", length=nb_features)
-    for i, chromosome in enumerate(genes_unflatted):
-        fmap = QuantumCircuit(nb_qubits)
-        for j in range(gates_per_qubits):
-            for k in range(nb_qubits):
-                gate_type_idx = genes_unflatted[i, j, k, 0]
-                feature_transformation_type = genes_unflatted[i, j, k, 1]
-                multi_features = genes_unflatted[i, j, k, 2]
-                first_feature_idx = genes_unflatted[i, j, k, 3]
-                second_feature_idx = genes_unflatted[i, j, k, 4]
-                # If necessary, call also this:
-                # second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
-                gate = interpret_gate(fmap, gate_list[gate_type_idx])
+#     x = ParameterVector("x", length=nb_features)
+#     for i, chromosome in enumerate(genes_unflatted):
+#         fmap = QuantumCircuit(nb_qubits)
+#         for j in range(gates_per_qubits):
+#             for k in range(nb_qubits):
+#                 gate_type_idx = genes_unflatted[i, j, k, 0]
+#                 feature_transformation_type = genes_unflatted[i, j, k, 1]
+#                 multi_features = genes_unflatted[i, j, k, 2]
+#                 first_feature_idx = genes_unflatted[i, j, k, 3]
+#                 second_feature_idx = genes_unflatted[i, j, k, 4]
+#                 # If necessary, call also this:
+#                 # second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
+#                 gate = interpret_gate(fmap, gate_list[gate_type_idx])
 
-                if gate_list[gate_type_idx] in gate_dict["single_non_parametric"]:
-                    gate(k)
-                elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
-                    second_qubit_idx = gen_int(0, nb_qubits, size=1, exclude_array=[k])[
-                        0
-                    ]
-                    gate(k, second_qubit_idx)
-                else:
-                    if multi_features == 0 and feature_transformation_type == 0:
-                        param_expression = x[first_feature_idx]
-                    if multi_features == 1 and feature_transformation_type == 0:
-                        param_expression = (np.pi - x[first_feature_idx]) * (
-                            np.pi - x[second_feature_idx]
-                        )
-                    if multi_features == 0 and feature_transformation_type == 1:
-                        param_expression = x[first_feature_idx] * x[first_feature_idx]
-                    if multi_features == 1 and feature_transformation_type == 1:
-                        param_expression = x[first_feature_idx] * x[second_feature_idx]
+#                 if gate_list[gate_type_idx] in gate_dict["single_non_parametric"]:
+#                     gate(k)
+#                 elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
+#                     second_qubit_idx = gen_int(0, nb_qubits, size=1, exclude_array=[k])[
+#                         0
+#                     ]
+#                     gate(k, second_qubit_idx)
+#                 else:
+#                     if multi_features == 0 and feature_transformation_type == 0:
+#                         param_expression = x[first_feature_idx]
+#                     if multi_features == 1 and feature_transformation_type == 0:
+#                         param_expression = (np.pi - x[first_feature_idx]) * (
+#                             np.pi - x[second_feature_idx]
+#                         )
+#                     if multi_features == 0 and feature_transformation_type == 1:
+#                         param_expression = x[first_feature_idx] * x[first_feature_idx]
+#                     if multi_features == 1 and feature_transformation_type == 1:
+#                         param_expression = x[first_feature_idx] * x[second_feature_idx]
 
-                    if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
-                        gate(param_expression, k)
-                    elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
-                        second_qubit_idx = gen_int(
-                            0, nb_qubits, size=1, exclude_array=[k]
-                        )[0]
-                        gate(param_expression, k, second_qubit_idx)
-        fmap_list.append(fmap)
-    return fmap_list
+#                     if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
+#                         gate(param_expression, k)
+#                     elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
+#                         second_qubit_idx = gen_int(
+#                             0, nb_qubits, size=1, exclude_array=[k]
+#                         )[0]
+#                         gate(param_expression, k, second_qubit_idx)
+#         fmap_list.append(fmap)
+#     return fmap_list
 
 
 def genetic_instance(
@@ -299,7 +303,7 @@ def genetic_instance(
         gene_type=int,
         suppress_warnings=True,
         save_solutions=True,
-        callback_generation=callback_func_wrapper(suffix, start_time),
+        on_generation=callback_func_wrapper(suffix, start_time),
         **opts,
     )
     return ga_instance
@@ -308,7 +312,7 @@ def genetic_instance(
 def fitness_func_wrapper(
     data_cv, data_labels, backend, gate_dict, nb_features, gates_per_qubits, nb_qubits, projected, coupling_map, basis_gates, suffix
 ):
-    def fitness_func(solution: np.ndarray, solution_idx: int) -> np.float64:
+    def fitness_func(ga_instance, solution: np.ndarray, solution_idx: int) -> np.float64:
         fmap, x_idxs = to_quantum(solution, gate_dict, nb_features, gates_per_qubits, nb_qubits )
         print(solution)
         import pdb; pdb.set_trace()

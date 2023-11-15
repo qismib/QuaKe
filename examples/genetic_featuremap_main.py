@@ -28,9 +28,9 @@ data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 250)
 data_cv = scaler.transform(data_cv)
 nb_features = data_cv.shape[1]
 
-NB_QUBITS = 3
-GATES_PER_QUBITS = 4
-NB_INIT_INDIVIDUALS = 1
+NB_QUBITS = 8
+GATES_PER_QUBITS = 6
+NB_INIT_INDIVIDUALS = 3
 gate_dict = OrderedDict([
     ("single_non_parametric", ["I", "H", "X"]),
     ("single_parametric", ["RX", "RY", "RZ"]),
@@ -58,6 +58,7 @@ options = {
     "mutation_percent_genes": 20,
     "crossover_probability": 0.2,
     "crossover_type": "two_points",
+    "allow_duplicate_genes" : False,
     # "keep_elitism": 10
 }
 

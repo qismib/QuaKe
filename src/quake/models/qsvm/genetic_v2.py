@@ -1,5 +1,6 @@
 """ This module contains the functions for generating a genetic-optimized quantum featuremap. 
-It offers more costumizable options than genetic.py"""
+It offers more costumizable options than genetic_v1.py"""
+# NOTE: This version is outdated. Please refer to genetic_v3 
 
 from qiskit.circuit import QuantumCircuit
 import numpy as np

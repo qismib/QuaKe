@@ -7,7 +7,7 @@ import numpy as np
 from pathlib import Path
 from quake.models.qsvm.qsvm_tester import get_features
 from collections import OrderedDict
-from quake.models.qsvm import genetic_main as genetic
+from quake.models.qsvm import genetic_v3 as genetic
 from sklearn.preprocessing import MinMaxScaler
 
 from qiskit import Aer

@@ -1,5 +1,5 @@
 """ This module contains the functions for generating a genetic-optimized quantum featuremap. 
-This module uses integer encoding instead of binary encoding and allows for more search options than 'genetic.py' and 'genetic_extended.py'"""
+This module uses integer encoding instead of binary encoding and allows for more search options than 'genetic_v1.py' and 'genetic_v2.py'"""
 
 from qiskit.circuit import QuantumCircuit
 import numpy as np

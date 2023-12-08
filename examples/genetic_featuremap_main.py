@@ -13,6 +13,8 @@ from sklearn.preprocessing import MinMaxScaler
 from qiskit import Aer
 
 import time
+import shutil
+import os
 
 # Dataset loading
 data_folder = Path("../../output_2/data")
@@ -22,23 +24,32 @@ setup["run_tf_eagerly"] = True
 setup["seed"] = 42
 
 dataset, labels = get_features(data_folder.parent, "autoencoder", setup)
-scaler = MinMaxScaler((0, 2*np.pi)).fit(dataset[0])
 
-data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 250)
+# Outlier removal and scaling
+dataset_means = np.mean(dataset[0], axis = 0)
+dataset_stds = np.std(dataset[0], axis = 0)
+is_outlier = np.sum((dataset[0] - dataset_means)/ dataset_stds > 8, axis = 1) > 0
+dataset_no_outliers = dataset[0][is_outlier == 0]
+scaler = MinMaxScaler((0,1)).fit(dataset_no_outliers)
+
+data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 1000)
 data_cv = scaler.transform(data_cv)
 nb_features = data_cv.shape[1]
+###########################################
+############ Genetic settings #############
+###########################################
 
-NB_QUBITS = 8
+NB_QUBITS = 6
 GATES_PER_QUBITS = 6
-NB_INIT_INDIVIDUALS = 3
+NB_INIT_INDIVIDUALS = 15
 gate_dict = OrderedDict([
     ("single_non_parametric", ["I", "H", "X"]),
     ("single_parametric", ["RX", "RY", "RZ"]),
     ("two_non_parametric", ["CX"]),
-    ("two_parametric", ["CRX", "CRY", "CRZ", "CP"]),
+    ("two_parametric", ["CRX", "CRY", "CRZ"]),
 ])
-coupling_map = [[0,1], [1,2], [2,3], [3,4], [4,5], [5,6], [6,7]]
-basis_gates = ['cx', 'id', 'rz', 'sx', 'x']
+coupling_map = None #[[0,1], [1,2], [2,3], [3,4], [4,5], [5,6], [6,7]]
+basis_gates = None #['cx', 'id', 'rz', 'sx', 'x']
 
 generation_zero = genetic.initial_population(
     NB_INIT_INDIVIDUALS, NB_QUBITS, GATES_PER_QUBITS, gate_dict, nb_features
@@ -48,18 +59,18 @@ gene_space = genetic.get_gene_space(gate_dict, nb_features, NB_QUBITS, GATES_PER
 
 # Defining inputs for the genetic instance
 options = {
-    "num_generations": 1,
-    "num_parents_mating": 1,
+    "num_generations": 50,
+    "num_parents_mating": 8,
     "initial_population": generation_zero,
-    "parent_selection_type": "sss",
+    "parent_selection_type": "rank",
     "mutation_by_replacement": True,
     "stop_criteria": "saturate_100",
     "mutation_type": "random",
-    "mutation_percent_genes": 20,
-    "crossover_probability": 0.2,
+    "mutation_percent_genes": 30,
+    "crossover_probability": 0.3,
     "crossover_type": "two_points",
     "allow_duplicate_genes" : False,
-    # "keep_elitism": 10
+    "keep_elitism": 4,
 }
 
 # Running the instance and retrieving data
@@ -85,3 +96,16 @@ ga_instance = genetic.genetic_instance(
 )
 
 ga_instance.run()
+
+solution, solution_fitness, _ = ga_instance.best_solution(ga_instance.last_generation_fitness)
+save_path = "../../Output_genetic/" + timestr
+Path(save_path).mkdir(exist_ok=True)
+with open(save_path + '/best_solution' + timestr + ".txt", "w") as genes_file:
+    np.savetxt(genes_file, solution)
+with open(save_path + '/best_fitness' + timestr + ".txt", "w") as file:
+    file.write(str(solution_fitness) + "\n")
+with open(save_path + '/best_fitness_per_generation' + timestr + ".txt", "w") as file:
+    file.write(str(ga_instance.best_solutions_fitness) + "\n")
+
+copied_script_name = time.strftime("%Y-%m-%d_%H%M") + '_' + os.path.basename(__file__)
+shutil.copy(__file__, save_path + os.sep + copied_script_name) 

@@ -4,6 +4,8 @@ This module uses integer encoding instead of binary encoding and allows for more
 from qiskit.circuit import QuantumCircuit
 import numpy as np
 import math
+from csv import writer
+
 from qiskit.circuit import ParameterVector
 from qiskit_machine_learning.kernels import QuantumKernel
 from pathlib import Path
@@ -23,7 +25,9 @@ import pickle
 import pygad
 import os
 import time
-import h5py
+# import h5py
+import pandas as pd
+
 
 import csv
 
@@ -69,7 +73,7 @@ def initial_population(
 
     size_per_gene = nb_qubits * gates_per_qubits * nb_init_individuals
     gate_idxs = gen_int(0, nb_possible_gates, size=size_per_gene)
-    feature_transformation = gen_int(0, 2, size=size_per_gene)
+    feature_transformation = gen_int(0, 3, size=size_per_gene)
     multi_features = gen_int(0, 2, size=size_per_gene)
     first_feature_idx = gen_int(0, nb_features, size=size_per_gene)
     second_feature_idx = gen_int(
@@ -166,9 +170,8 @@ def to_quantum(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
             first_feature_idx = genes_unflatted[j, k, 3]
             second_feature_idx = genes_unflatted[j, k, 4]
             second_qubit_idx = genes_unflatted[j, k, 5]
-
-            # If necessary, call also this:
-            # second_qubit_idx = gen_int(0, nb_qubits, size = 1, exclude_array = [k])[0]
+            if second_qubit_idx == k:
+                second_qubit_idx = (second_qubit_idx + 1) % nb_qubits
             gate = interpret_gate(fmap, gate_list[gate_type_idx])
 
             if gate_list[gate_type_idx] in gate_dict["single_non_parametric"]:
@@ -181,22 +184,27 @@ def to_quantum(genes, gate_dict, nb_features, gates_per_qubits, nb_qubits):
                     x_idxs.append(first_feature_idx)
 
                 if multi_features == 0 and feature_transformation_type == 0:
-                    param_expression = x[first_feature_idx]
+                    param_expression = 2*np.pi*(x[first_feature_idx]-0.5)
                 if multi_features == 1 and feature_transformation_type == 0:
                     if second_feature_idx not in x_idxs:
                         x_idxs.append(second_feature_idx)
-                    param_expression = (2*np.pi - x[first_feature_idx]) * (
-                        2*np.pi - x[second_feature_idx]
-                    ) / (2*np.pi)
+                    param_expression = 2*np.pi*x[first_feature_idx]*(1-x[second_feature_idx]) - np.pi
                 if multi_features == 0 and feature_transformation_type == 1:
-                    param_expression = x[first_feature_idx] * x[first_feature_idx] / (2*np.pi)
+                    param_expression = 2*np.pi*x[first_feature_idx] * (1-x[first_feature_idx]) - np.pi
                 if multi_features == 1 and feature_transformation_type == 1:
                     if second_feature_idx not in x_idxs:
                         x_idxs.append(second_feature_idx)
-                    param_expression = (2*np.pi - x[first_feature_idx]*x[first_feature_idx]/ (2*np.pi)) * (
-                        2*np.pi - x[second_feature_idx]*x[second_feature_idx]/ (2*np.pi)
-                    ) / (2*np.pi)
-
+                    param_expression = (2*np.pi*x[first_feature_idx]*(1-x[second_feature_idx]) - np.pi)*(2*np.pi*x[second_feature_idx]*(1-x[first_feature_idx]) - np.pi)/np.pi
+                    
+                    
+                if multi_features == 0 and feature_transformation_type == 2:
+                    param_expression = 2*np.arcsin(2*x[first_feature_idx] - 1) - np.pi
+                if multi_features == 1 and feature_transformation_type == 2:
+                    if second_feature_idx not in x_idxs:
+                        x_idxs.append(second_feature_idx)
+                    param_expression = 2*np.arcsin((2*x[first_feature_idx]-1)*(2*x[second_feature_idx]-1))
+                    
+                    
                 if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
                     gate(param_expression, k)
                 elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
@@ -312,10 +320,9 @@ def genetic_instance(
 def fitness_func_wrapper(
     data_cv, data_labels, backend, gate_dict, nb_features, gates_per_qubits, nb_qubits, projected, coupling_map, basis_gates, suffix
 ):
-    def fitness_func(ga_instance, solution: np.ndarray, solution_idx: int) -> np.float64:
-        fmap, x_idxs = to_quantum(solution, gate_dict, nb_features, gates_per_qubits, nb_qubits )
-        print(solution)
-        import pdb; pdb.set_trace()
+    def fitness_func(solution: np.ndarray, solution_idx: int) -> np.float64:
+        fmap, x_idxs = to_quantum(solution, gate_dict, nb_features, gates_per_qubits, nb_qubits)
+        print(fmap)
         if projected:
             qker_matrix = projected_quantum_kernel(fmap, data_cv[:, x_idxs], 1)
         else:
@@ -333,27 +340,35 @@ def fitness_func_wrapper(
         ).mean()
         qker_matrix_0 = qker_matrix[data_labels == 0]
         qker_matrix_0 = np.triu(qker_matrix_0[:, data_labels == 0], 1)
+        qker_array_0 = qker_matrix_0[np.triu_indices(qker_matrix_0.shape[0], 1)]
         qker_matrix_1 = qker_matrix[data_labels == 1]
         qker_matrix_1 = np.triu(qker_matrix_1[:, data_labels == 1], 1)
+        qker_array_1 = qker_matrix_1[np.triu_indices(qker_matrix_1.shape[0], 1)]
 
         qker_matrix_01 = qker_matrix[data_labels == 0]
         qker_matrix_01 = qker_matrix_01[:,data_labels == 1]
         fmap_transpiled_depth = transpile(fmap, coupling_map = coupling_map, basis_gates = basis_gates).depth()
-        # fitness_value = np.mean(qker_matrix_0[qker_matrix_0 > 0]) + np.mean(qker_matrix_1[qker_matrix_1 > 0]) - np.mean(qker_matrix_01)
-        sparsity_cost = (np.sum(qker_matrix_0) + np.sum(qker_matrix_1)) / (qker_matrix_0.shape[0]**2/2 - qker_matrix_0.shape[0] + qker_matrix_1.shape[0]**2/2 - qker_matrix_1.shape[0])
-        fitness_value = accuracy_cv_cost #+ -1e-5*fmap_transpiled_depth + 1e-3* sparsity_cost #1e-2*depth_cost + 1e-2*sparsity_cost + np.exp(1+accuracy_cv_cost)
-        # print("depth", fmap_transpiled_depth)
-        # print("sparsity", sparsity_cost)
-        # print("accuracy", accuracy_cv_cost)
-        with open("depth" + suffix + ".txt", "a") as file:
+
+        sparsity_cost = (np.mean(qker_array_0) + np.mean(qker_array_1))/2 - np.mean(qker_matrix_01)
+        fitness_value = accuracy_cv_cost + 1e-2*sparsity_cost
+        print("depth", fmap_transpiled_depth)
+        print("sparsity", sparsity_cost)
+        print("accuracy", accuracy_cv_cost)
+        print("fitness_value", fitness_value)
+        
+        save_path = "../../Output_genetic/" + suffix
+        Path(save_path).mkdir(exist_ok=True)
+        with open(save_path + '/genes' + suffix + ".csv", 'a') as genes_file:
+            writer = csv.writer(genes_file)
+            writer.writerow(solution)
+        with open(save_path + "/depth" + suffix + ".txt", "a") as file:
             file.write(str(fmap_transpiled_depth) + "\n")
-        with open("sparsity" + suffix + ".txt", "a") as file:
+        with open(save_path + "/sparsity" + suffix + ".txt", "a") as file:
             file.write(str(sparsity_cost) + "\n")
-        with open("accuracy" + suffix + ".txt", "a") as file:
+        with open(save_path + "/accuracy" + suffix + ".txt", "a") as file:
             file.write(str(accuracy_cv_cost) + "\n")
-        with open("fitness_values_iter_" + suffix + ".txt", "a") as file:
+        with open(save_path + "/fitness_values_iter_" + suffix + ".txt", "a") as file:
             file.write(str(fitness_value) + "\n")
-        print(fmap)
         return fitness_value
     return fitness_func
 
@@ -381,12 +396,11 @@ def callback_func_wrapper(suffix, start_time):
         end_time = time.time()
         print("Elapsed time: " + str(end_time - start_time) + "s")
         # print(ga_instance.best_solution())
-        with open(fitness_file_name + suffix + ".txt", 'a') as file:
-            np.savetxt(file, np.array(fitness_values))
-        # with open(best_kernels + suffix + ".txt", 'a') as file:
-        #     np.savetxt(file, np.array(ga_instance.best_solution()[0]))    
-        np.save(kernel_file_name+suffix, np.array(kenel_bitstrings))
-
+        # with open(fitness_file_name + suffix + ".txt", 'a') as file:
+        #     np.savetxt(file, np.array(fitness_values))
+        # # with open(best_kernels + suffix + ".txt", 'a') as file:
+        # #     np.savetxt(file, np.array(ga_instance.best_solution()[0]))    
+        # np.save(kernel_file_name+suffix, np.array(kenel_bitstrings))
     return callback_func
 
 def projected_quantum_kernel(fmap, dataset, gamma):

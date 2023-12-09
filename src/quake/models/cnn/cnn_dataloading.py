@@ -170,11 +170,18 @@ def get_data(file: Path, geo: Geometry, dsetup: dict) -> np.ndarray:
     XY_plane = np.expand_dims(tf.sparse.reduce_sum(matrix, axis=3), 3)
 
     if dsetup["should_crop_planes"]:
-        YZ_plane = roll_crop(np.copy(YZ_plane), geo.nb_ybins_reduced, geo.nb_zbins_reduced)
-        XZ_plane = roll_crop(np.copy(XZ_plane), geo.nb_xbins_reduced, geo.nb_zbins_reduced)
-        XY_plane = roll_crop(np.copy(XY_plane), geo.nb_xbins_reduced, geo.nb_ybins_reduced)
+        YZ_plane = roll_crop(
+            np.copy(YZ_plane), geo.nb_ybins_reduced, geo.nb_zbins_reduced
+        )
+        XZ_plane = roll_crop(
+            np.copy(XZ_plane), geo.nb_xbins_reduced, geo.nb_zbins_reduced
+        )
+        XY_plane = roll_crop(
+            np.copy(XY_plane), geo.nb_xbins_reduced, geo.nb_ybins_reduced
+        )
     # hist3d = matrix.toarray().reshape(shape)
     return [YZ_plane, XZ_plane, XY_plane]
+
 
 def get_n_evts(data_folder: Path, geo: Geometry) -> Tuple[int]:
     """Calculates the total number of events in all the files.
@@ -183,7 +190,7 @@ def get_n_evts(data_folder: Path, geo: Geometry) -> Tuple[int]:
     -----------
     data_folder: Path
         Directory name where '.npz' files are stored.
-    
+
     Returns:
     --------
     Tuple[int]
@@ -200,6 +207,7 @@ def get_n_evts(data_folder: Path, geo: Geometry) -> Tuple[int]:
             else:
                 n_evts_bkg = n_evts_bkg + n_evts_file
     return n_evts_sig, n_evts_bkg
+
 
 def roll_crop(
     plane: np.ndarray, first_crop_edge: int, second_crop_edge: int
@@ -288,14 +296,14 @@ def load_projections_and_labels(
         if file.suffix == ".npz":
             YZ_plane, XZ_plane, XY_plane = get_data(file, geo, dsetup)
             if is_signal:
-                data_sig_x[counter_sig:counter_sig+YZ_plane.shape[0]] = YZ_plane
-                data_sig_y[counter_sig:counter_sig+XZ_plane.shape[0]] = XZ_plane
-                data_sig_z[counter_sig:counter_sig+XY_plane.shape[0]] = XY_plane
+                data_sig_x[counter_sig : counter_sig + YZ_plane.shape[0]] = YZ_plane
+                data_sig_y[counter_sig : counter_sig + XZ_plane.shape[0]] = XZ_plane
+                data_sig_z[counter_sig : counter_sig + XY_plane.shape[0]] = XY_plane
                 counter_sig = counter_sig + YZ_plane.shape[0]
             else:
-                data_bkg_x[counter_bkg:counter_bkg+YZ_plane.shape[0]] = YZ_plane
-                data_bkg_y[counter_bkg:counter_bkg+XZ_plane.shape[0]] = XZ_plane
-                data_bkg_z[counter_bkg:counter_bkg+XY_plane.shape[0]] = XY_plane
+                data_bkg_x[counter_bkg : counter_bkg + YZ_plane.shape[0]] = YZ_plane
+                data_bkg_y[counter_bkg : counter_bkg + XZ_plane.shape[0]] = XZ_plane
+                data_bkg_z[counter_bkg : counter_bkg + XY_plane.shape[0]] = XY_plane
                 counter_bkg = counter_bkg + YZ_plane.shape[0]
 
     projections = [

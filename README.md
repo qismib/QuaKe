@@ -63,11 +63,6 @@ optional arguments:
 Models' parameter settings are stored in `yaml` files. The [cards](cards) folder
 contains some examples.
 
-## Pipeline (TODO)
-
-Implement a Makefile to run the entire pipeline given a runcard. A default
-subcommand with the entire pipeline can also be implemented.
-
 ### Data generation
 
 Extracts histograms from 3D simulated energy depositions.

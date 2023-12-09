@@ -1,15 +1,17 @@
 awkward
 numpy
 matplotlib
-networkx==2.8.8
-pygad
-qiskit[machine-learning]
+networkx>=2.8.8
+pygad==2.19.2
+qiskit==0.43.3
+qiskit_machine_learning==0.6.1
 scipy
 scikit-learn
 pydot
 pyyaml
 qutip
 uproot
+qiskit-aer
 
 [tf]
 tensorflow

@@ -34,7 +34,10 @@ def extract_feats(
     """
     with FeatureReturner(network) as fr:
         _, features = fr.predict(generator, verbose=1)
-    labels = generator.targets
+    if network.name == "Autoencoder":
+        labels = generator.classes
+    else:
+        labels = generator.targets
 
     # optional adding custom extra features
     if should_add_extra_feats:

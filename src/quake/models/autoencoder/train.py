@@ -2,6 +2,7 @@ import logging
 from typing import Tuple
 from time import time as tm
 from pathlib import Path
+import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as tfK
 from tensorflow.keras.optimizers import Adam, SGD, RMSprop, Adagrad
@@ -11,8 +12,8 @@ from tensorflow.keras.callbacks import (
     ReduceLROnPlateau,
     EarlyStopping,
 )
-from .attention_dataloading import read_data, Dataset
-from .attention_network import AttentionNetwork
+from ..autoencoder.autoencoder_dataloading import read_data, Dataset
+from .autoencoder_network import Autoencoder
 from ..AbstractNet import FeatureReturner
 from quake import PACKAGE
 from quake.utils.callbacks import DebuggingCallback
@@ -21,24 +22,25 @@ from quake.utils.diagnostics import (
     save_scatterplot_features_image,
 )
 
-logger = logging.getLogger(PACKAGE + ".attention")
+logger = logging.getLogger(PACKAGE + ".autoencoder")
 
 
 def load_and_compile_network(
-    msetup: dict, run_tf_eagerly: bool, **kwargs
-) -> AttentionNetwork:
-    """Loads and compiles attention network.
+    msetup: dict, run_tf_eagerly: bool, max_input_nb: int, **kwargs
+) -> Autoencoder:
+    """Loads and compiles autoencoder network.
 
     Parameters
     ----------
     msetup: dict
-        Attention model settings dictionary.
+        Autoencoder model settings dictionary.
     run_tf_eagerly: bool
         Wether to run tf eagerly, for debugging purposes.
-
+    max_input_nb: int
+        Max hit number in the dataset.
     Returns
     -------
-    network: AttentionNetwork
+    network: AutoencoderNetwork
         The compiled network.
     """
     lr = float(msetup["lr"])
@@ -52,12 +54,10 @@ def load_and_compile_network(
     elif msetup["optimizer"].lower() == "adagrad":
         opt = Adagrad(learning_rate=lr, **opt_kwarg)
 
-    network = AttentionNetwork(**msetup["net_dict"])
-    loss = tf.keras.losses.BinaryCrossentropy(name="xent")
+    network = Autoencoder(max_input_nb=max_input_nb, **msetup["net_dict"])
+    loss = tf.keras.losses.MeanSquaredError(name="MSE")
     metrics = [
-        tf.keras.metrics.BinaryAccuracy(name="acc"),
-        tf.keras.metrics.Precision(name="prec"),
-        tf.keras.metrics.Recall(name="rec"),
+        tf.keras.metrics.MeanSquaredError(name="MSE"),
     ]
 
     network.compile(
@@ -76,71 +76,71 @@ def load_and_compile_network(
 def train_network(
     msetup: dict,
     output: Path,
-    network: AttentionNetwork,
+    network: Autoencoder,
     generators: Tuple[Dataset, Dataset],
-) -> AttentionNetwork:
+) -> Autoencoder:
     """Trains the network.
 
     Parameters
     ----------
     msetup: dict
-        Attention model settings dictionary.
+        Autoencoder model settings dictionary.
     output: path
         The output folder.
-    network: AttentionNetwork
+    network: AutoencoderNetwork
         The network to be trained.
     generators: Tuple[Dataset, Dataset]
         The train and validation generators.
 
     Returns
     -------
-    network: AttentionNetwork
+    network: AutoencoderNetwork
         The trained network.
     """
     train_generator, val_generator = generators
 
     logdir = output / f"logs/{tm()}"
-    checkpoint_filepath = output.joinpath("attention.h5").as_posix()
+    checkpoint_filepath = output.joinpath("autoencoder.h5").as_posix()
     callbacks = [
         ModelCheckpoint(
             filepath=checkpoint_filepath,
             save_weights_only=True,
             save_best_only=True,
-            mode="max",
-            monitor="val_acc",
+            mode="min",
+            monitor="val_MSE",
             verbose=1,
         ),
         ReduceLROnPlateau(
-            monitor="val_acc",
+            monitor="val_MSE",
             factor=0.5,
-            mode="max",
+            mode="min",
             verbose=2,
+            min_delta=0.00005,
             patience=msetup["reducelr_patience"],
             min_lr=float(
                 msetup["min_lr"],
             ),
         ),
-        TensorBoard(
-            log_dir=logdir,
-            # write_graph=True,
-            # write_images=True,
-            # update_freq='batch',
-            # histogram_freq=5,
-            # profile_batch=5,
-        ),
-        DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
+        # TensorBoard(
+        #     log_dir=logdir,
+        #     # write_graph=True,
+        #     # write_images=True,
+        #     # update_freq='batch',
+        #     # histogram_freq=5,
+        #     # profile_batch=5,
+        # ),
+        # DebuggingCallback(logdir=logdir / "validation", validation_data=val_generator),
     ]
     if msetup["es_patience"]:
         callbacks.append(
             EarlyStopping(
-                monitor="val_acc",
-                min_delta=0.0001,
-                mode="max",
+                monitor="val_MSE",
+                min_delta=0.000001,
+                mode="min",
                 patience=msetup["es_patience"],
                 restore_best_weights=True,
             )
         )
-
     logger.info(f"Train for {msetup['epochs']} epochs ...")
     network.fit(
         train_generator,
@@ -156,7 +156,7 @@ def train_network(
 
 def make_inference_plots(
     train_folder: Path,
-    network: AttentionNetwork,
+    network: Autoencoder,
     test_generator: tf.keras.utils.Sequence,
 ):
     """Plots accuracy plots.
@@ -165,7 +165,7 @@ def make_inference_plots(
     ----------
     train_folder: Path
         The train output folder path.
-    network: AttentionNetwork
+    network: AutoencoderNetwork
         The trained network.
     test_generator: tf.keras.utils.Sequence
         Test generator
@@ -181,8 +181,8 @@ def make_inference_plots(
     save_histogram_activations_image(fname, y_pred, y_true)
 
 
-def attention_train(data_folder: Path, train_folder: Path, setup: dict):
-    """Attention Network training.
+def autoencoder_train(data_folder: Path, train_folder: Path, setup: dict):
+    """Autoencoder Network training.
 
     Parameters
     ----------
@@ -198,25 +198,31 @@ def attention_train(data_folder: Path, train_folder: Path, setup: dict):
     train_generator, val_generator, test_generator = read_data(
         data_folder, train_folder, setup
     )
-
     # model loading
     tfK.clear_session()
-    msetup = setup["model"]["attention"]
-    network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
+    msetup = setup["model"]["autoencoder"]
+    max_input_nb = np.max(
+        [
+            train_generator.fixed_length_inputs.shape[1],
+            val_generator.fixed_length_inputs.shape[1],
+            test_generator.fixed_length_inputs.shape[1],
+        ]
+    )
+
+    network = load_and_compile_network(msetup, setup["run_tf_eagerly"], max_input_nb)
     network.summary()
     tf.keras.utils.plot_model(
         network.model(),
-        to_file=train_folder / "attention_network.png",
+        to_file=train_folder / "autoencoder.png",
         expand_nested=True,
         show_shapes=True,
     )
     # exit()
     # training
+
     train_network(msetup, train_folder, network, (train_generator, val_generator))
 
     # inference
-    msetup.update({"ckpt": train_folder.parent / f"attention/attention.h5"})
-    network = load_and_compile_network(msetup, setup["run_tf_eagerly"])
+    msetup.update({"ckpt": train_folder.parent / f"autoencoder/autoencoder.h5"})
+    network = load_and_compile_network(msetup, setup["run_tf_eagerly"], max_input_nb)
     network.evaluate(test_generator)
-
-    make_inference_plots(train_folder, network, test_generator)

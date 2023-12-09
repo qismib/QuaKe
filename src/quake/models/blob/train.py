@@ -1,5 +1,6 @@
 """ This module provides functions for Blob method classiication."""
 import logging
+import pickle
 from typing import Tuple
 from time import time as tm
 from pathlib import Path
@@ -66,6 +67,10 @@ def blob_train(data_folder: Path, train_folder: Path, setup: dict):
     inference_model = setup["model"]["blob"]["inference_model"]
 
     model = train_blobs(train_features, train_labels, inference_model)
+
+    with open(train_folder / Path("blob.pkl"), "wb") as file:
+        pickle.dump(model, file)
+
     logger.info(
         f"Accuracy on trainig set is: {model.score(train_features, train_labels)}"
     )

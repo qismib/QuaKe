@@ -42,16 +42,22 @@ From the QuaKe directory:
     python examples/svm_vs_qsvm.py
     ```
 
-## Genetic generative featuremaps
+## Genetic featuremaps
 
 The following command launches a quantum featuremap optimization through a genetic optimization, and save results on an external folder.
 
-Default folder name: `../genetic_featuremap`.
+Default folder name: `../Output_genetic`.
 
 From the QuaKe directory:
 
     ```bash
-    python examples/genetic_featuremap.py
+    python examples/genetic_featuremap_v3.py
+    ```
+`genetic_featuremap_v3` loads feature extracted with an autoencoder.
+- Autoencoder training
+
+    ```bash
+    quake train -o ../output/tmp -m autoencoder
     ```
 
 ## Classification accuracy of Convolutional and Attention NN

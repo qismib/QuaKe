@@ -27,7 +27,7 @@ def add_arguments_train(parser: ArgumentParser):
     parser: ArgumentParser
         Train subparser object.
     """
-    valid_models = ["qsvm", "svm", "cnn", "attention", "blob"]
+    valid_models = ["qsvm", "svm", "cnn", "attention", "blob", "autoencoder"]
     parser.add_argument("--output", "-o", type=Path, help="the output folder")
     parser.add_argument(
         "--model", "-m", type=str, help="the model to train", choices=valid_models
@@ -140,6 +140,7 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     from .svm.train import svm_train
     from .qsvm.train import qsvm_train
     from .blob.train import blob_train
+    from .autoencoder.train import autoencoder_train
 
     if modeltype == "svm":
         logger.info("Training Support Vector Machine")
@@ -156,5 +157,8 @@ def train_main(data_folder: Path, train_folder: Path, modeltype: str, setup: dic
     elif modeltype == "blob":
         logger.info("Classifying with Blob-method")
         blob_train(data_folder, train_folder, setup)
+    elif modeltype == "autoencoder":
+        logger.info("Training an Autoencoder for feature extraction")
+        autoencoder_train(data_folder, train_folder, setup)
     else:
         raise NotImplementedError(f"model not implemented, found: {modeltype}")

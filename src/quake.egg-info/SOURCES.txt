@@ -22,6 +22,11 @@ src/quake/models/attention/attention_dataloading.py
 src/quake/models/attention/attention_network.py
 src/quake/models/attention/layers.py
 src/quake/models/attention/train.py
+src/quake/models/autoencoder/__init__.py
+src/quake/models/autoencoder/autoencoder_dataloading.py
+src/quake/models/autoencoder/autoencoder_network.py
+src/quake/models/autoencoder/layers.py
+src/quake/models/autoencoder/train.py
 src/quake/models/cnn/__init__.py
 src/quake/models/cnn/cnn_dataloading.py
 src/quake/models/cnn/cnn_network.py

@@ -1,10 +1,11 @@
 """ This model executes an automatized quantum featuremap optimization via genetic algorithm"""
+# NOTE: genetic_v2 module is outdated. Please refer to genetic_featuremap_v3.py for a script that uses genetic_v3.
 
 from pathlib import Path
 
 from quake.utils.utils import load_runcard
 from quake.models.qsvm.qsvm_tester import get_features
-from quake.models.qsvm import genetic_extended as genetic
+from quake.models.qsvm import genetic_v2 as genetic
 
 input_folder = Path("../../output/tmp/")
 input_folder = Path("../../output/")

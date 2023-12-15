@@ -115,7 +115,7 @@ def train_network(
             factor=0.5,
             mode="min",
             verbose=2,
-            min_delta=0.00005,
+            min_delta=0.0001,
             patience=msetup["reducelr_patience"],
             min_lr=float(
                 msetup["min_lr"],
@@ -135,7 +135,7 @@ def train_network(
         callbacks.append(
             EarlyStopping(
                 monitor="val_MSE",
-                min_delta=0.000001,
+                min_delta=0.00001,
                 mode="min",
                 patience=msetup["es_patience"],
                 restore_best_weights=True,

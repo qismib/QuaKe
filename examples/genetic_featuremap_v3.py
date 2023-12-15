@@ -24,7 +24,7 @@ setup["run_tf_eagerly"] = True
 setup["seed"] = 42
 
 dataset, labels = get_features(data_folder.parent, "autoencoder", setup)
-
+import pdb; pdb.set_trace()
 # Outlier removal and scaling
 dataset_means = np.mean(dataset[0], axis = 0)
 dataset_stds = np.std(dataset[0], axis = 0)

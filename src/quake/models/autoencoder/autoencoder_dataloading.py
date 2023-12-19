@@ -439,10 +439,18 @@ def normalize_dataset(dataset: Dataset, means: list[np.double], stds: list[np.do
     """
 
     for i in range(0, dataset.inputs.shape[1], 4):
-        dataset.inputs[dataset.inputs[:, i+3] > 0, i] = (dataset.inputs[dataset.inputs[:, i+3] > 0, i] - 1.0 * means[0]) / stds[0]
-        dataset.inputs[dataset.inputs[:, i+3] > 0, i + 1] = (dataset.inputs[dataset.inputs[:, i+3] > 0, i + 1] - 1.0 * means[1]) / stds[1]
-        dataset.inputs[dataset.inputs[:, i+3] > 0, i + 2] = (dataset.inputs[dataset.inputs[:, i+3] > 0, i + 2] - 1.0 * means[2]) / stds[2]
-        dataset.inputs[dataset.inputs[:, i+3] > 0, i + 3] = (dataset.inputs[dataset.inputs[:, i+3] > 0, i + 3] - 1.0 * means[3]) / stds[3]
+        dataset.inputs[dataset.inputs[:, i + 3] > 0, i] = (
+            dataset.inputs[dataset.inputs[:, i + 3] > 0, i] - 1.0 * means[0]
+        ) / stds[0]
+        dataset.inputs[dataset.inputs[:, i + 3] > 0, i + 1] = (
+            dataset.inputs[dataset.inputs[:, i + 3] > 0, i + 1] - 1.0 * means[1]
+        ) / stds[1]
+        dataset.inputs[dataset.inputs[:, i + 3] > 0, i + 2] = (
+            dataset.inputs[dataset.inputs[:, i + 3] > 0, i + 2] - 1.0 * means[2]
+        ) / stds[2]
+        dataset.inputs[dataset.inputs[:, i + 3] > 0, i + 3] = (
+            dataset.inputs[dataset.inputs[:, i + 3] > 0, i + 3] - 1.0 * means[3]
+        ) / stds[3]
 
     # nb_features = len(means)
     # for i in range(dataset.inputs.shape[0]):

@@ -1,5 +1,5 @@
 """ This module contains the functions for generating a genetic-optimized quantum featuremap."""
-# NOTE: This version is outdated. Please refer to genetic_v3 
+# NOTE: This version is outdated. Please refer to genetic_v3
 
 import logging
 

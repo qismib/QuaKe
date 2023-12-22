@@ -501,7 +501,8 @@ def fitness_func_wrapper(
         sparsity_cost = (np.mean(qker_array_0) + np.mean(qker_array_1)) / 2 - np.mean(
             qker_matrix_01
         )
-        sparsity_overall = np.mean(np.triu(qker_matrix, 1))
+        offdiagonal_mean = np.mean(np.triu(qker_matrix, 1))
+        offdiagonal_std = np.std(np.triu(qker_matrix, 1))
         fitness_value = accuracy_cv_cost  # + 0.5*sparsity_cost
         print("depth", fmap_transpiled_depth)
         print("sparsity", sparsity_cost)
@@ -512,9 +513,14 @@ def fitness_func_wrapper(
         Path(save_path).mkdir(exist_ok=True)
         with open(
             save_path + "/genes" + suffix + ".csv", "a", encoding="UTF-8"
-        ) as genes_file:
-            writer = csv.writer(genes_file)
+        ) as file:
+            writer = csv.writer(file)
             writer.writerow(solution)
+        with open(
+            save_path + "/kernels_flattened" + suffix + ".csv", "a", encoding="UTF-8"
+        ) as file:
+            writer = csv.writer(file)
+            writer.writerow(qker_matrix.reshape(-1))
         with open(
             save_path + "/depth" + suffix + ".txt", "a", encoding="UTF-8"
         ) as file:
@@ -532,9 +538,13 @@ def fitness_func_wrapper(
         ) as file:
             file.write(str(fitness_value) + "\n")
         with open(
-            save_path + "/spartisy_overall_" + suffix + ".txt", "a", encoding="UTF-8"
+            save_path + "/offdiagonal_mean_" + suffix + ".txt", "a", encoding="UTF-8"
         ) as file:
-            file.write(str(sparsity_overall) + "\n")
+            file.write(str(offdiagonal_mean) + "\n")
+        with open(
+            save_path + "/offdiagonal_std_" + suffix + ".txt", "a", encoding="UTF-8"
+        ) as file:
+            file.write(str(offdiagonal_std) + "\n")
         return fitness_value
 
     return fitness_func
@@ -584,8 +594,8 @@ def projected_quantum_kernel(
     as described here: https://www.nature.com/articles/s41467-021-22539-9.
     and further documented here: https://www.researchsquare.com/article/rs-2296310/v1.
 
-    This function is roughly 200 times slower than the standard kernel evaluation in qiskit, and
-    arguably has large margin of improvement.
+    This function is roughly 10 times slower than the standard kernel evaluation in qiskit.
+    There might be margin for improvement.
 
     Parameters
     ----------

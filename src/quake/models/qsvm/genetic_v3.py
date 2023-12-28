@@ -4,7 +4,7 @@ This module uses integer encoding instead of binary encoding and allows for more
 import csv
 import time
 from pathlib import Path
-from typing import Tuple, Callable
+from typing import Tuple, Callable, Union
 import pygad
 import numpy as np
 
@@ -336,6 +336,7 @@ def genetic_instance(
     suffix: str,
     coupling_map: list[list[int]],
     basis_gates: list[str],
+    fit_fun: Callable[[float, float, int], float],
     **kwargs: dict,
 ) -> pygad.GA:
     """Wrapper that returns a genetic instance and initialise time.
@@ -367,6 +368,8 @@ def genetic_instance(
         Backend coupling map.
     basis_gates: list[str]
         List of native gates for the backend.
+    fit_fun: Callable[[float, float, int], float]
+        Function of the QSVM metrics to return.
     **kwargs: dict
         Other options for the genetic algorithm.
 
@@ -378,17 +381,19 @@ def genetic_instance(
     start_time = time.time()
     ga_instance = pygad.GA(
         fitness_func=fitness_func_wrapper(
-            data_cv,
-            data_labels,
-            backend,
-            gate_dict,
-            nb_features,
-            gates_per_qubits,
-            nb_qubits,
-            projected,
-            coupling_map,
-            basis_gates,
-            suffix,
+            data_cv=data_cv,
+            data_labels = data_labels,
+            backend = backend,
+            gate_dict = gate_dict,
+            nb_features = nb_features,
+            gates_per_qubits = gates_per_qubits,
+            nb_qubits = nb_qubits,
+            projected = projected,
+            coupling_map = coupling_map,
+            basis_gates = basis_gates,
+            suffix = suffix,
+            fit_fun = fit_fun
+
         ),
         gene_space=gene_space,
         # parallel_processing = ['thread', 10], # Can be set to have parallelization speedup.
@@ -402,18 +407,19 @@ def genetic_instance(
 
 
 def fitness_func_wrapper(
-    data_cv,
-    data_labels,
-    backend,
-    gate_dict,
-    nb_features,
-    gates_per_qubits,
-    nb_qubits,
-    projected,
-    coupling_map,
-    basis_gates,
-    suffix,
-) -> Callable[[np.ndarray, int], np.float64]:
+    data_cv: np.ndarray,
+    data_labels: np.ndarray,
+    backend: StatevectorSimulator,
+    gate_dict: dict,
+    nb_features: int,
+    gates_per_qubits: int,
+    nb_qubits: int,
+    projected: bool,
+    coupling_map: list[list[str]],
+    basis_gates: list[str],
+    suffix: str,
+    fit_fun: Callable[[float, float, int], float],
+) -> Callable[[pygad.GA, np.ndarray, int], np.float64]:
     """Wrapper that returns a fitness function in a form that pygad.GA instance accepts.
 
     Parameters
@@ -441,18 +447,22 @@ def fitness_func_wrapper(
         List of native gates for the backend.
     suffix: str
         Directory and file suffix for saving.
+    fit_fun: Callable[[float, float, int], float]
+        Function of the QSVM metrics to return.
 
     Returns:
     ----------
-    fitness_func:
+    fitness_func: Callable[[pygad.GA, np.ndarray, int], np.float64]
         Fitness function that outputs a scalar given the gene sequence that describes a chromosome.
     """
 
-    def fitness_func(solution: np.ndarray, solution_idx: int) -> np.float64:
+    def fitness_func(ga_instance: pygad.GA, solution: np.ndarray, solution_idx: int) -> Union[np.float64, list[np.float64]]:
         """Computing the fitness function value for a chromosome and saving useful metrics.
 
         Parameters
         ----------
+        ga_instance: pygad.GA
+            Initialised Genetic algorithm instance.
         solution: np.ndarray
             Gene sequence describing a chromosome.
         solution_idx: np.ndarray
@@ -460,7 +470,7 @@ def fitness_func_wrapper(
 
         Returns:
         ----------
-        fitness_value: np.float64
+        fitness_value: Union[np.float64, list[np.float64]]
             Fitness value for a chromosome.
         """
         fmap, x_idxs = to_quantum(
@@ -503,13 +513,14 @@ def fitness_func_wrapper(
         )
         offdiagonal_mean = np.mean(np.triu(qker_matrix, 1))
         offdiagonal_std = np.std(np.triu(qker_matrix, 1))
-        fitness_value = accuracy_cv_cost  # + 0.5*sparsity_cost
+        fitness_value = fit_fun(accuracy_cv_cost, sparsity_cost, fmap_transpiled_depth)
         print("depth", fmap_transpiled_depth)
         print("sparsity", sparsity_cost)
         print("accuracy", accuracy_cv_cost)
         print("fitness_value", fitness_value)
 
         save_path = "../../Output_genetic/" + suffix
+        Path("../../Output_genetic").mkdir(exist_ok = True)
         Path(save_path).mkdir(exist_ok=True)
         with open(
             save_path + "/genes" + suffix + ".csv", "a", encoding="UTF-8"
@@ -534,9 +545,10 @@ def fitness_func_wrapper(
         ) as file:
             file.write(str(accuracy_cv_cost) + "\n")
         with open(
-            save_path + "/fitness_values_iter_" + suffix + ".txt", "a", encoding="UTF-8"
+            save_path + "/fitness_values_iter_" + suffix + ".csv", "a", encoding="UTF-8"
         ) as file:
-            file.write(str(fitness_value) + "\n")
+            writer = csv.writer(file)
+            writer.writerow(fitness_value) if hasattr(fitness_value, "len") > 1 else writer.writerow([fitness_value])
         with open(
             save_path + "/offdiagonal_mean_" + suffix + ".txt", "a", encoding="UTF-8"
         ) as file:
@@ -576,11 +588,9 @@ def callback_func_wrapper(start_time) -> Callable[[pygad.GA], None]:
         ----------
         None
         """
-        fitness_values = ga_instance.last_generation_fitness
+        fitness_values = ga_instance.last_generation_fitness.max()
         print("Generation:", ga_instance.generations_completed)
-        print("Best fitness: " + str(np.max(fitness_values)))
-        print("Avg. fitness: " + str(np.mean(fitness_values)))
-        print("Std. fitness: " + str(np.std(fitness_values)))
+        print(f"Best fitness: {fitness_values}")
         end_time = time.time()
         print("Elapsed time: " + str(end_time - start_time) + "s")
 

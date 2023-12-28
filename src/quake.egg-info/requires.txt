@@ -2,7 +2,7 @@ awkward
 numpy
 matplotlib
 networkx>=2.8.8
-pygad==2.19.2
+pygad
 qiskit==0.43.3
 qiskit_machine_learning==0.6.1
 scipy

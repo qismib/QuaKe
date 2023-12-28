@@ -3,7 +3,7 @@
 QuaKe: quantum kernel classifier for neutrino physics applications
 
 ## Installation
-:warning: **Note: we strongly recommend the use of a virtual environment**
+:warning: **Note: the use of a virtual environment with Python 3.9 is strongly recommended.**
 
 The package can be installed with Python's `pip` package manager.
 

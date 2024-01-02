@@ -25,7 +25,7 @@ setup["seed"] = 42
 dataset, labels = get_features(data_folder.parent, "autoencoder", setup)
 scaler = MinMaxScaler((0, 1)).fit(dataset[0])
 
-data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 500, scaler=scaler)
+data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 1000, scaler=scaler)
 nb_features = data_cv.shape[1]
 
 ###########################################
@@ -34,7 +34,7 @@ nb_features = data_cv.shape[1]
 
 NB_QUBITS = 6
 GATES_PER_QUBITS = 5
-NB_INIT_INDIVIDUALS = 10
+NB_INIT_INDIVIDUALS = 30
 gate_dict = OrderedDict(
     [
         ("single_non_parametric", ["I", "H", "X", "SX"]),
@@ -77,7 +77,7 @@ def fitness_function(accuracy: float, density: float, depth: int) -> Union[np.fl
 # Defining inputs for the genetic instance
 options = {
     "num_generations": 50,
-    "num_parents_mating": 2,
+    "num_parents_mating": 15,
     "initial_population": generation_zero,
     "parent_selection_type": "rank",
     "mutation_by_replacement": True,
@@ -87,7 +87,7 @@ options = {
     "crossover_probability": 0.2,
     "crossover_type": "two_points",
     "allow_duplicate_genes": True,
-    "keep_elitism": 2,
+    "keep_elitism": 4,
     "fit_fun": fitness_function,
 }
 

@@ -50,9 +50,10 @@ def get_subsample(
     subs_labels: np.ndarray
         Subsample truth labels.
     """
-    max_accepted_value = scaler.feature_range[1]
+    
+    min_accepted_value, max_accepted_value = scaler.feature_range
     dataset = scaler.transform(dataset)
-    is_outlier = np.sum(dataset > max_accepted_value, axis=1)
+    is_outlier = np.sum(np.logical_or(dataset >= max_accepted_value, dataset <= min_accepted_value), axis=1)
     dataset = dataset[is_outlier == 0]
     labels = labels[is_outlier == 0]
     subs_dataset, subs_labels = train_test_split(
@@ -527,11 +528,11 @@ def fitness_func_wrapper(
         ) as file:
             writer = csv.writer(file)
             writer.writerow(solution)
-        with open(
-            save_path + "/kernels_flattened" + suffix + ".csv", "a", encoding="UTF-8"
-        ) as file:
-            writer = csv.writer(file)
-            writer.writerow(qker_matrix.reshape(-1))
+        # with open(
+        #     save_path + "/kernels_flattened" + suffix + ".csv", "a", encoding="UTF-8"
+        # ) as file:
+        #     writer = csv.writer(file)
+        #     writer.writerow(qker_matrix.reshape(-1))
         with open(
             save_path + "/depth" + suffix + ".txt", "a", encoding="UTF-8"
         ) as file:

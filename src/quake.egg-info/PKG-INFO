@@ -16,9 +16,9 @@ Requires-Dist: awkward
 Requires-Dist: numpy
 Requires-Dist: matplotlib
 Requires-Dist: networkx>=2.8.8
-Requires-Dist: pygad
-Requires-Dist: qiskit==0.43.3
-Requires-Dist: qiskit_machine_learning==0.6.1
+Requires-Dist: pygad>=3.2.0
+Requires-Dist: qiskit
+Requires-Dist: qiskit_machine_learning
 Requires-Dist: scipy
 Requires-Dist: scikit-learn
 Requires-Dist: pydot
@@ -40,7 +40,7 @@ Requires-Dist: tensorflow-rocm; extra == "tf-amd"
 QuaKe: quantum kernel classifier for neutrino physics applications
 
 ## Installation
-:warning: **Note: we strongly recommend the use of a virtual environment**
+:warning: **Note: the use of a virtual environment with Python 3.9 is strongly recommended.**
 
 The package can be installed with Python's `pip` package manager.
 

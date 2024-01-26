@@ -39,6 +39,7 @@ src/quake/models/qsvm/__init__.py
 src/quake/models/qsvm/genetic_v1.py
 src/quake/models/qsvm/genetic_v2.py
 src/quake/models/qsvm/genetic_v3.py
+src/quake/models/qsvm/genetic_v4.py
 src/quake/models/qsvm/qsvm_tester.py
 src/quake/models/qsvm/quantum_featuremaps.py
 src/quake/models/qsvm/train.py

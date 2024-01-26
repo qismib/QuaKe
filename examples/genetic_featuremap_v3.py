@@ -25,7 +25,7 @@ setup["seed"] = 42
 dataset, labels = get_features(data_folder.parent, "autoencoder", setup)
 scaler = MinMaxScaler((0, 1)).fit(dataset[0])
 
-data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 1000, scaler=scaler)
+data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 50, scaler=scaler)
 nb_features = data_cv.shape[1]
 
 ###########################################

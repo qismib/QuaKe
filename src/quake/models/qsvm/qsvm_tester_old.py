@@ -1,6 +1,5 @@
 """
     This module implements a class for comparing classical and quantum Support Vector Machines (SVMs) by realizing training runs, returning the classification scores and several visualizations.
-    IMPORTANT! #NOTE: This module is obsolete and was originally intended to work with qiskit_machine_lerning==0.6.1. A few changes were made to comply with qiskit_machine_learning==0.7.1, but it has never been fully tested.
 """
 import logging
 from pathlib import Path
@@ -29,7 +28,7 @@ from quake.dataset.generate_utils import Geometry
 import matplotlib.pyplot as plt
 from qiskit.quantum_info import Statevector
 import qutip
-from qiskit_machine_learning.kernels import FidelityStatevectorKernel, TrainableFidelityQuantumKernel
+from qiskit_machine_learning.kernels import QuantumKernel
 import time
 from qiskit.circuit.parametervector import ParameterVector
 
@@ -234,13 +233,13 @@ def get_subsample(
 
 
 def align_kernel(
-    kernel: FidelityStatevectorKernel, dataset: np.ndarray, labels: np.ndarray, c: float
-) -> Tuple[FidelityStatevectorKernel, list[QuantumKernelTrainer]]:
+    kernel: QuantumKernel, dataset: np.ndarray, labels: np.ndarray, c: float
+) -> Tuple[QuantumKernel, list[QuantumKernelTrainer]]:
     """Performing kernel alignment with Statevector backend. It maximizes the accuracy on a validation set.
 
     Parameters
     ----------
-    kernel: FidelityStatevectorKernel
+    kernel: QuantumKernel
         The parametric circuit for encoding.
     dataset: np.ndarray
         The features distribution.
@@ -251,7 +250,7 @@ def align_kernel(
 
     Returns
     -------
-    aligned_kernel: FidelityStatevectorKernel
+    aligned_kernel: QuantumKernel
         The aligned parametric circuit for encoding
     opt_data: QuantumKernelTrainer
         Results of the SPSA optimization
@@ -282,7 +281,7 @@ def align_kernel(
 
 def plot_bloch(
     x: ParameterVector,
-    quantum_kernel: FidelityStatevectorKernel,
+    quantum_kernel: QuantumKernel,
     train_set: np.ndarray,
     color_labels: np.ndarray,
     path: Path,
@@ -294,7 +293,7 @@ def plot_bloch(
     ----------
     x: ParameterVector
         The free parameters of the circuit.
-    quantum_kernel: FidelityStatevectorKernel
+    quantum_kernel: QuantumKernel
         The encoding parametric circuit.
     train_set: np.ndarray
         Points to encode in the quantum state.
@@ -381,7 +380,7 @@ accuracy = lambda label, y: np.sum(label == y) / label.shape[0]
 
 def make_kernels(
     maps: list[QuantumCircuit], backend: Union[Aer.get_backend, QuantumInstance]
-) -> list[FidelityStatevectorKernel]:
+) -> list[QuantumKernel]:
     """Returning quantum kernels from quantum featuremaps.
 
     Parameters
@@ -402,14 +401,14 @@ def make_kernels(
         if len(fmap.parameters) > len(fmap.qubits):
             theta = fmap.parameters[len(fmap.qubits) :]
             kernels.append(
-                TrainableFidelityQuantumKernel(
+                QuantumKernel(
                     feature_map=fmap,
-                    training_parameters=theta,
+                    user_parameters=theta,
                     quantum_instance=backend,
                 )
             )
         else:
-            kernels.append(FidelityStatevectorKernel(feature_map=fmap))
+            kernels.append(QuantumKernel(feature_map=fmap, quantum_instance=backend))
     return kernels
 
 
@@ -627,7 +626,7 @@ def train_quantum(
     training_labels: np.ndarray,
     val_dataset: np.ndarray,
     test_dataset: np.ndarray,
-    quantum_kernels: list[FidelityStatevectorKernel],
+    quantum_kernels: list[QuantumKernel],
     cs: list[float],
 ) -> tuple(
     [
@@ -650,7 +649,7 @@ def train_quantum(
         Dataset for validation.
     test_dataset: np.ndarray
         Dataset for test.
-    quantum_kernels: list[FidelityStatevectorKernel]
+    quantum_kernels: list[QuantumKernel]
         Quantum kernels of the QSVMs.
     cs: list[float]:
         Cost hyperparameters.
@@ -702,7 +701,7 @@ class SvmsComparison:
         self,
         x: ParameterVector = None,
         quantum_featuremaps: list[QuantumCircuit] = [],
-        quantum_kernels: list[FidelityStatevectorKernel] = [],
+        quantum_kernels: list[QuantumKernel] = [],
         cs: list[float] = None,
         backend: Union[Aer.get_backend, QuantumInstance] = Aer.get_backend(
             "statevector_simulator"
@@ -721,7 +720,7 @@ class SvmsComparison:
             The free parameters of the circuit.
         quantum_featuremaps: list[QuantumCircuit]
             The quantum featuremaps.
-        quantum_kernels: list[FidelityStatevectorKernel]
+        quantum_kernels: list[QuantumKernel]
             The quantum kernels.
         cs: list[float]
             Penalty hyperparameters for the SVM algorithm.

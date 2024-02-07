@@ -1,7 +1,7 @@
 """ This module contains functions for generating a genetic-optimized quantum featuremap, enabling parallel executions on real IBM quantum hardware.
 The idea is partitioning a large QPU into different smaller computational units and run QSVMs simultaneously."""
 
-from qiskit_ibm_runtime import QiskitRuntimeService, Session
+from qiskit_ibm_runtime import QiskitRuntimeService, Session, Batch
 import csv
 import time
 from pathlib import Path
@@ -10,6 +10,7 @@ import pygad
 import numpy as np
 import pandas as pd
 from random import shuffle
+from qiskit.providers.ibmq.managed import IBMQJobManager
 
 from qiskit.circuit import ParameterVector, QuantumCircuit
 from qiskit.quantum_info import partial_trace, DensityMatrix
@@ -721,6 +722,7 @@ def compute_parallel_kernel_save_data(
     max_circuit_per_job = 300 # depends on the backend
     counter = 0
 
+    coupling_map_model = [[0,1], [1,2], [2,3]]
     nb_cbits = nb_qubits*len(quantum_circuit_list)
     cbits = [item for item in range(0, nb_cbits)]
     shuffle_index = list(range(len(quantum_circuit_list)))
@@ -733,22 +735,28 @@ def compute_parallel_kernel_save_data(
                 # bind correctly without specifying "x"
                 bound_circuit = quantum_circuit_list[rand_idx].assign_parameters(data_cv[i, x_idxss[rand_idx]]).compose(
                     quantum_circuit_list[rand_idx].assign_parameters(data_cv[j, x_idxss[rand_idx]]).inverse())
+                bound_circuit = transpile(bound_circuit, basis_gates=basis_gates, coupling_map= coupling_map_model)
                 combined_circuit.compose(bound_circuit, qubits=[
                                          qsvm_connections[k][l] for l in range(nb_qubits)], inplace=True)
             combined_circuit.measure(flattened_qsvm_connections, cbits)
             
             if counter % max_circuit_per_job == 0:
                 combined_circuit_batch = []
-            combined_circuit_batch.append(
-                transpile(combined_circuit, basis_gates=basis_gates))
+            combined_circuit_batch.append(combined_circuit)
+            # combined_circuit_batch.append(
+            #     transpile(combined_circuit, basis_gates=basis_gates))
             if counter % max_circuit_per_job == max_circuit_per_job - 1 or counter == (nb_samples**2 - nb_samples)/2 - 1:            
                 combined_circuits.append(combined_circuit_batch)
             counter += 1
     # service = QiskitRuntimeService()
-    print("Running job")
     job_results = []
+    print("Running job")
+    with Session(backend=backend): #, service=service):
+        job_executions = [backend.run(combined_circuits[i], shots=4000) for i in range(counter // max_circuit_per_job + 1)]
+
     for i in range(counter // max_circuit_per_job + 1):
-        job_results.append(backend.run(combined_circuits[i], shots=4000).result())        
+        job_executions[i].wait_for_final_state()
+        job_results.append(job_executions[i].results())
 
     counter = 0
     for i in range(nb_samples):

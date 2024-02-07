@@ -65,7 +65,7 @@ setup["seed"] = 42
 dataset, labels = get_features(data_folder.parent, "autoencoder", setup)
 scaler = MinMaxScaler((0, 1)).fit(dataset[0])
 
-data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 100, scaler=scaler)
+data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 26, scaler=scaler)
 nb_features = data_cv.shape[1]
 
 ###########################################
@@ -79,10 +79,15 @@ GATES_PER_QUBITS = 3
 NB_INIT_INDIVIDUALS = len(qsvm_connections)
 gate_dict = OrderedDict(
     [
-        ("single_non_parametric", ["I", "H", "X", "SX"]),
-        ("single_parametric", ["RX", "RY", "RZ"]),
-        ("two_non_parametric", ["CX"]),
-        ("two_parametric", ["CRX", "CRY", "CRZ"]),
+        ("single_non_parametric", ["I", "X", "SX"]),
+        ("single_parametric", ["RZ"]),
+        ("two_non_parametric", ["ECR"]),
+        ("two_parametric", []),
+        
+        # ("single_non_parametric", ["I", "H", "X", "SX"]),
+        # ("single_parametric", ["RX", "RY", "RZ"]),
+        # ("two_non_parametric", ["CX"]),
+        # ("two_parametric", ["CRX", "CRY", "CRZ"]),
     ]
 )
 coupling_map = None  # [[0,1], [1,2], [2,3], [3,4], [4,5], [5,6], [6,7]]
@@ -118,61 +123,60 @@ def fitness_function(accuracy: float, density: float, depth: int) -> Union[np.fl
 save_path = "../../Output_genetic/" + timestr
 Path(save_path).mkdir(exist_ok=True)
 
-with Session(backend=backend):
-    genetic.gen0_qpu_run(
-        data_cv,
-        data_labels,
-        backend,
-        gate_dict,
-        nb_features,
-        GATES_PER_QUBITS,
-        NB_QUBITS,
-        False,
-        coupling_map,
-        basis_gates,
-        timestr,
-        fitness_function,
-        init_solutions=generation_zero,
-        qsvm_connections = qsvm_connections
-    )
+genetic.gen0_qpu_run(
+    data_cv,
+    data_labels,
+    backend,
+    gate_dict,
+    nb_features,
+    GATES_PER_QUBITS,
+    NB_QUBITS,
+    False,
+    coupling_map,
+    basis_gates,
+    timestr,
+    fitness_function,
+    init_solutions=generation_zero,
+    qsvm_connections = qsvm_connections
+)
 
-    # Defining inputs for the genetic instance
-    options = {
-        "num_generations": 10,
-        "num_parents_mating": 3,
-        "initial_population": generation_zero,
-        "parent_selection_type": "rank",
-        "mutation_by_replacement": True,
-        "stop_criteria": "saturate_100",
-        "mutation_type": "random",
-        "mutation_percent_genes": 10,
-        "crossover_probability": 0.2,
-        "crossover_type": "two_points",
-        "allow_duplicate_genes": True,
-        "keep_elitism": 1,
-        "fit_fun": fitness_function,
-        "qsvm_connections": qsvm_connections
-    }
+# Defining inputs for the genetic instance
+options = {
+    "num_generations": 10,
+    "num_parents_mating": 3,
+    "initial_population": generation_zero,
+    "parent_selection_type": "rank",
+    "mutation_by_replacement": True,
+    "stop_criteria": "saturate_100",
+    "mutation_type": "random",
+    "mutation_percent_genes": 10,
+    "crossover_probability": 0.2,
+    "crossover_type": "two_points",
+    "allow_duplicate_genes": True,
+    "keep_elitism": 1,
+    "fit_fun": fitness_function,
+    "qsvm_connections": qsvm_connections
+}
 
-    # Running the instance and retrieving data
+# Running the instance and retrieving data
 
-    ga_instance = genetic.genetic_instance(
-        gene_space,
-        data_cv,
-        data_labels,
-        backend,
-        gate_dict,
-        nb_features,
-        GATES_PER_QUBITS,
-        NB_QUBITS,
-        projected,
-        timestr,
-        coupling_map=coupling_map,
-        basis_gates=basis_gates,
-        **options,
-    )
+ga_instance = genetic.genetic_instance(
+    gene_space,
+    data_cv,
+    data_labels,
+    backend,
+    gate_dict,
+    nb_features,
+    GATES_PER_QUBITS,
+    NB_QUBITS,
+    projected,
+    timestr,
+    coupling_map=coupling_map,
+    basis_gates=basis_gates,
+    **options,
+)
 
-    ga_instance.run()
+ga_instance.run()
 
 solution, solution_fitness, _ = ga_instance.best_solution(
     ga_instance.last_generation_fitness

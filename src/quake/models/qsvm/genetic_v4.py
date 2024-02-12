@@ -735,16 +735,16 @@ def compute_parallel_kernel_save_data(
                 # bind correctly without specifying "x"
                 bound_circuit = quantum_circuit_list[rand_idx].assign_parameters(data_cv[i, x_idxss[rand_idx]]).compose(
                     quantum_circuit_list[rand_idx].assign_parameters(data_cv[j, x_idxss[rand_idx]]).inverse())
-                bound_circuit = transpile(bound_circuit, basis_gates=basis_gates, coupling_map= coupling_map_model)
+                # bound_circuit = transpile(bound_circuit, basis_gates=basis_gates, coupling_map= coupling_map_model)
                 combined_circuit.compose(bound_circuit, qubits=[
                                          qsvm_connections[k][l] for l in range(nb_qubits)], inplace=True)
             combined_circuit.measure(flattened_qsvm_connections, cbits)
             
             if counter % max_circuit_per_job == 0:
                 combined_circuit_batch = []
-            combined_circuit_batch.append(combined_circuit)
-            # combined_circuit_batch.append(
-            #     transpile(combined_circuit, basis_gates=basis_gates))
+            # combined_circuit_batch.append(combined_circuit)
+            combined_circuit_batch.append(
+                transpile(combined_circuit, basis_gates=backend.basis_gates, coupling_map=backend.coupling_map))
             if counter % max_circuit_per_job == max_circuit_per_job - 1 or counter == (nb_samples**2 - nb_samples)/2 - 1:            
                 combined_circuits.append(combined_circuit_batch)
             counter += 1

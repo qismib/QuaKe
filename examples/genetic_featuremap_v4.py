@@ -25,6 +25,7 @@ from qiskit_ibm_provider import IBMProvider
 
 provider = IBMProvider(instance='ibm-q-cern/infn/qcnphepgw')
 backend = provider.get_backend('ibm_nazca')
+
 qsvm_connections = [[18,14,0,1], 
                     [2,3,4,5], 
                     [6, 7, 8,9], 

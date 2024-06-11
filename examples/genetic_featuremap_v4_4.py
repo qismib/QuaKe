@@ -1,75 +1,57 @@
 """ This module executes an automatized quantum featuremap optimization via genetic algorithm using integer genes on a QPU.
 All the individuals in a generations are computed simultaneously in the same QPU by partitioning it into smaller computational units."""
 
-from quake.utils.utils import load_runcard
 import numpy as np
 from pathlib import Path
 from qiskit_ibm_runtime import QiskitRuntimeService, Session
 
-from quake.models.qsvm.qsvm_tester import get_features
 from collections import OrderedDict
 from quake.models.qsvm import genetic_v4 as genetic
 from sklearn.preprocessing import MinMaxScaler
 from typing import Tuple, Callable, Union
 
-from qiskit import Aer
 
 import time
 import shutil
 import os
-
+import gc
 from qiskit_ibm_runtime import QiskitRuntimeService
 from qiskit_ibm_provider import IBMProvider
 # Save your credentials on disk.
-IBMProvider.save_account(overwrite = True, token='')
-#ADD WITH SESSION
-
+IBMProvider.save_account(token='', overwrite=True)
+#ADD WITH SESSION    
 provider = IBMProvider(instance='ibm-q-cern/infn/qcnphepgw')
-backend = provider.get_backend('ibm_nazca')
-
-qsvm_connections = [[18,14,0,1], 
-                    [2,3,4,5], 
-                    [6, 7, 8,9], 
-                    [10, 11, 12, 13], 
-                    [19,20,21,22], 
-                    [23, 24, 25, 26], 
-                    [27, 28,29,30], 
-                    [31, 32, 36, 51],
-                    [37, 38, 39, 33], 
-                    [40, 41, 42, 43],
-                    [64, 53, 45, 46],
-                    [35, 47, 48, 49],
-                    [52, 56, 57,58],
-                    [60, 61, 62, 63],
-                    [85, 73, 66, 67],
-                    [55, 68, 69, 70],
-                    [75, 76, 77,71],
-                    [78, 79, 91, 98],
-                    [72, 81, 82, 83],
-                    [87, 88, 89, 74],
-                    [90, 94, 95, 96],
-                    [99, 100, 101, 102],
-                    [103, 104, 105, 106],
-                    [107, 108, 112, 126],
-                    [109, 114, 115, 116],
-                    [117, 118, 119, 120],
-                    [122, 123, 124, 125]]
+backend = provider.get_backend('ibm_brisbane')
+qsvm_connections = [
+    [2,1,0,14],
+    [4,15,22,21],
+    [6,7,8,16],
+    [10, 11,12,13],
+    [20,33,39,40],
+    [17,30,29,28],
+    [32,36,51,50],
+    [41,53,60,59],
+    [43,44,45,46],
+    [62,63,64,54],
+    [57,58,71,77],
+    [85,84,83,82],
+    [87,88,89,74],
+    [76,75,90,94],
+    [100,99,98,97],
+    [105,104,103,102],
+    [108,107,106,93],
+    [114,109,96,95],
+    [116,117,118,110],
+    [125,124,123,122]
+]
 
 
 # backend = Aer.get_backend('qasm_simulator')
 # Dataset loading
-data_folder = Path("../../output_2/data")
-train_folder = Path("../../output_2/models/autoencoder")
-setup = load_runcard("../../output_2/cards/runcard.yaml")
-setup["run_tf_eagerly"] = True
-setup["seed"] = 42
 
-dataset, labels = get_features(data_folder.parent, "autoencoder", setup)
-scaler = MinMaxScaler((0, 1)).fit(dataset[0])
-
-data_cv, data_labels = genetic.get_subsample(dataset[2], labels[2], 100, scaler=scaler)
+data_cv, data_labels = np.load("C:/Users/pc/Desktop/work/data_cv.npy"), np.load("C:/Users/pc/Desktop/work/data_labels.npy")
 nb_features = data_cv.shape[1]
-
+gc.collect()
 ###########################################
 ############ Genetic settings #############
 ###########################################
@@ -81,15 +63,10 @@ GATES_PER_QUBITS = 9
 NB_INIT_INDIVIDUALS = len(qsvm_connections)
 gate_dict = OrderedDict(
     [
-        ("single_non_parametric", ["I", "X", "SX"]),
+        ("single_non_parametric", ["Id", "X", "SX"]),
         ("single_parametric", ["RZ"]),
         ("two_non_parametric", ["ECR"]),
         ("two_parametric", []),
-        
-        # ("single_non_parametric", ["I", "H", "X", "SX"]),
-        # ("single_parametric", ["RX", "RY", "RZ"]),
-        # ("two_non_parametric", ["CX"]),
-        # ("two_parametric", ["CRX", "CRY", "CRZ"]),
     ]
 )
 coupling_map = None  # [[0,1], [1,2], [2,3], [3,4], [4,5], [5,6], [6,7]]
@@ -119,11 +96,17 @@ def fitness_function(accuracy: float, density: float, depth: int) -> Union[np.fl
     fitness_score: Union[np.float64, list[np.float64]]
         Quantum kernel fitness value. If it is a list, the run will be optimized with the NSGA-II algorithm for multi-objective optimization.
     """
-    fitness_score = accuracy + 0.25*density
+    fitness_score = accuracy + 0.1*density # first two epochs are with 0.25
     return fitness_score
 
+############ look here
+import pandas as pd
+# timestr = "2024_04_09 -15_28_06"
 save_path = "../../Output_genetic/" + timestr
 Path(save_path).mkdir(exist_ok=True)
+# genes_0 = pd.read_csv("../../Output_genetic/"+timestr+"/genes" +
+#                  timestr+".csv", header=None, index_col=False).to_numpy()
+# generation_zero = np.array(genes_0[-22:])
 
 genetic.gen0_qpu_run(
     data_cv,
@@ -146,6 +129,7 @@ genetic.gen0_qpu_run(
 options = {
     "num_generations": 50,
     "num_parents_mating": 10,
+    "keep_parents": -1,
     "initial_population": generation_zero,
     "parent_selection_type": "rank",
     "mutation_by_replacement": True,
@@ -153,12 +137,12 @@ options = {
     "mutation_type": "random",
     "mutation_percent_genes": 5,
     "crossover_probability": 0.1,
-
     "crossover_type": "two_points",
     "allow_duplicate_genes": True,
     "keep_elitism": 3,
     "fit_fun": fitness_function,
-    "qsvm_connections": qsvm_connections
+    "qsvm_connections": qsvm_connections,
+    "recovery_mode": False, ############ CHANGE WHEN NOT NEEDED
 }
 
 # Running the instance and retrieving data

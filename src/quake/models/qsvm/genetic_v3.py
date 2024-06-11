@@ -7,14 +7,13 @@ from pathlib import Path
 from typing import Tuple, Callable, Union
 import pygad
 import numpy as np
+import inspect
 
 from qiskit.circuit import ParameterVector, QuantumCircuit
 from qiskit_machine_learning.kernels import FidelityStatevectorKernel
-from qiskit_algorithms.state_fidelities import ComputeUncompute
 from qiskit.quantum_info import partial_trace, DensityMatrix
 from qiskit.compiler import transpile
 from qiskit_aer.backends.statevector_simulator import StatevectorSimulator
-from qiskit.primitives import Sampler
 
 from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
@@ -120,11 +119,11 @@ def initial_population(
             multi_features,
             first_feature_idx,
             second_feature_idx,
-            second_qubit_idx,
+            # second_qubit_idx,
         ]
     )
     gene_array = np.reshape(
-        gene_array.T, [nb_init_individuals, gates_per_qubits, nb_qubits, 6]
+        gene_array.T, [nb_init_individuals, gates_per_qubits, nb_qubits, 5]
     ).reshape(nb_init_individuals, -1)
     return gene_array
 
@@ -174,7 +173,7 @@ def get_gene_space(
             range(2),
             range(nb_features),
             range(nb_features),
-            range(nb_qubits),
+            # range(nb_qubits),
         ]
     return gene_space
 
@@ -212,6 +211,118 @@ def gen_int(
         random_indices = np.random.randint(min_val, max_val, size)
     return random_indices
 
+# def to_quantum(
+#     genes: np.ndarray,
+#     gate_dict: dict,
+#     nb_features: int,
+#     gates_per_qubits: int,
+#     nb_qubits: int,
+# ) -> Tuple[QuantumCircuit, list[int]]:
+#     """Converting genes from an integer sequence to a quantum featuremap.
+
+#     Parameters
+#     ----------
+#     genes: np.ndarray
+#         Gene array defining a chromosome.
+
+#     gate_dict: dict
+#         Dictionary containing the allowed gates.
+#     nb_features: int
+#         Number of features in the dataset.
+#     gates_per_qubits: int
+#         Number of gates generated per qubit.
+#     nb_qubits: int
+#         Number of qubits for the genetic run.
+#     gates_per_qubits: int
+#         Number of gates generated per qubit.
+
+#     Returns:
+#     ----------
+#     fmap: QuantumCircuit
+#         Quantum featuremap.
+#     x_idxs:
+#         Features indices used in the featuremap out of the total.
+#     """
+#     gate_list = []
+#     for gate_set in gate_dict.values():
+#         gate_list = gate_list + list(gate_set)
+
+#     genes_unflatted = np.reshape(genes, [gates_per_qubits, nb_qubits, 6])
+#     x = ParameterVector("x", length=nb_features)
+#     fmap = QuantumCircuit(nb_qubits)
+#     x_idxs = []
+#     for j in range(gates_per_qubits):
+#         for k in range(nb_qubits):
+#             gate_type_idx = genes_unflatted[j, k, 0]
+#             feature_transformation_type = genes_unflatted[j, k, 1]
+#             multi_features = genes_unflatted[j, k, 2]
+#             first_feature_idx = genes_unflatted[j, k, 3]
+#             second_feature_idx = genes_unflatted[j, k, 4]
+#             second_qubit_idx = genes_unflatted[j, k, 5]
+#             if second_qubit_idx == k:
+#                 second_qubit_idx = (second_qubit_idx + 1) % nb_qubits
+#             gate = getattr(fmap, gate_list[gate_type_idx].lower())
+#             if gate_list[gate_type_idx] in gate_dict["single_non_parametric"]:
+#                 if gate_list[gate_type_idx] != "Id":
+#                     gate(k)
+#             elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
+#                 gate(k, second_qubit_idx)
+#             else:
+#                 if first_feature_idx not in x_idxs:
+#                     x_idxs.append(first_feature_idx)
+
+#                 if multi_features == 0 and feature_transformation_type == 0:
+#                     param_expression = 2 * np.pi * (x[first_feature_idx] - 0.5)
+#                 if multi_features == 1 and feature_transformation_type == 0:
+#                     if second_feature_idx not in x_idxs:
+#                         x_idxs.append(second_feature_idx)
+#                     param_expression = (
+#                         2 * np.pi * x[first_feature_idx] * (1 - x[second_feature_idx])
+#                         - np.pi
+#                     )
+#                 if multi_features == 0 and feature_transformation_type == 1:
+#                     param_expression = (
+#                         2 * np.pi * x[first_feature_idx] * (1 - x[first_feature_idx])
+#                         - np.pi
+#                     )
+#                 if multi_features == 1 and feature_transformation_type == 1:
+#                     if second_feature_idx not in x_idxs:
+#                         x_idxs.append(second_feature_idx)
+#                     param_expression = (
+#                         (
+#                             2
+#                             * np.pi
+#                             * x[first_feature_idx]
+#                             * (1 - x[second_feature_idx])
+#                             - np.pi
+#                         )
+#                         * (
+#                             2
+#                             * np.pi
+#                             * x[second_feature_idx]
+#                             * (1 - x[first_feature_idx])
+#                             - np.pi
+#                         )
+#                         / np.pi
+#                     )
+
+#                 if multi_features == 0 and feature_transformation_type == 2:
+#                     param_expression = (
+#                         2 * np.arcsin(2 * x[first_feature_idx] - 1) - np.pi
+#                     )
+#                 if multi_features == 1 and feature_transformation_type == 2:
+#                     if second_feature_idx not in x_idxs:
+#                         x_idxs.append(second_feature_idx)
+#                     param_expression = 2 * np.arcsin(
+#                         (2 * x[first_feature_idx] - 1) * (2 * x[second_feature_idx] - 1)
+#                     )
+
+#                 if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
+#                     gate(param_expression, k)
+#                 elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
+#                     gate(param_expression, k, second_qubit_idx)
+#     return fmap, x_idxs
+
 def to_quantum(
     genes: np.ndarray,
     gate_dict: dict,
@@ -244,12 +355,13 @@ def to_quantum(
     x_idxs:
         Features indices used in the featuremap out of the total.
     """
+    physical_qubits = [0,1,2,3]
     gate_list = []
     for gate_set in gate_dict.values():
         gate_list = gate_list + list(gate_set)
 
-    genes_unflatted = np.reshape(genes, [gates_per_qubits, nb_qubits, 6])
-    x = ParameterVector("x", length=nb_features)
+    genes_unflatted = np.reshape(genes, [gates_per_qubits, nb_qubits, 5])
+    x = ParameterVector("x", length=nb_features )
     fmap = QuantumCircuit(nb_qubits)
     x_idxs = []
     for j in range(gates_per_qubits):
@@ -259,15 +371,23 @@ def to_quantum(
             multi_features = genes_unflatted[j, k, 2]
             first_feature_idx = genes_unflatted[j, k, 3]
             second_feature_idx = genes_unflatted[j, k, 4]
-            second_qubit_idx = genes_unflatted[j, k, 5]
-            if second_qubit_idx == k:
-                second_qubit_idx = (second_qubit_idx + 1) % nb_qubits
+            # second_qubit_idx = genes_unflatted[j, k, 5]
+            # if second_qubit_idx == k:
+            #     second_qubit_idx = (second_qubit_idx + 1) % nb_qubits
             gate = getattr(fmap, gate_list[gate_type_idx].lower())
             if gate_list[gate_type_idx] in gate_dict["single_non_parametric"]:
                 if gate_list[gate_type_idx] != "I":
                     gate(k)
             elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
-                gate(k, second_qubit_idx)
+                did_something = False
+                if k == 0 or k == 1:
+                    gate(k, k+1)
+                    did_something = True                      
+                elif k == 3:
+                    gate(k, k-1)
+                    did_something = True
+                if not did_something:
+                    print(physical_qubits, "for qubit", physical_qubits[k], "I did nothing")
             else:
                 if first_feature_idx not in x_idxs:
                     x_idxs.append(first_feature_idx)
@@ -278,12 +398,14 @@ def to_quantum(
                     if second_feature_idx not in x_idxs:
                         x_idxs.append(second_feature_idx)
                     param_expression = (
-                        2 * np.pi * x[first_feature_idx] * (1 - x[second_feature_idx])
+                        2 * np.pi * x[first_feature_idx] *
+                        (1 - x[second_feature_idx])
                         - np.pi
                     )
                 if multi_features == 0 and feature_transformation_type == 1:
                     param_expression = (
-                        2 * np.pi * x[first_feature_idx] * (1 - x[first_feature_idx])
+                        2 * np.pi * x[first_feature_idx] *
+                        (1 - x[first_feature_idx])
                         - np.pi
                     )
                 if multi_features == 1 and feature_transformation_type == 1:
@@ -315,13 +437,14 @@ def to_quantum(
                     if second_feature_idx not in x_idxs:
                         x_idxs.append(second_feature_idx)
                     param_expression = 2 * np.arcsin(
-                        (2 * x[first_feature_idx] - 1) * (2 * x[second_feature_idx] - 1)
+                        (2 * x[first_feature_idx] - 1) *
+                        (2 * x[second_feature_idx] - 1)
                     )
 
                 if gate_list[gate_type_idx] in gate_dict["single_parametric"]:
                     gate(param_expression, k)
-                elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
-                    gate(param_expression, k, second_qubit_idx)
+                # elif gate_list[gate_type_idx] in gate_dict["two_parametric"]:
+                #     gate(param_expression, k, second_qubit_idx)
     return fmap, x_idxs
 
 
@@ -339,6 +462,7 @@ def genetic_instance(
     coupling_map: list[list[int]],
     basis_gates: list[str],
     fit_fun: Callable[[float, float, int], float],
+    noise_std,
     **kwargs: dict,
 ) -> pygad.GA:
     """Wrapper that returns a genetic instance and initialise time.
@@ -394,7 +518,8 @@ def genetic_instance(
             coupling_map = coupling_map,
             basis_gates = basis_gates,
             suffix = suffix,
-            fit_fun = fit_fun
+            fit_fun = fit_fun,
+            noise_std = noise_std
 
         ),
         gene_space=gene_space,
@@ -421,6 +546,7 @@ def fitness_func_wrapper(
     basis_gates: list[str],
     suffix: str,
     fit_fun: Callable[[float, float, int], float],
+    noise_std: None
 ) -> Callable[[pygad.GA, np.ndarray, int], np.float64]:
     """Wrapper that returns a fitness function in a form that pygad.GA instance accepts.
 
@@ -478,87 +604,125 @@ def fitness_func_wrapper(
         fmap, x_idxs = to_quantum(
             solution, gate_dict, nb_features, gates_per_qubits, nb_qubits
         )
-        if projected:
-            qker_matrix = projected_quantum_kernel(fmap, data_cv[:, x_idxs], 1)
+
+        if 'accuracy' in inspect.signature(fit_fun).parameters:
+            mode = "with_kernel"
         else:
-            qker = FidelityStatevectorKernel(feature_map=fmap)
-            qker_matrix = qker.evaluate(x_vec=data_cv[:, x_idxs])
+            mode = "without_kernel"
 
-        clf = SVC(kernel="precomputed")
+        if mode == "with_kernel":
+            # Computing a quantum kernel is required. fit_fun evaluation will be slow and return classification accuracy and kernel metrics.
+            if projected:
+                qker_matrix = projected_quantum_kernel(fmap, data_cv[:, x_idxs], 1)
+            else:
+                qker = FidelityStatevectorKernel(feature_map=fmap)
+                qker_matrix = qker.evaluate(x_vec=data_cv[:, x_idxs])
+                if noise_std is not None:
+                    mean = 0
+                    std_dev = noise_std  # Adjust the standard deviation as needed
+                    gaussian_noise = np.random.normal(mean, std_dev, size=qker_matrix.shape)
+                    gaussian_noise = np.triu(gaussian_noise, k=1)
+                    gaussian_noise = gaussian_noise + gaussian_noise.T
+                    noisy_matrix = qker_matrix + gaussian_noise
+                    qker_matrix = np.clip(noisy_matrix, 0, 1)
 
-        param_grid = {"C": [0.01, 0.1, 1, 10, 100, 1000, 10000]}
-        grid_search = GridSearchCV(clf, param_grid, cv=5, scoring="accuracy", verbose=0)
-        grid_search.fit(qker_matrix, data_labels)
-        best_clf = grid_search.best_estimator_
-        accuracy_cv_cost = cross_val_score(
-            best_clf,
-            qker_matrix,
-            data_labels,
-            cv=5,
-            scoring="accuracy",
-        ).mean()
-        qker_matrix_0 = qker_matrix[data_labels == 0]
-        qker_matrix_0 = np.triu(qker_matrix_0[:, data_labels == 0], 1)
-        qker_array_0 = qker_matrix_0[np.triu_indices(qker_matrix_0.shape[0], 1)]
-        qker_matrix_1 = qker_matrix[data_labels == 1]
-        qker_matrix_1 = np.triu(qker_matrix_1[:, data_labels == 1], 1)
-        qker_array_1 = qker_matrix_1[np.triu_indices(qker_matrix_1.shape[0], 1)]
 
-        qker_matrix_01 = qker_matrix[data_labels == 0]
-        qker_matrix_01 = qker_matrix_01[:, data_labels == 1]
-        fmap_transpiled_depth = transpile(
-            fmap, coupling_map=coupling_map, basis_gates=basis_gates
-        ).depth()
+            clf = SVC(kernel="precomputed")
 
-        sparsity_cost = (np.mean(qker_array_0) + np.mean(qker_array_1)) / 2 - np.mean(
-            qker_matrix_01
-        )
-        offdiagonal_mean = np.mean(np.triu(qker_matrix, 1))
-        offdiagonal_std = np.std(np.triu(qker_matrix, 1))
-        fitness_value = fit_fun(accuracy_cv_cost, sparsity_cost, fmap_transpiled_depth)
-        print("depth", fmap_transpiled_depth)
-        print("sparsity", sparsity_cost)
-        print("accuracy", accuracy_cv_cost)
-        print("fitness_value", fitness_value)
+            # param_grid = {"C": [0.01, 0.1, 1, 10, 100, 1000, 10000]}
+            # grid_search = GridSearchCV(clf, param_grid, cv=5, scoring="accuracy", verbose=0)
+            # grid_search.fit(qker_matrix, data_labels)
+            # best_clf = grid_search.best_estimator_
+            accuracy_cv_cost = cross_val_score(
+                clf,
+                qker_matrix,
+                data_labels,
+                cv=4,
+                scoring="accuracy",
+            ).mean()
+            qker_matrix_0 = qker_matrix[data_labels == 0]
+            qker_matrix_0 = np.triu(qker_matrix_0[:, data_labels == 0], 1)
+            qker_array_0 = qker_matrix_0[np.triu_indices(qker_matrix_0.shape[0], 1)]
+            qker_matrix_1 = qker_matrix[data_labels == 1]
+            qker_matrix_1 = np.triu(qker_matrix_1[:, data_labels == 1], 1)
+            qker_array_1 = qker_matrix_1[np.triu_indices(qker_matrix_1.shape[0], 1)]
 
-        save_path = "../../Output_genetic/" + suffix
-        Path("../../Output_genetic").mkdir(exist_ok = True)
-        Path(save_path).mkdir(exist_ok=True)
-        with open(
-            save_path + "/genes" + suffix + ".csv", "a", encoding="UTF-8"
-        ) as file:
-            writer = csv.writer(file)
-            writer.writerow(solution)
-        # with open(
-        #     save_path + "/kernels_flattened" + suffix + ".csv", "a", encoding="UTF-8"
-        # ) as file:
-        #     writer = csv.writer(file)
-        #     writer.writerow(qker_matrix.reshape(-1))
-        with open(
-            save_path + "/depth" + suffix + ".txt", "a", encoding="UTF-8"
-        ) as file:
-            file.write(str(fmap_transpiled_depth) + "\n")
-        with open(
-            save_path + "/sparsity" + suffix + ".txt", "a", encoding="UTF-8"
-        ) as file:
-            file.write(str(sparsity_cost) + "\n")
-        with open(
-            save_path + "/accuracy" + suffix + ".txt", "a", encoding="UTF-8"
-        ) as file:
-            file.write(str(accuracy_cv_cost) + "\n")
-        with open(
-            save_path + "/fitness_values_iter_" + suffix + ".csv", "a", encoding="UTF-8"
-        ) as file:
-            writer = csv.writer(file)
-            writer.writerow(fitness_value) if hasattr(fitness_value, "len") > 1 else writer.writerow([fitness_value])
-        with open(
-            save_path + "/offdiagonal_mean_" + suffix + ".txt", "a", encoding="UTF-8"
-        ) as file:
-            file.write(str(offdiagonal_mean) + "\n")
-        with open(
-            save_path + "/offdiagonal_std_" + suffix + ".txt", "a", encoding="UTF-8"
-        ) as file:
-            file.write(str(offdiagonal_std) + "\n")
+            qker_matrix_01 = qker_matrix[data_labels == 0]
+            qker_matrix_01 = qker_matrix_01[:, data_labels == 1]
+            fmap_transpiled_depth = transpile(
+                fmap, coupling_map=coupling_map, basis_gates=basis_gates
+            ).depth()
+
+            sparsity_cost = (np.mean(qker_array_0) + np.mean(qker_array_1)) / 2 - np.mean(
+                qker_matrix_01
+            )
+            offdiagonal_mean = np.mean(np.triu(qker_matrix, 1))
+            offdiagonal_std = np.std(np.triu(qker_matrix, 1))
+            fitness_value = fit_fun(accuracy_cv_cost, offdiagonal_std, fmap_transpiled_depth)
+            print("depth", fmap_transpiled_depth)
+            print("sparsity", sparsity_cost)
+            print("accuracy", accuracy_cv_cost)
+            print("fitness_value", fitness_value)
+
+            save_path = "../../Output_genetic/" + suffix
+            Path("../../Output_genetic").mkdir(exist_ok = True)
+            Path(save_path).mkdir(exist_ok=True)
+            with open(
+                save_path + "/genes" + suffix + ".csv", "a", encoding="UTF-8"
+            ) as file:
+                writer = csv.writer(file)
+                writer.writerow(solution)
+            # with open(
+            #     save_path + "/kernels_flattened" + suffix + ".csv", "a", encoding="UTF-8"
+            # ) as file:
+            #     writer = csv.writer(file)
+            #     writer.writerow(qker_matrix.reshape(-1))
+            with open(
+                save_path + "/depth" + suffix + ".txt", "a", encoding="UTF-8"
+            ) as file:
+                file.write(str(fmap_transpiled_depth) + "\n")
+            with open(
+                save_path + "/sparsity" + suffix + ".txt", "a", encoding="UTF-8"
+            ) as file:
+                file.write(str(sparsity_cost) + "\n")
+            with open(
+                save_path + "/accuracy" + suffix + ".txt", "a", encoding="UTF-8"
+            ) as file:
+                file.write(str(accuracy_cv_cost) + "\n")
+            with open(
+                save_path + "/fitness_values_iter_" + suffix + ".csv", "a", encoding="UTF-8"
+            ) as file:
+                writer = csv.writer(file)
+                writer.writerow(fitness_value) if hasattr(fitness_value, "len") > 1 else writer.writerow([fitness_value])
+            with open(
+                save_path + "/offdiagonal_mean_" + suffix + ".txt", "a", encoding="UTF-8"
+            ) as file:
+                file.write(str(offdiagonal_mean) + "\n")
+            with open(
+                save_path + "/offdiagonal_std_" + suffix + ".txt", "a", encoding="UTF-8"
+            ) as file:
+                file.write(str(offdiagonal_std) + "\n")
+            with open(
+                save_path + "/generation_id" + suffix + ".txt", "a", encoding="UTF-8"
+            ) as file:
+                file.write(str(ga_instance.generations_completed) + "\n")
+
+        else:
+            # fit_fun evaluation does not require an explicit kernel evaluation. fit_fun will be fast.
+            fitness_value = fit_fun(transpile(fmap, coupling_map = coupling_map, basis_gates = basis_gates, optimization_level=0))
+            save_path = "../../Output_genetic/" + suffix
+            Path("../../Output_genetic").mkdir(exist_ok = True)
+            Path(save_path).mkdir(exist_ok=True)
+            with open(
+                save_path + "/genes" + suffix + ".csv", "a", encoding="UTF-8"
+            ) as file:
+                writer = csv.writer(file)
+                writer.writerow(solution)
+            with open(
+                save_path + "/fitness_values_iter_" + suffix + ".csv", "a", encoding="UTF-8"
+            ) as file:
+                writer = csv.writer(file)
+                writer.writerow(fitness_value) if hasattr(fitness_value, "len") > 1 else writer.writerow([fitness_value])
         return fitness_value
 
     return fitness_func

@@ -276,17 +276,14 @@ def to_quantum(
                 if gate_list[gate_type_idx] != "I":
                     gate(k)
             elif gate_list[gate_type_idx] in gate_dict["two_non_parametric"]:
-                did_something = False
-                if k == 0 or k == 1:
-                    if (physical_qubits[k], physical_qubits[k+1]) in coupling_map:
+                if k<3:
+                    if [physical_qubits[k], physical_qubits[k+1]] in coupling_map or (physical_qubits[k], physical_qubits[k+1]) in coupling_map:
                         gate(k, k+1)
-                        did_something = True                      
                 elif k == 3:
-                    if (physical_qubits[k], physical_qubits[k-1]) in coupling_map:
+                    if [physical_qubits[k], physical_qubits[k-1]] in coupling_map or (physical_qubits[k], physical_qubits[k-1]) in coupling_map:
                         gate(k, k-1)
-                        did_something = True
-                if not did_something:
-                    print(physical_qubits, "for qubit", physical_qubits[k], "I did nothing")
+                else:
+                    ValueError("Invalid two-qubit gate")
             else:
                 if first_feature_idx not in x_idxs:
                     x_idxs.append(first_feature_idx)
@@ -765,7 +762,7 @@ def compute_parallel_kernel_save_data(
         for i in range(nb_samples):
             print(i)
             for j in range(i+1, data_cv.shape[0]):
-                combined_circuit = QuantumCircuit(127, nb_cbits)
+                combined_circuit = QuantumCircuit(133, nb_cbits)
                 for k, rand_idx in enumerate(shuffle_index):
                     # bind correctly without specifying "x"
                     bound_circuit = quantum_circuit_list[k].assign_parameters(data_cv[i, x_idxss[k]]).compose(

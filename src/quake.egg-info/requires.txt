@@ -12,6 +12,9 @@ pyyaml
 qutip
 uproot
 qiskit-aer
+qiskit-ibm-runtime
+qiskit-ibm-provider
+pandas
 
 [tf]
 tensorflow

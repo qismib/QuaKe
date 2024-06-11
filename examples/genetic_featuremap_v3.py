@@ -45,7 +45,7 @@ nb_features = data_cv.shape[1]
 
 NB_QUBITS = 4
 GATES_PER_QUBITS = 8
-NB_INIT_INDIVIDUALS = 50
+NB_INIT_INDIVIDUALS = 30
 # gate_dict = OrderedDict(
 #     [
 #         ("single_non_parametric", ["Id", "H", "X", "SX"]),
@@ -106,7 +106,7 @@ def fitness_function(accuracy: float, density: float, depth: int) -> Union[np.fl
 
 # Defining inputs for the genetic instance
 options = {
-    "num_generations": 250,
+    "num_generations": 2,
     "num_parents_mating": 20,
     "initial_population": generation_zero,
     "parent_selection_type": "sss", # tournament_nsga2 # rank works really bad

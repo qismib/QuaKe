@@ -26,6 +26,9 @@ Requires-Dist: pyyaml
 Requires-Dist: qutip
 Requires-Dist: uproot
 Requires-Dist: qiskit-aer
+Requires-Dist: qiskit-ibm-runtime
+Requires-Dist: qiskit-ibm-provider
+Requires-Dist: pandas
 Provides-Extra: tf
 Requires-Dist: tensorflow; extra == "tf"
 Provides-Extra: tf-gpu

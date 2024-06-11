@@ -65,22 +65,20 @@ From the QuaKe directory:
 Folder `performance_images` contains the models classification accuracies for different spatial resolutions achieved by resampling the dataset.
 
 ## Run Parallel QSVM on QPU example
-Prepare a Python environment and activate it. (It should work with any python version > 3.8)
+Prepare a Python environment and activate it. (It should work with any Python version > 3.8)
 
-clone the QuaKe repository:
-    ```bash
+clone the QuaKe repository and install the quake package:
     git clone https://github.com/qismib/QuaKe.git
-    ```
 
-    ```bash
+    ```
     cd QuaKe
     pip install -e .
     ```
-
-inside QuaKe/examples/torino_run.py (right after the imports), fill the IBM account/provider fields with your token/instance as required
+inside `QuaKe/examples/torino_run.py` (right after the imports), fill the IBM account/provider fields with your token/instance as required
 
 Move inside the examples folder and run the script. This will prepare the Quantum Circuits and send batch jobs to IBM Torino
-    ```bash
+
+    ```
     cd examples
     python torino_run.py
     ```

@@ -73,10 +73,8 @@ Clone the QuaKe repository and install the quake package:
 
     git clone https://github.com/qismib/QuaKe.git
 
-    ```
     cd QuaKe
     pip install -e .
-    ```
 
 ### Configure IBM Account
 
@@ -86,7 +84,5 @@ Inside `QuaKe/examples/torino_run.py` (right after the imports), fill the IBM ac
 
 Move inside the examples folder and run the script. This will prepare the Quantum Circuits and send batch jobs to IBM Torino:
 
-    ```
     cd examples
     python torino_run.py
-    ```
